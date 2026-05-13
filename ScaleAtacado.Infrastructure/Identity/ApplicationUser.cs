@@ -1,17 +1,16 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace ScaleAtacado.Domain.Entities;
+namespace ScaleAtacado.Infrastructure.Identity;
 
 public class ApplicationUser: IdentityUser<Guid>
 {
-    public string NomeCompleto { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
 
-    public Guid EmpresaId { get; set; }
+    public Guid CompanyId { get; set; }
 
-    public bool Ativo { get; set; } = true;
-
+    public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Navegação
-    //public Empresa Empresa { get; set; } = null!;
+    // Navigation
+    //public Company Company { get; set; } = null!;
 }

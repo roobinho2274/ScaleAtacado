@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using ScaleAtacado.Domain.Entities;
+using ScaleAtacado.Infrastructure.Configurations;
 
 namespace ScaleAtacado.Infrastructure.Persistence;
 
@@ -21,6 +22,6 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProductConfiguration).Assembly);
     }
 }

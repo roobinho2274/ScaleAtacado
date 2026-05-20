@@ -1,5 +1,7 @@
 
 using Microsoft.EntityFrameworkCore;
+using ScaleAtacado.Application.Interfaces;
+using ScaleAtacado.Application.Services;
 using ScaleAtacado.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +16,9 @@ builder.Services.AddSwaggerGen();
 // Agora o .UseNpgsql será reconhecido perfeitamente!
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<ProductAppService>();
+builder.Services.AddScoped<IProductRepository, MockProductRepository>();
 
 var app = builder.Build();
 

@@ -1,4 +1,4 @@
-﻿namespace ScaleAtacado.Domain.Entities;
+namespace ScaleAtacado.Domain.Entities;
 
 public class Product
 {
@@ -9,8 +9,8 @@ public class Product
     public decimal CostPrice { get; set; }
     public decimal ProfitMargin { get; set; }
     public decimal BaseSalePrice { get; set; }
+    public bool IsActive { get; set; } = true;
 
-    // Relationship
     public Guid CategoryId { get; set; }
     public virtual Category Category { get; set; } = null!;
 }

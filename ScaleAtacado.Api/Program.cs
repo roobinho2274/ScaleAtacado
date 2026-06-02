@@ -10,6 +10,7 @@ using ScaleAtacado.Api.Middlewares;
 using ScaleAtacado.Application.Interfaces;
 using ScaleAtacado.Application.Services;
 using ScaleAtacado.Application.Validators;
+using ScaleAtacado.Infrastructure.Repositories;
 using ScaleAtacado.Infrastructure.Identity;
 using ScaleAtacado.Infrastructure.Persistence;
 using ScaleAtacado.Infrastructure.Repositories;
@@ -64,12 +65,14 @@ builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 
 // Application Services
 builder.Services.AddScoped<ProductAppService>();
 builder.Services.AddScoped<ClienteAppService>();
 builder.Services.AddScoped<PaymentMethodAppService>();
 builder.Services.AddScoped<CategoryAppService>();
+builder.Services.AddScoped<OrderAppService>();
 
 // Infrastructure Services
 builder.Services.AddScoped<JwtService>();

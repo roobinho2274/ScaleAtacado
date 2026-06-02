@@ -1,47 +1,108 @@
-﻿using ScaleAtacado.Application.DTOs;
+using ScaleAtacado.Application.DTOs;
 using ScaleAtacado.Application.Interfaces;
 using ScaleAtacado.Domain.Entities;
+using ScaleAtacado.Shared.Common;
 
 namespace ScaleAtacado.Application.Services;
 
-/// <summary>
-/// Serviço de aplicação para operações de produto: valida unicidade de código por empresa, calcula o preço de venda
-/// base a partir do custo e margem e persiste o produto via IProductRepository.
-/// </summary>
-/// <remarks>Injeta IProductRepository via construtor. O método CreateProductAsync lança InvalidOperationException
-/// quando já existe um produto com o mesmo código para a empresa. O preço de venda base é calculado como CostPrice * (1
-/// + ProfitMargin / 100). Retorna true se as alterações forem salvas com sucesso.</remarks>
 public class ProductAppService
 {
-    private readonly IProductRepository _productRepository;
+    private readonly IProductRepository _repository;
 
-    public ProductAppService(IProductRepository productRepository)
+    public ProductAppService(IProductRepository repository)
     {
-        _productRepository = productRepository;
+        _repository = repository;
     }
-    public async Task<bool> CreateProductAsync(CreateProductDto createProductDto)
-    {
-        var existingProduct = await _productRepository.GetProductByCodeAsync(createProductDto.Code, createProductDto.CompanyId);
-        if (existingProduct != null)
-        {
-            throw new InvalidOperationException("Já existe um produto com o mesmo código para esta empresa.");
-        }
 
-        decimal marginMultiplier = 1 + (createProductDto.ProfitMargin / 100);
-        decimal calculatedSalePrice = createProductDto.CostPrice * marginMultiplier;
+    public async Task<ApiResponse<ProductResponseDto>> CreateAsync(CreateProductDto dto, Guid companyId)
+    {
+        var existing = await _repository.GetProductByCodeAsync(dto.Code!, companyId);
+        if (existing != null)
+            return ApiResponse<ProductResponseDto>.Fail("Já existe um produto com este código.");
 
         var product = new Product
         {
             Id = Guid.NewGuid(),
-            CompanyId = createProductDto.CompanyId,
-            Name = createProductDto.Name,
-            Code = createProductDto.Code,
-            CostPrice = createProductDto.CostPrice,
-            ProfitMargin = createProductDto.ProfitMargin,
-            BaseSalePrice = calculatedSalePrice,
-            CategoryId = createProductDto.CategoryId
+            CompanyId = companyId,
+            Name = dto.Name,
+            Code = dto.Code,
+            CostPrice = dto.CostPrice,
+            ProfitMargin = dto.ProfitMargin,
+            BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin),
+            CategoryId = dto.CategoryId,
+            IsActive = true
         };
-        await _productRepository.AddAsync(product);
-        return await _productRepository.SaveChangeAsync();
+
+        await _repository.AddAsync(product);
+        await _repository.SaveChangeAsync();
+
+        return ApiResponse<ProductResponseDto>.Ok(ToDto(product, string.Empty));
     }
+
+    public async Task<ApiResponse<ProductResponseDto>> UpdateAsync(Guid id, UpdateProductDto dto, Guid companyId)
+    {
+        var product = await _repository.GetProductByIdAsync(id, companyId);
+        if (product == null)
+            return ApiResponse<ProductResponseDto>.Fail("Produto não encontrado.");
+
+        if (dto.Code != product.Code)
+        {
+            var existing = await _repository.GetProductByCodeAsync(dto.Code!, companyId);
+            if (existing != null)
+                return ApiResponse<ProductResponseDto>.Fail("Já existe outro produto com este código.");
+        }
+
+        product.Name = dto.Name;
+        product.Code = dto.Code;
+        product.CostPrice = dto.CostPrice;
+        product.ProfitMargin = dto.ProfitMargin;
+        product.BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin);
+        product.CategoryId = dto.CategoryId;
+        product.IsActive = dto.IsActive;
+
+        await _repository.UpdateAsync(product);
+        await _repository.SaveChangeAsync();
+
+        return ApiResponse<ProductResponseDto>.Ok(ToDto(product, product.Category?.Name ?? string.Empty));
+    }
+
+    public async Task<ApiResponse<ProductResponseDto>> GetByIdAsync(Guid id, Guid companyId)
+    {
+        var product = await _repository.GetProductByIdAsync(id, companyId);
+        if (product == null)
+            return ApiResponse<ProductResponseDto>.Fail("Produto não encontrado.");
+
+        return ApiResponse<ProductResponseDto>.Ok(ToDto(product, product.Category?.Name ?? string.Empty));
+    }
+
+    public async Task<ApiResponse<PagedResult<ProductResponseDto>>> GetAllAsync(
+        Guid companyId, int page, int pageSize, string? search, bool? isActive)
+    {
+        var (items, totalCount) = await _repository.GetAllAsync(companyId, page, pageSize, search, isActive);
+        var dtos = items.Select(p => ToDto(p, p.Category?.Name ?? string.Empty));
+        var result = new PagedResult<ProductResponseDto>(dtos, totalCount, page, pageSize);
+        return ApiResponse<PagedResult<ProductResponseDto>>.Ok(result);
+    }
+
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
+    {
+        var product = await _repository.GetProductByIdAsync(id, companyId);
+        if (product == null)
+            return ApiResponse.Fail("Produto não encontrado.");
+
+        product.IsActive = false;
+        await _repository.UpdateAsync(product);
+        await _repository.SaveChangeAsync();
+
+        return ApiResponse.Ok();
+    }
+
+    private static decimal CalculateSalePrice(decimal costPrice, decimal profitMargin)
+        => costPrice * (1 + profitMargin / 100);
+
+    private static ProductResponseDto ToDto(Product p, string categoryName) => new(
+        p.Id, p.CompanyId, p.Name, p.Code,
+        p.CostPrice, p.ProfitMargin, p.BaseSalePrice,
+        p.IsActive, p.CategoryId, categoryName
+    );
 }

@@ -10,29 +10,25 @@ namespace ScaleAtacado.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ProductController : ControllerBase
+public class ClienteController : ControllerBase
 {
-    private readonly ProductAppService _service;
+    private readonly ClienteAppService _service;
 
-    public ProductController(ProductAppService service)
+    public ClienteController(ClienteAppService service)
     {
         _service = service;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<PagedResult<ProductResponseDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null)
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ClienteResponseDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll([FromQuery] string? search)
     {
-        var result = await _service.GetAllAsync(User.GetCompanyId(), page, pageSize, search, isActive);
+        var result = await _service.SearchAsync(search, User.GetCompanyId());
         return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<ProductResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -41,10 +37,9 @@ public class ProductController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "AdminOnly")]
-    [ProducesResponseType(typeof(ApiResponse<ProductResponseDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
+    public async Task<IActionResult> Create([FromBody] CreateClienteDto dto)
     {
         var result = await _service.CreateAsync(dto, User.GetCompanyId());
         if (!result.Success) return BadRequest(result);
@@ -52,17 +47,15 @@ public class ProductController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "AdminOnly")]
-    [ProducesResponseType(typeof(ApiResponse<ProductResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClienteDto dto)
     {
         var result = await _service.UpdateAsync(id, dto, User.GetCompanyId());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Deactivate(Guid id)

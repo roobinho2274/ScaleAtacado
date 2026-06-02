@@ -1,4 +1,6 @@
 using System.Text;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +9,7 @@ using Microsoft.OpenApi.Models;
 using ScaleAtacado.Api.Middlewares;
 using ScaleAtacado.Application.Interfaces;
 using ScaleAtacado.Application.Services;
+using ScaleAtacado.Application.Validators;
 using ScaleAtacado.Infrastructure.Identity;
 using ScaleAtacado.Infrastructure.Persistence;
 using ScaleAtacado.Infrastructure.Repositories;
@@ -59,10 +62,22 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
 // Application Services
 builder.Services.AddScoped<ProductAppService>();
+builder.Services.AddScoped<ClienteAppService>();
+builder.Services.AddScoped<PaymentMethodAppService>();
+builder.Services.AddScoped<CategoryAppService>();
+
+// Infrastructure Services
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<UserAppService>();
+
+// FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 
 // Controllers + Swagger
 builder.Services.AddControllers();

@@ -13,6 +13,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ScaleAtacado.Domain\ScaleAtacado.Domain.csproj" />
+    <ProjectReference Include="..\ScaleAtacado.Shared\ScaleAtacado.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
   </ItemGroup>
 
 </Project>

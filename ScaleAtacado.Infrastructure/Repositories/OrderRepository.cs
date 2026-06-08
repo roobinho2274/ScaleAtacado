@@ -16,11 +16,18 @@ public class OrderRepository : IOrderRepository
     }
 
     public async Task<Order?> GetByIdAsync(Guid id, Guid companyId)
-        => await _context.Orders
+    {
+        var query = _context.Orders
             .Include(o => o.Cliente)
             .Include(o => o.PaymentMethod)
             .Include(o => o.Items).ThenInclude(i => i.Product)
-            .FirstOrDefaultAsync(o => o.Id == id && o.CompanyId == companyId);
+            .Where(o => o.Id == id);
+
+        if (companyId != Guid.Empty)
+            query = query.Where(o => o.CompanyId == companyId);
+
+        return await query.FirstOrDefaultAsync();
+    }
 
     public async Task<(IEnumerable<Order> Items, int TotalCount)> GetAllAsync(
         Guid companyId, int page, int pageSize,

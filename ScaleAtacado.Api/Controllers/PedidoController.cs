@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using ScaleAtacado.Api.Extensions;
+using ScaleAtacado.Api.Hubs;
 using ScaleAtacado.Application.DTOs;
 using ScaleAtacado.Application.Services;
 using ScaleAtacado.Domain.Enums;
@@ -14,10 +16,12 @@ namespace ScaleAtacado.Api.Controllers;
 public class PedidoController : ControllerBase
 {
     private readonly OrderAppService _service;
+    private readonly IHubContext<PrintHub> _printHub;
 
-    public PedidoController(OrderAppService service)
+    public PedidoController(OrderAppService service, IHubContext<PrintHub> printHub)
     {
         _service = service;
+        _printHub = printHub;
     }
 
     [HttpGet]
@@ -62,7 +66,13 @@ public class PedidoController : ControllerBase
     public async Task<IActionResult> Finalizar(Guid id)
     {
         var result = await _service.FinalizarAsync(id, User.GetCompanyId());
-        return result.Success ? Ok(result) : BadRequest(result);
+        if (!result.Success) return BadRequest(result);
+
+        // Notifica o PrintAgent em tempo real via SignalR
+        await _printHub.Clients.Group("PrintAgents")
+            .SendAsync("NewPrintJob", result.Data);
+
+        return Ok(ApiResponse.Ok());
     }
 
     [HttpPost("{id:guid}/desbloquear")]

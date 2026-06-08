@@ -1,24 +1,144 @@
-namespace ScaleAtacado.PrintAgent
+using Microsoft.AspNetCore.SignalR.Client;
+using ScaleAtacado.Domain.Enums;
+using ScaleAtacado.PrintAgent.Services;
+
+namespace ScaleAtacado.PrintAgent;
+
+public class Worker : BackgroundService
 {
-    public class Worker : BackgroundService
+    private readonly ILogger<Worker> _logger;
+    private readonly IConfiguration _configuration;
+    private readonly PrintApiClient _apiClient;
+    private readonly PrintService _printService;
+    private readonly ReceiptFormatter _formatter;
+
+    private HubConnection? _hubConnection;
+
+    public Worker(
+        ILogger<Worker> logger,
+        IConfiguration configuration,
+        PrintApiClient apiClient,
+        PrintService printService,
+        ReceiptFormatter formatter)
     {
-        private readonly ILogger<Worker> _logger;
+        _logger = logger;
+        _configuration = configuration;
+        _apiClient = apiClient;
+        _printService = printService;
+        _formatter = formatter;
+    }
 
-        public Worker(ILogger<Worker> logger)
-        {
-            _logger = logger;
-        }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await ConnectToHubAsync(stoppingToken);
+        await RunFallbackAsync(stoppingToken);
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        var fallbackInterval = TimeSpan.FromMinutes(
+            _configuration.GetValue("PrintAgent:FallbackIntervalMinutes", 5));
+
+        while (!stoppingToken.IsCancellationRequested)
         {
-            while (!stoppingToken.IsCancellationRequested)
+            await Task.Delay(fallbackInterval, stoppingToken);
+
+            if (!stoppingToken.IsCancellationRequested)
             {
-                if (_logger.IsEnabled(LogLevel.Information))
-                {
-                    _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                }
-                await Task.Delay(1000, stoppingToken);
+                _logger.LogInformation("Verificando jobs pendentes (fallback)...");
+                await RunFallbackAsync(stoppingToken);
             }
         }
+    }
+
+    private async Task ConnectToHubAsync(CancellationToken stoppingToken)
+    {
+        var apiUrl = _configuration["PrintAgent:ApiUrl"]!;
+        var agentKey = _configuration["PrintAgent:AgentKey"]!;
+        var hubUrl = $"{apiUrl}/hubs/print?agentKey={agentKey}";
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<Guid>("NewPrintJob", async printJobId =>
+        {
+            _logger.LogInformation("Novo job de impressão recebido: {JobId}", printJobId);
+            await ProcessJobAsync(printJobId);
+        });
+
+        _hubConnection.Reconnected += connectionId =>
+        {
+            _logger.LogInformation("Reconectado ao hub. ConnectionId: {Id}", connectionId);
+            return Task.CompletedTask;
+        };
+
+        try
+        {
+            await _hubConnection.StartAsync(stoppingToken);
+            _logger.LogInformation("Conectado ao PrintHub com sucesso.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Não foi possível conectar ao PrintHub. Operando apenas no modo fallback.");
+        }
+    }
+
+    private async Task RunFallbackAsync(CancellationToken stoppingToken)
+    {
+        var jobs = await _apiClient.GetPendingJobsAsync();
+        foreach (var job in jobs)
+        {
+            if (stoppingToken.IsCancellationRequested) break;
+            await ProcessJobAsync(job.PrintJobId);
+        }
+    }
+
+    private async Task ProcessJobAsync(Guid printJobId)
+    {
+        _logger.LogInformation("Processando job {JobId}...", printJobId);
+
+        // Busca jobs pendentes para obter o OrderId
+        var pendingJobs = await _apiClient.GetPendingJobsAsync();
+        var job = pendingJobs.FirstOrDefault(j => j.PrintJobId == printJobId);
+        if (job == null)
+        {
+            _logger.LogWarning("Job {JobId} não encontrado na fila de pendentes.", printJobId);
+            return;
+        }
+
+        // Atualiza status para Printing
+        await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Printing);
+
+        // Para buscar o pedido precisamos de um token de serviço
+        // Por enquanto, usamos o endpoint de pedido sem autenticação via AgentKey
+        var order = await _apiClient.GetOrderForAgentAsync(printJobId);
+        if (order == null)
+        {
+            _logger.LogError("Pedido {OrderId} não encontrado.", job.OrderId);
+            await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Canceled, "Pedido não encontrado.");
+            return;
+        }
+
+        var receipt = _formatter.Format(order);
+        var printerName = _configuration["PrintAgent:PrinterName"];
+        var success = _printService.Print(receipt, printerName);
+
+        if (success)
+        {
+            await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Printed);
+            _logger.LogInformation("Job {JobId} impresso com sucesso.", printJobId);
+        }
+        else
+        {
+            await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Canceled, "Falha ao enviar para impressora.");
+            _logger.LogError("Falha ao imprimir job {JobId}.", printJobId);
+        }
+    }
+
+    public override async Task StopAsync(CancellationToken stoppingToken)
+    {
+        if (_hubConnection != null)
+            await _hubConnection.DisposeAsync();
+
+        await base.StopAsync(stoppingToken);
     }
 }

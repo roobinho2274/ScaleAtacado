@@ -6,11 +6,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ScaleAtacado.Api.Hubs;
 using ScaleAtacado.Api.Middlewares;
 using ScaleAtacado.Application.Interfaces;
 using ScaleAtacado.Application.Services;
 using ScaleAtacado.Application.Validators;
-using ScaleAtacado.Infrastructure.Repositories;
 using ScaleAtacado.Infrastructure.Identity;
 using ScaleAtacado.Infrastructure.Persistence;
 using ScaleAtacado.Infrastructure.Repositories;
@@ -66,6 +66,7 @@ builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IPrintJobRepository, PrintJobRepository>();
 
 // Application Services
 builder.Services.AddScoped<ProductAppService>();
@@ -81,6 +82,9 @@ builder.Services.AddScoped<UserAppService>();
 // FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
+
+// SignalR
+builder.Services.AddSignalR();
 
 // Controllers + Swagger
 builder.Services.AddControllers();
@@ -123,5 +127,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<PrintHub>("/hubs/print");
 
 app.Run();

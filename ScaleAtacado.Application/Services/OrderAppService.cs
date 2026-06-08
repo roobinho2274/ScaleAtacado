@@ -12,17 +12,20 @@ public class OrderAppService
     private readonly IClienteRepository _clienteRepository;
     private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IPrintJobRepository _printJobRepository;
 
     public OrderAppService(
         IOrderRepository orderRepository,
         IClienteRepository clienteRepository,
         IPaymentMethodRepository paymentMethodRepository,
-        IProductRepository productRepository)
+        IProductRepository productRepository,
+        IPrintJobRepository printJobRepository)
     {
         _orderRepository = orderRepository;
         _clienteRepository = clienteRepository;
         _paymentMethodRepository = paymentMethodRepository;
         _productRepository = productRepository;
+        _printJobRepository = printJobRepository;
     }
 
     public async Task<ApiResponse<OrderResponseDto>> CreateAsync(CreateOrderDto dto, Guid companyId, Guid userId)
@@ -120,23 +123,34 @@ public class OrderAppService
             new PagedResult<OrderListItemDto>(dtos, totalCount, page, pageSize));
     }
 
-    public async Task<ApiResponse> FinalizarAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse<Guid>> FinalizarAsync(Guid id, Guid companyId)
     {
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
-            return ApiResponse.Fail("Pedido não encontrado.");
+            return ApiResponse<Guid>.Fail("Pedido não encontrado.");
 
         if (order.IsLocked)
-            return ApiResponse.Fail("Pedido já está finalizado.");
+            return ApiResponse<Guid>.Fail("Pedido já está finalizado.");
 
         if (!order.Items.Any())
-            return ApiResponse.Fail("Não é possível finalizar um pedido sem itens.");
+            return ApiResponse<Guid>.Fail("Não é possível finalizar um pedido sem itens.");
 
         order.IsLocked = true;
         await _orderRepository.UpdateAsync(order);
+
+        var printJob = new Domain.Entities.PrintJobs
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            Status = Domain.Enums.PrintStatus.OnHoldem,
+            TryCount = 0,
+            OnCreated = DateTime.UtcNow
+        };
+
+        await _printJobRepository.AddAsync(printJob);
         await _orderRepository.SaveChangesAsync();
 
-        return ApiResponse.Ok();
+        return ApiResponse<Guid>.Ok(printJob.Id);
     }
 
     public async Task<ApiResponse> DesbloquearAsync(Guid id, Guid companyId)

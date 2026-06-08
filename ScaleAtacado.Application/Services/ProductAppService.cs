@@ -8,17 +8,22 @@ namespace ScaleAtacado.Application.Services;
 public class ProductAppService
 {
     private readonly IProductRepository _repository;
+    private readonly AuditoriaAppService _auditoria;
 
-    public ProductAppService(IProductRepository repository)
+    public ProductAppService(IProductRepository repository, AuditoriaAppService auditoria)
     {
         _repository = repository;
+        _auditoria = auditoria;
     }
 
     public async Task<ApiResponse<ProductResponseDto>> CreateAsync(CreateProductDto dto, Guid companyId)
     {
-        var existing = await _repository.GetProductByCodeAsync(dto.Code!, companyId);
-        if (existing != null)
-            return ApiResponse<ProductResponseDto>.Fail("Já existe um produto com este código.");
+        if (!string.IsNullOrWhiteSpace(dto.Code))
+        {
+            var existing = await _repository.GetProductByCodeAsync(dto.Code, companyId);
+            if (existing != null)
+                return ApiResponse<ProductResponseDto>.Fail("Já existe um produto com este código.");
+        }
 
         var product = new Product
         {
@@ -39,29 +44,45 @@ public class ProductAppService
         return ApiResponse<ProductResponseDto>.Ok(ToDto(product, string.Empty));
     }
 
-    public async Task<ApiResponse<ProductResponseDto>> UpdateAsync(Guid id, UpdateProductDto dto, Guid companyId)
+    public async Task<ApiResponse<ProductResponseDto>> UpdateAsync(Guid id, UpdateProductDto dto, Guid companyId, Guid userId)
     {
         var product = await _repository.GetProductByIdAsync(id, companyId);
         if (product == null)
             return ApiResponse<ProductResponseDto>.Fail("Produto não encontrado.");
 
-        if (dto.Code != product.Code)
+        if (!string.IsNullOrWhiteSpace(dto.Code) && dto.Code != product.Code)
         {
-            var existing = await _repository.GetProductByCodeAsync(dto.Code!, companyId);
+            var existing = await _repository.GetProductByCodeAsync(dto.Code, companyId);
             if (existing != null)
                 return ApiResponse<ProductResponseDto>.Fail("Já existe outro produto com este código.");
         }
+
+        var precoAnterior = product.BaseSalePrice;
+        var novoPreco = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin);
+        var precoAlterado = precoAnterior != novoPreco;
 
         product.Name = dto.Name;
         product.Code = dto.Code;
         product.CostPrice = dto.CostPrice;
         product.ProfitMargin = dto.ProfitMargin;
-        product.BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin);
+        product.BaseSalePrice = novoPreco;
         product.CategoryId = dto.CategoryId;
         product.IsActive = dto.IsActive;
 
         await _repository.UpdateAsync(product);
         await _repository.SaveChangeAsync();
+
+        if (precoAlterado)
+        {
+            await _auditoria.RegistrarAsync(
+                companyId, userId,
+                operacao: "AlterarPreco",
+                entidadeNome: "Produto",
+                entidadeId: product.Id.ToString(),
+                valorAnterior: $"R$ {precoAnterior:N2}",
+                valorNovo: $"R$ {novoPreco:N2}"
+            );
+        }
 
         return ApiResponse<ProductResponseDto>.Ok(ToDto(product, product.Category?.Name ?? string.Empty));
     }
@@ -84,7 +105,7 @@ public class ProductAppService
         return ApiResponse<PagedResult<ProductResponseDto>>.Ok(result);
     }
 
-    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid userId)
     {
         var product = await _repository.GetProductByIdAsync(id, companyId);
         if (product == null)
@@ -93,6 +114,14 @@ public class ProductAppService
         product.IsActive = false;
         await _repository.UpdateAsync(product);
         await _repository.SaveChangeAsync();
+
+        await _auditoria.RegistrarAsync(
+            companyId, userId,
+            operacao: "InativarProduto",
+            entidadeNome: "Produto",
+            entidadeId: product.Id.ToString(),
+            valorAnterior: product.Name
+        );
 
         return ApiResponse.Ok();
     }

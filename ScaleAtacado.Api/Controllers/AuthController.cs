@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ScaleAtacado.Application.DTOs;
+using ScaleAtacado.Application.Services;
 using ScaleAtacado.Domain.Entities;
 using ScaleAtacado.Domain.Enums;
 using ScaleAtacado.Infrastructure.Identity;
@@ -18,12 +19,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly JwtService _jwtService;
     private readonly AppDbContext _context;
+    private readonly AuditoriaAppService _auditoria;
 
-    public AuthController(UserManager<ApplicationUser> userManager, JwtService jwtService, AppDbContext context)
+    public AuthController(
+        UserManager<ApplicationUser> userManager,
+        JwtService jwtService,
+        AppDbContext context,
+        AuditoriaAppService auditoria)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
+        _auditoria = auditoria;
     }
 
     [HttpPost("login")]
@@ -40,6 +47,14 @@ public class AuthController : ControllerBase
             return Unauthorized(ApiResponse.Fail("Usuário inativo. Entre em contato com o administrador."));
 
         var (token, expiresAt) = _jwtService.GenerateToken(user);
+
+        await _auditoria.RegistrarAsync(
+            user.CompanyId, user.Id,
+            operacao: "Login",
+            entidadeNome: "Usuario",
+            entidadeId: user.Id.ToString(),
+            valorNovo: $"{user.FullName} — {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} UTC"
+        );
 
         var response = new AuthTokenDto(
             Token: token,

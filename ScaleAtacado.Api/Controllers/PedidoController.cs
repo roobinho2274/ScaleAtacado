@@ -81,7 +81,7 @@ public class PedidoController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Desbloquear(Guid id)
     {
-        var result = await _service.DesbloquearAsync(id, User.GetCompanyId());
+        var result = await _service.DesbloquearAsync(id, User.GetCompanyId(), User.GetUserId());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -100,7 +100,7 @@ public class PedidoController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateFinancialStatus(Guid id, [FromBody] UpdateFinancialStatusDto dto)
     {
-        var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId());
+        var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId(), User.GetUserId());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 }

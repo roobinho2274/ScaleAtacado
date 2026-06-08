@@ -13,19 +13,22 @@ public class OrderAppService
     private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IProductRepository _productRepository;
     private readonly IPrintJobRepository _printJobRepository;
+    private readonly AuditoriaAppService _auditoria;
 
     public OrderAppService(
         IOrderRepository orderRepository,
         IClienteRepository clienteRepository,
         IPaymentMethodRepository paymentMethodRepository,
         IProductRepository productRepository,
-        IPrintJobRepository printJobRepository)
+        IPrintJobRepository printJobRepository,
+        AuditoriaAppService auditoria)
     {
         _orderRepository = orderRepository;
         _clienteRepository = clienteRepository;
         _paymentMethodRepository = paymentMethodRepository;
         _productRepository = productRepository;
         _printJobRepository = printJobRepository;
+        _auditoria = auditoria;
     }
 
     public async Task<ApiResponse<OrderResponseDto>> CreateAsync(CreateOrderDto dto, Guid companyId, Guid userId)
@@ -153,7 +156,7 @@ public class OrderAppService
         return ApiResponse<Guid>.Ok(printJob.Id);
     }
 
-    public async Task<ApiResponse> DesbloquearAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> DesbloquearAsync(Guid id, Guid companyId, Guid userId)
     {
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
@@ -162,6 +165,15 @@ public class OrderAppService
         order.IsLocked = false;
         await _orderRepository.UpdateAsync(order);
         await _orderRepository.SaveChangesAsync();
+
+        await _auditoria.RegistrarAsync(
+            companyId, userId,
+            operacao: "DesbloquearPedido",
+            entidadeNome: "Pedido",
+            entidadeId: order.Id.ToString(),
+            valorAnterior: $"Pedido #{order.OrderNumber} bloqueado",
+            valorNovo: $"Pedido #{order.OrderNumber} desbloqueado para correção"
+        );
 
         return ApiResponse.Ok();
     }
@@ -179,15 +191,28 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse> UpdateFinancialStatusAsync(Guid id, FinancialStatus status, Guid companyId)
+    public async Task<ApiResponse> UpdateFinancialStatusAsync(Guid id, FinancialStatus status, Guid companyId, Guid userId)
     {
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
             return ApiResponse.Fail("Pedido não encontrado.");
 
+        var statusAnterior = order.FinancialStatus;
         order.FinancialStatus = status;
         await _orderRepository.UpdateAsync(order);
         await _orderRepository.SaveChangesAsync();
+
+        if (status == FinancialStatus.Cancelado)
+        {
+            await _auditoria.RegistrarAsync(
+                companyId, userId,
+                operacao: "CancelarPedido",
+                entidadeNome: "Pedido",
+                entidadeId: order.Id.ToString(),
+                valorAnterior: statusAnterior.ToString(),
+                valorNovo: status.ToString()
+            );
+        }
 
         return ApiResponse.Ok();
     }

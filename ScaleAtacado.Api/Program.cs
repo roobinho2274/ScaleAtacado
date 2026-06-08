@@ -69,6 +69,7 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPrintJobRepository, PrintJobRepository>();
 
 // Application Services
+builder.Services.AddScoped<AuditoriaAppService>();
 builder.Services.AddScoped<ProductAppService>();
 builder.Services.AddScoped<ClienteAppService>();
 builder.Services.AddScoped<PaymentMethodAppService>();

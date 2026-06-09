@@ -23,8 +23,5 @@ public class CreateProductValidator : AbstractValidator<CreateProductDto>
 
         RuleFor(x => x.CategoryId)
             .NotEmpty().WithMessage("Categoria é obrigatória.");
-
-        RuleFor(x => x.CompanyId)
-            .NotEmpty().WithMessage("Empresa é obrigatória.");
     }
 }

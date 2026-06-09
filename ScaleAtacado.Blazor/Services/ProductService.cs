@@ -17,8 +17,13 @@ public class ProductService
         return _api.GetAsync<PagedResult<ProductResponseDto>>(q);
     }
 
-    public Task<ApiResponse<IEnumerable<ProductResponseDto>>?> GetAllActiveAsync()
-        => _api.GetAsync<IEnumerable<ProductResponseDto>>("api/product?isActive=true&pageSize=1000");
+    public async Task<ApiResponse<IEnumerable<ProductResponseDto>>?> GetAllActiveAsync()
+    {
+        var resp = await _api.GetAsync<PagedResult<ProductResponseDto>>("api/product?isActive=true&pageSize=1000");
+        if (resp?.Success == true && resp.Data != null)
+            return ApiResponse<IEnumerable<ProductResponseDto>>.Ok(resp.Data.Items);
+        return null;
+    }
 
     public Task<ApiResponse<ProductResponseDto>?> GetByIdAsync(Guid id)
         => _api.GetAsync<ProductResponseDto>($"api/product/{id}");

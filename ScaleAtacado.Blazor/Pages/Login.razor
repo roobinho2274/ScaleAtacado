@@ -1,0 +1,72 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@inject AuthService AuthService
+@inject NavigationManager NavManager
+
+<PageTitle>Login — ScaleAtacado</PageTitle>
+
+<MudText Typo="Typo.h5" Align="Align.Center" Class="mb-1">
+    ⚡ ScaleAtacado
+</MudText>
+<MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mb-6">
+    Sistema de Vendas Atacado
+</MudText>
+
+<MudTextField @bind-Value="_email" Label="E-mail" InputType="InputType.Email"
+    Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+    OnKeyUp="OnKeyUp" />
+
+<MudTextField @bind-Value="_password" Label="Senha" InputType="InputType.Password"
+    Variant="Variant.Outlined" FullWidth="true" Class="mb-4"
+    OnKeyUp="OnKeyUp" />
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+}
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+    Size="Size.Large" OnClick="LoginAsync" Disabled="_loading">
+    @if (_loading)
+    {
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+    }
+    ENTRAR NO SISTEMA
+</MudButton>
+
+@code {
+    private string _email = "";
+    private string _password = "";
+    private string _error = "";
+    private bool _loading;
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoginAsync();
+    }
+
+    private async Task LoginAsync()
+    {
+        _loading = true;
+        _error = "";
+
+        try
+        {
+            var result = await AuthService.LoginAsync(_email, _password);
+
+            if (result?.Success == true)
+                NavManager.NavigateTo("/pdv");
+            else
+                _error = result?.Error ?? "Credenciais inválidas.";
+        }
+        catch
+        {
+            _error = "Não foi possível conectar ao servidor.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

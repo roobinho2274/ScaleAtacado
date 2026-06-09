@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["build", "${workspaceFolder}/ScaleAtacado.sln"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Docker: Subir PostgreSQL",
+      "type": "shell",
+      "command": "docker compose up -d",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Docker: Parar PostgreSQL",
+      "type": "shell",
+      "command": "docker compose down",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "EF: Aplicar Migrations",
+      "type": "shell",
+      "command": "dotnet ef database update --project ScaleAtacado.Infrastructure --startup-project ScaleAtacado.Api",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}

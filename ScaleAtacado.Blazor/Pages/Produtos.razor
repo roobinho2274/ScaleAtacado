@@ -1,0 +1,246 @@
+@page "/produtos"
+@attribute [Authorize]
+@inject ProductService ProductService
+@inject CategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<PageTitle>Produtos — ScaleAtacado</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <MudText Typo="Typo.h5">Produtos</MudText>
+    <AuthorizeView Roles="Admin" Context="authBtn">
+        <Authorized>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.AddBox" OnClick="AbrirNovo">
+                Novo Produto
+            </MudButton>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudGrid>
+        <MudItem xs="12" sm="5">
+            <MudTextField @bind-Value="_busca" Label="Buscar por nome ou código"
+                Variant="Variant.Outlined"
+                Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                OnKeyUp="OnKeyUp" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudSelect T="Guid?" Label="Categoria" @bind-Value="_filtroCategoria"
+                Variant="Variant.Outlined" Dense="true" Clearable="true">
+                <MudSelectItem T="Guid?" Value="null">Todas</MudSelectItem>
+                @foreach (var cat in _categorias)
+                {
+                    <MudSelectItem T="Guid?" Value="cat.Id">@cat.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                OnClick="@(() => _table!.ReloadServerData())" StartIcon="@Icons.Material.Filled.Search">
+                Filtrar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTable ServerData="ServerData" @ref="_table" Dense="true" Hover="true" Striped="true">
+    <HeaderContent>
+        <MudTh>Código</MudTh>
+        <MudTh>Nome</MudTh>
+        <MudTh>Categoria</MudTh>
+        <MudTh Style="text-align:right">Custo</MudTh>
+        <MudTh Style="text-align:right">Margem</MudTh>
+        <MudTh Style="text-align:right">Preço Venda</MudTh>
+        <MudTh Style="text-align:center">Status</MudTh>
+        <AuthorizeView Roles="Admin" Context="authHeader">
+            <Authorized>
+                <MudTh Style="text-align:center">Ações</MudTh>
+            </Authorized>
+        </AuthorizeView>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Código">@(context.Code ?? "—")</MudTd>
+        <MudTd DataLabel="Nome">@context.Name</MudTd>
+        <MudTd DataLabel="Categoria">@context.CategoryName</MudTd>
+        <MudTd DataLabel="Custo" Style="text-align:right">R$ @context.CostPrice.ToString("N2")</MudTd>
+        <MudTd DataLabel="Margem" Style="text-align:right">@context.ProfitMargin.ToString("N1")%</MudTd>
+        <MudTd DataLabel="Preço" Style="text-align:right"><b>R$ @context.BaseSalePrice.ToString("N2")</b></MudTd>
+        <MudTd DataLabel="Status" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                @(context.IsActive ? "Ativo" : "Inativo")
+            </MudChip>
+        </MudTd>
+        <AuthorizeView Roles="Admin" Context="authRow">
+            <Authorized>
+                <MudTd Style="text-align:center">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                        OnClick="@(() => AbrirEdicao(context))" />
+                    @if (context.IsActive)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.ToggleOff" Size="Size.Small"
+                            Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
+                    }
+                </MudTd>
+            </Authorized>
+        </AuthorizeView>
+    </RowTemplate>
+    <NoRecordsContent>Nenhum produto encontrado.</NoRecordsContent>
+    <LoadingContent>Carregando...</LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+    </PagerContent>
+</MudTable>
+
+<!-- Dialog: Criar / Editar -->
+<MudDialog @bind-Visible="_dialogAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>@(_editando == null ? "Novo Produto" : "Editar Produto")</TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
+            FullWidth="true" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_form.Code" Label="Código (SKU)" Variant="Variant.Outlined"
+            FullWidth="true" Class="mb-3" />
+        <MudSelect T="Guid" Label="Categoria" @bind-Value="_form.CategoryId"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true">
+            @foreach (var cat in _categorias)
+            {
+                <MudSelectItem T="Guid" Value="cat.Id">@cat.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudGrid>
+            <MudItem xs="6">
+                <MudNumericField @bind-Value="_form.CostPrice" Label="Custo (R$)"
+                    Variant="Variant.Outlined" Min="0m" Format="N2" />
+            </MudItem>
+            <MudItem xs="6">
+                <MudNumericField @bind-Value="_form.ProfitMargin" Label="Margem (%)"
+                    Variant="Variant.Outlined" Min="0m" Format="N2" />
+            </MudItem>
+        </MudGrid>
+        @if (_form.CostPrice > 0 || _form.ProfitMargin > 0)
+        {
+            var precoVenda = _form.CostPrice * (1 + _form.ProfitMargin / 100m);
+            <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2">
+                Preço de venda calculado: <b>R$ @precoVenda.ToString("N2")</b>
+            </MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            OnClick="SalvarAsync" Disabled="_salvando">
+            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Salvar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private MudTable<ProductResponseDto>? _table;
+    private List<CategoryResponseDto> _categorias = new();
+    private string _busca = "";
+    private Guid? _filtroCategoria;
+    private bool _dialogAberto;
+    private bool _salvando;
+    private ProductResponseDto? _editando;
+    private FormVm _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catResp = await CategoryService.GetAllAsync();
+        _categorias = catResp?.Data?.ToList() ?? new();
+    }
+
+    private async Task<TableData<ProductResponseDto>> ServerData(TableState state, CancellationToken ct)
+    {
+        var resp = await ProductService.GetAllAsync(state.Page + 1, state.PageSize, _busca);
+        if (resp?.Success == true && resp.Data != null)
+        {
+            var items = resp.Data.Items.AsEnumerable();
+            if (_filtroCategoria.HasValue)
+                items = items.Where(p => p.CategoryId == _filtroCategoria.Value);
+            return new TableData<ProductResponseDto> { Items = items, TotalItems = resp.Data.TotalCount };
+        }
+        return new TableData<ProductResponseDto> { Items = [], TotalItems = 0 };
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await _table!.ReloadServerData();
+    }
+
+    private void AbrirNovo()
+    {
+        _editando = null;
+        _form = new FormVm();
+        _dialogAberto = true;
+    }
+
+    private void AbrirEdicao(ProductResponseDto p)
+    {
+        _editando = p;
+        _form = new FormVm
+        {
+            Name = p.Name,
+            Code = p.Code ?? "",
+            CategoryId = p.CategoryId,
+            CostPrice = p.CostPrice,
+            ProfitMargin = p.ProfitMargin
+        };
+        _dialogAberto = true;
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name) || _form.CategoryId == Guid.Empty) return;
+        _salvando = true;
+
+        if (_editando == null)
+        {
+            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name, _form.CostPrice, _form.ProfitMargin, _form.CategoryId);
+            var resp = await ProductService.CreateAsync(dto);
+            if (resp?.Success == true)
+            {
+                Snackbar.Add("Produto criado!", Severity.Success);
+                _dialogAberto = false;
+                await _table!.ReloadServerData();
+            }
+            else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
+        }
+        else
+        {
+            var dto = new UpdateProductDto(_form.Name, _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId, true);
+            var resp = await ProductService.UpdateAsync(_editando.Id, dto);
+            if (resp?.Success == true)
+            {
+                Snackbar.Add("Produto atualizado!", Severity.Success);
+                _dialogAberto = false;
+                await _table!.ReloadServerData();
+            }
+            else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+        }
+
+        _salvando = false;
+    }
+
+    private async Task DesativarAsync(ProductResponseDto p)
+    {
+        var resp = await ProductService.DeactivateAsync(p.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Produto desativado.", Severity.Info);
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private class FormVm
+    {
+        public string Name { get; set; } = "";
+        public string Code { get; set; } = "";
+        public Guid CategoryId { get; set; }
+        public decimal CostPrice { get; set; }
+        public decimal ProfitMargin { get; set; }
+    }
+}

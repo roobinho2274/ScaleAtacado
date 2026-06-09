@@ -1,0 +1,197 @@
+@page "/admin/usuarios"
+@attribute [Authorize(Roles = "Admin")]
+@inject UserService UserService
+@inject ISnackbar Snackbar
+
+<PageTitle>Usuários — ScaleAtacado</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <MudText Typo="Typo.h5">Usuários</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AbrirNovo">
+        Novo Usuário
+    </MudButton>
+</div>
+
+<MudTable Items="_usuarios" Dense="true" Hover="true" Striped="true" Loading="_carregando">
+    <HeaderContent>
+        <MudTh>Nome</MudTh>
+        <MudTh>E-mail</MudTh>
+        <MudTh Style="text-align:center">Perfil</MudTh>
+        <MudTh Style="text-align:center">Status</MudTh>
+        <MudTh Style="text-align:center">Cadastro</MudTh>
+        <MudTh Style="text-align:center">Ações</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Nome"><b>@context.FullName</b></MudTd>
+        <MudTd DataLabel="E-mail">@context.Email</MudTd>
+        <MudTd DataLabel="Perfil" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small"
+                Color="@(context.Profile == UserProfile.Admin ? Color.Error : Color.Info)">
+                @(context.Profile == UserProfile.Admin ? "Admin" : "Atendente")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Status" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                @(context.IsActive ? "Ativo" : "Inativo")
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Cadastro" Style="text-align:center">@context.CreatedAt.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd Style="text-align:center">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                OnClick="@(() => AbrirEdicao(context))" />
+            @if (context.IsActive)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
+                    Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
+            }
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>Nenhum usuário encontrado.</NoRecordsContent>
+</MudTable>
+
+<!-- Dialog: Criar -->
+<MudDialog @bind-Visible="_dialogNovo" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>Novo Usuário</TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_formNovo.FullName" Label="Nome Completo"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_formNovo.Email" Label="E-mail" InputType="InputType.Email"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_formNovo.Password" Label="Senha" InputType="InputType.Password"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            HelperText="Mínimo 6 caracteres, 1 maiúscula, 1 número" />
+        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formNovo.Profile"
+            Variant="Variant.Outlined" FullWidth="true">
+            <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
+            <MudSelectItem T="UserProfile" Value="UserProfile.Admin">Administrador</MudSelectItem>
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogNovo = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            OnClick="SalvarNovoAsync" Disabled="_salvando">
+            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Criar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Editar -->
+<MudDialog @bind-Visible="_dialogEditar" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>Editar Usuário</TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_formEditar.FullName" Label="Nome Completo"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formEditar.Profile"
+            Variant="Variant.Outlined" FullWidth="true">
+            <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
+            <MudSelectItem T="UserProfile" Value="UserProfile.Admin">Administrador</MudSelectItem>
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogEditar = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            OnClick="SalvarEdicaoAsync" Disabled="_salvando">
+            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Salvar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<UserResponseDto> _usuarios = new();
+    private bool _carregando;
+    private bool _dialogNovo;
+    private bool _dialogEditar;
+    private bool _salvando;
+    private UserResponseDto? _editando;
+
+    private NovoVm _formNovo = new();
+    private EditarVm _formEditar = new();
+
+    protected override async Task OnInitializedAsync() => await CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        var resp = await UserService.GetAllAsync();
+        _usuarios = resp?.Data?.ToList() ?? new();
+        _carregando = false;
+    }
+
+    private void AbrirNovo()
+    {
+        _formNovo = new NovoVm();
+        _dialogNovo = true;
+    }
+
+    private void AbrirEdicao(UserResponseDto u)
+    {
+        _editando = u;
+        _formEditar = new EditarVm { FullName = u.FullName, Profile = u.Profile };
+        _dialogEditar = true;
+    }
+
+    private async Task SalvarNovoAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_formNovo.FullName) || string.IsNullOrWhiteSpace(_formNovo.Email)
+            || string.IsNullOrWhiteSpace(_formNovo.Password)) return;
+        _salvando = true;
+
+        var dto = new CreateUserDto(_formNovo.FullName, _formNovo.Email, _formNovo.Password, _formNovo.Profile);
+        var resp = await UserService.CreateAsync(dto);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Usuário criado com sucesso!", Severity.Success);
+            _dialogNovo = false;
+            await CarregarAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
+
+        _salvando = false;
+    }
+
+    private async Task SalvarEdicaoAsync()
+    {
+        if (_editando == null || string.IsNullOrWhiteSpace(_formEditar.FullName)) return;
+        _salvando = true;
+
+        var dto = new UpdateUserDto(_formEditar.FullName, _formEditar.Profile, true);
+        var resp = await UserService.UpdateAsync(_editando.Id, dto);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Usuário atualizado!", Severity.Success);
+            _dialogEditar = false;
+            await CarregarAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+
+        _salvando = false;
+    }
+
+    private async Task DesativarAsync(UserResponseDto u)
+    {
+        var resp = await UserService.DeactivateAsync(u.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Usuário desativado.", Severity.Info);
+            await CarregarAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private class NovoVm
+    {
+        public string FullName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public UserProfile Profile { get; set; } = UserProfile.Attendant;
+    }
+
+    private class EditarVm
+    {
+        public string FullName { get; set; } = "";
+        public UserProfile Profile { get; set; } = UserProfile.Attendant;
+    }
+}

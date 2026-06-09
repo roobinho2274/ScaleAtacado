@@ -1,0 +1,310 @@
+@page "/pedidos"
+@attribute [Authorize]
+@inject OrderService OrderService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Pedidos — ScaleAtacado</PageTitle>
+
+<div class="d-flex align-center justify-space-between mb-4">
+    <MudText Typo="Typo.h5">Pedidos</MudText>
+</div>
+
+<!-- Filtros -->
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudGrid>
+        <MudItem xs="12" sm="4">
+            <MudSelect T="DeliveryStatus?" Label="Status Entrega" @bind-Value="_filtroEntrega"
+                Variant="Variant.Outlined" Dense="true" Clearable="true">
+                <MudSelectItem T="DeliveryStatus?" Value="null">Todos</MudSelectItem>
+                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.AguardandoSeparacao">Aguardando Separação</MudSelectItem>
+                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.EmSeparacao">Em Separação</MudSelectItem>
+                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.SaiuParaEntrega">Saiu p/ Entrega</MudSelectItem>
+                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Entregue">Entregue</MudSelectItem>
+                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Cancelado">Cancelado</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudSelect T="FinancialStatus?" Label="Status Financeiro" @bind-Value="_filtroFinanceiro"
+                Variant="Variant.Outlined" Dense="true" Clearable="true">
+                <MudSelectItem T="FinancialStatus?" Value="null">Todos</MudSelectItem>
+                <MudSelectItem T="FinancialStatus?" Value="FinancialStatus.EmAberto">Em Aberto</MudSelectItem>
+                <MudSelectItem T="FinancialStatus?" Value="FinancialStatus.Pago">Pago</MudSelectItem>
+                <MudSelectItem T="FinancialStatus?" Value="FinancialStatus.ParcialmentePago">Parcialmente Pago</MudSelectItem>
+                <MudSelectItem T="FinancialStatus?" Value="FinancialStatus.Cancelado">Cancelado</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CarregarAsync"
+                StartIcon="@Icons.Material.Filled.Search" FullWidth="true">
+                Filtrar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTable ServerData="ServerData" @ref="_table" Dense="true" Hover="true" Striped="true"
+    RowClassFunc="RowClass">
+    <HeaderContent>
+        <MudTh><MudTableSortLabel T="OrderListItemDto" SortLabel="numero">Nº</MudTableSortLabel></MudTh>
+        <MudTh>Data</MudTh>
+        <MudTh>Cliente</MudTh>
+        <MudTh>Pagamento</MudTh>
+        <MudTh Style="text-align:right">Total</MudTh>
+        <MudTh Style="text-align:center">Entrega</MudTh>
+        <MudTh Style="text-align:center">Financeiro</MudTh>
+        <MudTh Style="text-align:center">Ações</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Nº"><b>#@context.OrderNumber</b></MudTd>
+        <MudTd DataLabel="Data">@context.OrderDate.ToString("dd/MM/yy HH:mm")</MudTd>
+        <MudTd DataLabel="Cliente">@context.ClienteNome</MudTd>
+        <MudTd DataLabel="Pagamento">@context.PaymentMethodName</MudTd>
+        <MudTd DataLabel="Total" Style="text-align:right">R$ @context.AmountWithSurchargeTotal.ToString("N2")</MudTd>
+        <MudTd DataLabel="Entrega" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@GetDeliveryColor(context.DeliveryStatus)">
+                @GetDeliveryLabel(context.DeliveryStatus)
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Financeiro" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@GetFinancialColor(context.FinancialStatus)">
+                @GetFinancialLabel(context.FinancialStatus)
+            </MudChip>
+        </MudTd>
+        <MudTd Style="text-align:center">
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                OnClick="@(() => VerDetalhesAsync(context.Id))" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>Nenhum pedido encontrado.</NoRecordsContent>
+    <LoadingContent>Carregando...</LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+    </PagerContent>
+</MudTable>
+
+<!-- Dialog: Detalhes do Pedido -->
+<MudDialog @bind-Visible="_dialogDetalhes" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+    <TitleContent>
+        @if (_pedidoDetalhe != null)
+        {
+            <span>Pedido #@_pedidoDetalhe.OrderNumber — @_pedidoDetalhe.ClienteNome</span>
+        }
+    </TitleContent>
+    <DialogContent>
+        @if (_pedidoDetalhe == null)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else
+        {
+            <MudGrid Class="mb-3">
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
+                    <MudText Typo="Typo.body2">@_pedidoDetalhe.OrderDate.ToString("dd/MM/yyyy HH:mm")</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pagamento</MudText>
+                    <MudText Typo="Typo.body2">@_pedidoDetalhe.PaymentMethodName</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total s/ acréscimo</MudText>
+                    <MudText Typo="Typo.body2">R$ @_pedidoDetalhe.AmountTotal.ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total c/ acréscimo</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Primary"><b>R$ @_pedidoDetalhe.AmountWithSurchargeTotal.ToString("N2")</b></MudText>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable Items="_pedidoDetalhe.Items" Dense="true" Striped="true" Class="mb-4">
+                <HeaderContent>
+                    <MudTh>Produto</MudTh>
+                    <MudTh Style="text-align:right">Preço Unit.</MudTh>
+                    <MudTh Style="text-align:center">Qtd</MudTh>
+                    <MudTh Style="text-align:right">Total</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ProductName</MudTd>
+                    <MudTd Style="text-align:right">R$ @context.UnitPrice.ToString("N2")</MudTd>
+                    <MudTd Style="text-align:center">@context.Quantity</MudTd>
+                    <MudTd Style="text-align:right">R$ @context.TotalPrice.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="DeliveryStatus" Label="Status de Entrega"
+                        @bind-Value="_editEntrega" Variant="Variant.Outlined" Dense="true">
+                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.AguardandoSeparacao">Aguardando Separação</MudSelectItem>
+                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.EmSeparacao">Em Separação</MudSelectItem>
+                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.SaiuParaEntrega">Saiu para Entrega</MudSelectItem>
+                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.Entregue">Entregue</MudSelectItem>
+                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.Cancelado">Cancelado</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" Class="d-flex align-end">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                        OnClick="SalvarEntregaAsync" Disabled="_salvando">
+                        Salvar Entrega
+                    </MudButton>
+                </MudItem>
+                <AuthorizeView Roles="Admin">
+                    <Authorized>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="FinancialStatus" Label="Status Financeiro"
+                                @bind-Value="_editFinanceiro" Variant="Variant.Outlined" Dense="true">
+                                <MudSelectItem T="FinancialStatus" Value="FinancialStatus.EmAberto">Em Aberto</MudSelectItem>
+                                <MudSelectItem T="FinancialStatus" Value="FinancialStatus.Pago">Pago</MudSelectItem>
+                                <MudSelectItem T="FinancialStatus" Value="FinancialStatus.ParcialmentePago">Parcialmente Pago</MudSelectItem>
+                                <MudSelectItem T="FinancialStatus" Value="FinancialStatus.Cancelado">Cancelado</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" Class="d-flex align-end">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
+                                OnClick="SalvarFinanceiroAsync" Disabled="_salvando">
+                                Salvar Financeiro
+                            </MudButton>
+                        </MudItem>
+                        @if (_pedidoDetalhe.IsLocked)
+                        {
+                            <MudItem xs="12">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
+                                    StartIcon="@Icons.Material.Filled.LockOpen"
+                                    OnClick="DesbloquearAsync" Disabled="_salvando">
+                                    Desbloquear Pedido
+                                </MudButton>
+                            </MudItem>
+                        }
+                    </Authorized>
+                </AuthorizeView>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogDetalhes = false)">Fechar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private MudTable<OrderListItemDto>? _table;
+    private DeliveryStatus? _filtroEntrega;
+    private FinancialStatus? _filtroFinanceiro;
+    private bool _dialogDetalhes;
+    private bool _salvando;
+    private OrderResponseDto? _pedidoDetalhe;
+    private DeliveryStatus _editEntrega;
+    private FinancialStatus _editFinanceiro;
+
+    private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
+    {
+        var resp = await OrderService.GetAllAsync(state.Page + 1, state.PageSize, _filtroEntrega, _filtroFinanceiro);
+        if (resp?.Success == true && resp.Data != null)
+            return new TableData<OrderListItemDto> { Items = resp.Data.Items, TotalItems = resp.Data.TotalCount };
+        return new TableData<OrderListItemDto> { Items = [], TotalItems = 0 };
+    }
+
+    private async Task CarregarAsync() => await _table!.ReloadServerData();
+
+    private async Task VerDetalhesAsync(Guid id)
+    {
+        _pedidoDetalhe = null;
+        _dialogDetalhes = true;
+
+        var resp = await OrderService.GetByIdAsync(id);
+        if (resp?.Success == true)
+        {
+            _pedidoDetalhe = resp.Data;
+            _editEntrega = _pedidoDetalhe!.DeliveryStatus;
+            _editFinanceiro = _pedidoDetalhe.FinancialStatus;
+        }
+        else
+        {
+            Snackbar.Add("Erro ao carregar pedido.", Severity.Error);
+            _dialogDetalhes = false;
+        }
+    }
+
+    private async Task SalvarEntregaAsync()
+    {
+        if (_pedidoDetalhe == null) return;
+        _salvando = true;
+        var resp = await OrderService.UpdateDeliveryStatusAsync(_pedidoDetalhe.Id, _editEntrega);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Status de entrega atualizado!", Severity.Success);
+            _pedidoDetalhe = _pedidoDetalhe with { DeliveryStatus = _editEntrega };
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+        _salvando = false;
+    }
+
+    private async Task SalvarFinanceiroAsync()
+    {
+        if (_pedidoDetalhe == null) return;
+        _salvando = true;
+        var resp = await OrderService.UpdateFinancialStatusAsync(_pedidoDetalhe.Id, _editFinanceiro);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Status financeiro atualizado!", Severity.Success);
+            _pedidoDetalhe = _pedidoDetalhe with { FinancialStatus = _editFinanceiro };
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+        _salvando = false;
+    }
+
+    private async Task DesbloquearAsync()
+    {
+        if (_pedidoDetalhe == null) return;
+        _salvando = true;
+        var resp = await OrderService.DesbloquearAsync(_pedidoDetalhe.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Pedido desbloqueado!", Severity.Success);
+            _pedidoDetalhe = _pedidoDetalhe with { IsLocked = false };
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao desbloquear.", Severity.Error);
+        _salvando = false;
+    }
+
+    private string RowClass(OrderListItemDto item, int idx) =>
+        item.IsLocked ? "mud-theme-warning" : "";
+
+    private static Color GetDeliveryColor(DeliveryStatus s) => s switch
+    {
+        DeliveryStatus.Entregue => Color.Success,
+        DeliveryStatus.SaiuParaEntrega => Color.Info,
+        DeliveryStatus.EmSeparacao => Color.Warning,
+        DeliveryStatus.Cancelado => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string GetDeliveryLabel(DeliveryStatus s) => s switch
+    {
+        DeliveryStatus.AguardandoSeparacao => "Aguardando",
+        DeliveryStatus.EmSeparacao => "Em Separação",
+        DeliveryStatus.SaiuParaEntrega => "Em Entrega",
+        DeliveryStatus.Entregue => "Entregue",
+        DeliveryStatus.Cancelado => "Cancelado",
+        _ => s.ToString()
+    };
+
+    private static Color GetFinancialColor(FinancialStatus s) => s switch
+    {
+        FinancialStatus.Pago => Color.Success,
+        FinancialStatus.ParcialmentePago => Color.Warning,
+        FinancialStatus.Cancelado => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string GetFinancialLabel(FinancialStatus s) => s switch
+    {
+        FinancialStatus.EmAberto => "Em Aberto",
+        FinancialStatus.Pago => "Pago",
+        FinancialStatus.ParcialmentePago => "Parcial",
+        FinancialStatus.Cancelado => "Cancelado",
+        _ => s.ToString()
+    };
+}

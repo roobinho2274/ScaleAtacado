@@ -1,7 +1,10 @@
-﻿@page "/"
+@page "/"
+@attribute [Authorize]
+@inject NavigationManager NavManager
 
-<PageTitle>Home</PageTitle>
-
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
+@code {
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/pdv");
+    }
+}

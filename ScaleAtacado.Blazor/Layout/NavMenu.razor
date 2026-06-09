@@ -1,39 +1,34 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">ScaleAtacado.Blazor</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
+<MudNavMenu>
+    <MudNavLink Href="/pdv" Icon="@Icons.Material.Filled.ShoppingCart" Match="NavLinkMatch.All">
+        PDV
+    </MudNavLink>
+    <MudNavLink Href="/pedidos" Icon="@Icons.Material.Filled.Receipt">
+        Pedidos
+    </MudNavLink>
+    <MudNavLink Href="/clientes" Icon="@Icons.Material.Filled.People">
+        Clientes
+    </MudNavLink>
+    <MudNavLink Href="/produtos" Icon="@Icons.Material.Filled.Inventory2">
+        Produtos
+    </MudNavLink>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
-@code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
-}
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <MudDivider Class="my-2" />
+            <MudNavGroup Title="Administração" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="true">
+                <MudNavLink Href="/admin/formas-pagamento" Icon="@Icons.Material.Filled.Payment">
+                    Formas de Pagamento
+                </MudNavLink>
+                <MudNavLink Href="/admin/categorias" Icon="@Icons.Material.Filled.Category">
+                    Categorias
+                </MudNavLink>
+                <MudNavLink Href="/admin/usuarios" Icon="@Icons.Material.Filled.ManageAccounts">
+                    Usuários
+                </MudNavLink>
+                <MudNavLink Href="/admin/auditoria" Icon="@Icons.Material.Filled.History">
+                    Auditoria
+                </MudNavLink>
+            </MudNavGroup>
+        </Authorized>
+    </AuthorizeView>
+</MudNavMenu>

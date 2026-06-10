@@ -98,11 +98,14 @@
     <TitleContent>@(_editando == null ? "Novo Produto" : "Editar Produto")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
-            FullWidth="true" Class="mb-3" Required="true" />
+            FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_form.Code" Label="Código (SKU)" Variant="Variant.Outlined"
-            FullWidth="true" Class="mb-3" />
+            FullWidth="true" Class="mb-3" HelperText="Opcional — máx. 50 caracteres"
+            Error="@(_erroCode != null)" ErrorText="@_erroCode" />
         <MudSelect T="Guid" Label="Categoria" @bind-Value="_form.CategoryId"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true">
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroCategoria != null)" ErrorText="@_erroCategoria">
             @foreach (var cat in _categorias)
             {
                 <MudSelectItem T="Guid" Value="cat.Id">@cat.Name</MudSelectItem>
@@ -111,11 +114,13 @@
         <MudGrid>
             <MudItem xs="6">
                 <MudNumericField @bind-Value="_form.CostPrice" Label="Custo (R$)"
-                    Variant="Variant.Outlined" Min="0m" Format="N2" />
+                    Variant="Variant.Outlined" Min="0m" Format="N2"
+                    Error="@(_erroPreco != null)" ErrorText="@_erroPreco" />
             </MudItem>
             <MudItem xs="6">
                 <MudNumericField @bind-Value="_form.ProfitMargin" Label="Margem (%)"
-                    Variant="Variant.Outlined" Min="0m" Format="N2" />
+                    Variant="Variant.Outlined" Min="0m" Max="1000m" Format="N2"
+                    Error="@(_erroMargem != null)" ErrorText="@_erroMargem" />
             </MudItem>
         </MudGrid>
         @if (_form.CostPrice > 0 || _form.ProfitMargin > 0)
@@ -146,6 +151,12 @@
     private ProductResponseDto? _editando;
     private FormVm _form = new();
 
+    private string? _erroNome;
+    private string? _erroCode;
+    private string? _erroCategoria;
+    private string? _erroPreco;
+    private string? _erroMargem;
+
     protected override async Task OnInitializedAsync()
     {
         var catResp = await CategoryService.GetAllAsync();
@@ -170,10 +181,14 @@
         if (e.Key == "Enter") await _table!.ReloadServerData();
     }
 
+    private void LimparErrosProduto() =>
+        _erroNome = _erroCode = _erroCategoria = _erroPreco = _erroMargem = null;
+
     private void AbrirNovo()
     {
         _editando = null;
         _form = new FormVm();
+        LimparErrosProduto();
         _dialogAberto = true;
     }
 
@@ -188,17 +203,45 @@
             CostPrice = p.CostPrice,
             ProfitMargin = p.ProfitMargin
         };
+        LimparErrosProduto();
         _dialogAberto = true;
+    }
+
+    private bool ValidarProduto()
+    {
+        LimparErrosProduto();
+
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            _erroNome = "Nome é obrigatório.";
+        else if (_form.Name.Trim().Length > 100)
+            _erroNome = "Nome deve ter no máximo 100 caracteres.";
+
+        if (!string.IsNullOrEmpty(_form.Code) && _form.Code.Length > 50)
+            _erroCode = "Código deve ter no máximo 50 caracteres.";
+
+        if (_form.CategoryId == Guid.Empty)
+            _erroCategoria = "Selecione uma categoria.";
+
+        if (_form.CostPrice <= 0)
+            _erroPreco = "Preço de custo deve ser maior que zero.";
+
+        if (_form.ProfitMargin < 0)
+            _erroMargem = "Margem de lucro não pode ser negativa.";
+        else if (_form.ProfitMargin > 1000)
+            _erroMargem = "Margem de lucro não pode exceder 1000%.";
+
+        return _erroNome == null && _erroCode == null && _erroCategoria == null
+            && _erroPreco == null && _erroMargem == null;
     }
 
     private async Task SalvarAsync()
     {
-        if (string.IsNullOrWhiteSpace(_form.Name) || _form.CategoryId == Guid.Empty) return;
+        if (!ValidarProduto()) return;
         _salvando = true;
 
         if (_editando == null)
         {
-            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name, _form.CostPrice, _form.ProfitMargin, _form.CategoryId);
+            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId);
             var resp = await ProductService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -206,11 +249,11 @@
                 _dialogAberto = false;
                 await _table!.ReloadServerData();
             }
-            else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
+            else Snackbar.Add(resp?.Error ?? "Erro ao criar produto.", Severity.Error);
         }
         else
         {
-            var dto = new UpdateProductDto(_form.Name, _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId, true);
+            var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId, true);
             var resp = await ProductService.UpdateAsync(_editando.Id, dto);
             if (resp?.Success == true)
             {
@@ -218,7 +261,7 @@
                 _dialogAberto = false;
                 await _table!.ReloadServerData();
             }
-            else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+            else Snackbar.Add(resp?.Error ?? "Erro ao atualizar produto.", Severity.Error);
         }
 
         _salvando = false;

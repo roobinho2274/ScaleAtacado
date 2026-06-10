@@ -55,12 +55,15 @@
     <TitleContent>Novo Usuário</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_formNovo.FullName" Label="Nome Completo"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroNomeNovo != null)" ErrorText="@_erroNomeNovo" />
         <MudTextField @bind-Value="_formNovo.Email" Label="E-mail" InputType="InputType.Email"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroEmail != null)" ErrorText="@_erroEmail" />
         <MudTextField @bind-Value="_formNovo.Password" Label="Senha" InputType="InputType.Password"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            HelperText="Mínimo 6 caracteres, 1 maiúscula, 1 número" />
+            HelperText="Mínimo 6 caracteres"
+            Error="@(_erroSenha != null)" ErrorText="@_erroSenha" />
         <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formNovo.Profile"
             Variant="Variant.Outlined" FullWidth="true">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
@@ -82,7 +85,8 @@
     <TitleContent>Editar Usuário</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_formEditar.FullName" Label="Nome Completo"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroNomeEditar != null)" ErrorText="@_erroNomeEditar" />
         <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formEditar.Profile"
             Variant="Variant.Outlined" FullWidth="true">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
@@ -110,6 +114,11 @@
     private NovoVm _formNovo = new();
     private EditarVm _formEditar = new();
 
+    private string? _erroNomeNovo;
+    private string? _erroEmail;
+    private string? _erroSenha;
+    private string? _erroNomeEditar;
+
     protected override async Task OnInitializedAsync() => await CarregarAsync();
 
     private async Task CarregarAsync()
@@ -123,6 +132,7 @@
     private void AbrirNovo()
     {
         _formNovo = new NovoVm();
+        _erroNomeNovo = _erroEmail = _erroSenha = null;
         _dialogNovo = true;
     }
 
@@ -130,16 +140,56 @@
     {
         _editando = u;
         _formEditar = new EditarVm { FullName = u.FullName, Profile = u.Profile };
+        _erroNomeEditar = null;
         _dialogEditar = true;
+    }
+
+    private bool ValidarNovo()
+    {
+        _erroNomeNovo = _erroEmail = _erroSenha = null;
+
+        if (string.IsNullOrWhiteSpace(_formNovo.FullName))
+            _erroNomeNovo = "Nome completo é obrigatório.";
+        else if (_formNovo.FullName.Trim().Length > 200)
+            _erroNomeNovo = "Nome deve ter no máximo 200 caracteres.";
+
+        if (string.IsNullOrWhiteSpace(_formNovo.Email))
+            _erroEmail = "E-mail é obrigatório.";
+        else if (!EmailValido(_formNovo.Email))
+            _erroEmail = "E-mail inválido.";
+
+        if (string.IsNullOrWhiteSpace(_formNovo.Password))
+            _erroSenha = "Senha é obrigatória.";
+        else if (_formNovo.Password.Length < 6)
+            _erroSenha = "Senha deve ter no mínimo 6 caracteres.";
+
+        return _erroNomeNovo == null && _erroEmail == null && _erroSenha == null;
+    }
+
+    private bool ValidarEditar()
+    {
+        _erroNomeEditar = null;
+
+        if (string.IsNullOrWhiteSpace(_formEditar.FullName))
+            _erroNomeEditar = "Nome completo é obrigatório.";
+        else if (_formEditar.FullName.Trim().Length > 200)
+            _erroNomeEditar = "Nome deve ter no máximo 200 caracteres.";
+
+        return _erroNomeEditar == null;
+    }
+
+    private static bool EmailValido(string email)
+    {
+        try { _ = new System.Net.Mail.MailAddress(email); return true; }
+        catch { return false; }
     }
 
     private async Task SalvarNovoAsync()
     {
-        if (string.IsNullOrWhiteSpace(_formNovo.FullName) || string.IsNullOrWhiteSpace(_formNovo.Email)
-            || string.IsNullOrWhiteSpace(_formNovo.Password)) return;
+        if (!ValidarNovo()) return;
         _salvando = true;
 
-        var dto = new CreateUserDto(_formNovo.FullName, _formNovo.Email, _formNovo.Password, _formNovo.Profile);
+        var dto = new CreateUserDto(_formNovo.FullName.Trim(), _formNovo.Email.Trim(), _formNovo.Password, _formNovo.Profile);
         var resp = await UserService.CreateAsync(dto);
         if (resp?.Success == true)
         {
@@ -147,25 +197,34 @@
             _dialogNovo = false;
             await CarregarAsync();
         }
-        else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
+        else
+        {
+            var msg = resp?.Error ?? "Erro ao criar usuário.";
+            if (msg.Contains("e-mail", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("email", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("DuplicateUserName", StringComparison.OrdinalIgnoreCase))
+                _erroEmail = "Este e-mail já está em uso.";
+            else
+                Snackbar.Add(msg, Severity.Error);
+        }
 
         _salvando = false;
     }
 
     private async Task SalvarEdicaoAsync()
     {
-        if (_editando == null || string.IsNullOrWhiteSpace(_formEditar.FullName)) return;
+        if (!ValidarEditar()) return;
         _salvando = true;
 
-        var dto = new UpdateUserDto(_formEditar.FullName, _formEditar.Profile, true);
-        var resp = await UserService.UpdateAsync(_editando.Id, dto);
+        var dto = new UpdateUserDto(_formEditar.FullName.Trim(), _formEditar.Profile, true);
+        var resp = await UserService.UpdateAsync(_editando!.Id, dto);
         if (resp?.Success == true)
         {
             Snackbar.Add("Usuário atualizado!", Severity.Success);
             _dialogEditar = false;
             await CarregarAsync();
         }
-        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar usuário.", Severity.Error);
 
         _salvando = false;
     }

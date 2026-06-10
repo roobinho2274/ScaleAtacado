@@ -174,15 +174,21 @@
     <TitleContent>Novo Cliente</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_novoClienteNome" Label="Nome / Razão Social"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_novoClienteDoc" Label="CPF / CNPJ"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            HelperText="11 dígitos para CPF ou 14 dígitos para CNPJ (apenas números)"
+            Error="@(_erroDoc != null)" ErrorText="@_erroDoc" />
         <MudTextField @bind-Value="_novoClienteTel" Label="Telefone"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            Error="@(_erroTel != null)" ErrorText="@_erroTel" />
         <MudTextField @bind-Value="_novoClienteEnd" Label="Endereço"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            Error="@(_erroEnd != null)" ErrorText="@_erroEnd" />
         <MudTextField @bind-Value="_novoClienteObs" Label="Observações"
-            Variant="Variant.Outlined" FullWidth="true" Lines="2" />
+            Variant="Variant.Outlined" FullWidth="true" Lines="2"
+            Error="@(_erroObs != null)" ErrorText="@_erroObs" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogClienteAberto = false)">Cancelar</MudButton>
@@ -204,10 +210,16 @@
     private bool _salvandoCliente;
 
     private string _novoClienteNome = "";
-    private string _novoClienteDoc = "";
-    private string _novoClienteTel = "";
-    private string _novoClienteEnd = "";
-    private string _novoClienteObs = "";
+    private string _novoClienteDoc  = "";
+    private string _novoClienteTel  = "";
+    private string _novoClienteEnd  = "";
+    private string _novoClienteObs  = "";
+
+    private string? _erroNome;
+    private string? _erroDoc;
+    private string? _erroTel;
+    private string? _erroEnd;
+    private string? _erroObs;
 
     private List<ItemPedidoVm> _itens = new();
     private List<ProductResponseDto> _produtos = new();
@@ -322,19 +334,66 @@
     private void AbrirCadastroCliente()
     {
         _novoClienteNome = "";
-        _novoClienteDoc = "";
-        _novoClienteTel = "";
-        _novoClienteEnd = "";
-        _novoClienteObs = "";
+        _novoClienteDoc  = "";
+        _novoClienteTel  = "";
+        _novoClienteEnd  = "";
+        _novoClienteObs  = "";
+        _erroNome = _erroDoc = _erroTel = _erroEnd = _erroObs = null;
         _dialogClienteAberto = true;
+    }
+
+    private bool ValidarNovoCliente()
+    {
+        _erroNome = _erroDoc = _erroTel = _erroEnd = _erroObs = null;
+
+        if (string.IsNullOrWhiteSpace(_novoClienteNome))
+            _erroNome = "Nome/Razão Social é obrigatório.";
+        else if (_novoClienteNome.Trim().Length > 200)
+            _erroNome = "Nome deve ter no máximo 200 caracteres.";
+
+        if (string.IsNullOrWhiteSpace(_novoClienteDoc))
+        {
+            _erroDoc = "CPF/CNPJ é obrigatório.";
+        }
+        else
+        {
+            var digitos = new string(_novoClienteDoc.Where(char.IsDigit).ToArray());
+            if (digitos.Length == 0)
+                _erroDoc = "Informe apenas os números do CPF (11 dígitos) ou CNPJ (14 dígitos).";
+            else if (digitos.Length != 11 && digitos.Length != 14)
+                _erroDoc = $"Documento inválido: {digitos.Length} dígito(s) informado(s). CPF precisa de 11, CNPJ de 14.";
+        }
+
+        if (string.IsNullOrWhiteSpace(_novoClienteTel))
+            _erroTel = "Telefone é obrigatório.";
+        else if (_novoClienteTel.Trim().Length > 20)
+            _erroTel = "Telefone deve ter no máximo 20 caracteres.";
+
+        if (string.IsNullOrWhiteSpace(_novoClienteEnd))
+            _erroEnd = "Endereço é obrigatório.";
+        else if (_novoClienteEnd.Trim().Length > 300)
+            _erroEnd = "Endereço deve ter no máximo 300 caracteres.";
+
+        if (!string.IsNullOrEmpty(_novoClienteObs) && _novoClienteObs.Length > 500)
+            _erroObs = "Observações deve ter no máximo 500 caracteres.";
+
+        return _erroNome == null && _erroDoc == null && _erroTel == null
+            && _erroEnd == null && _erroObs == null;
     }
 
     private async Task SalvarNovoClienteAsync()
     {
-        if (string.IsNullOrWhiteSpace(_novoClienteNome)) return;
+        if (!ValidarNovoCliente()) return;
+
         _salvandoCliente = true;
 
-        var dto = new CreateClienteDto(_novoClienteNome, _novoClienteDoc, _novoClienteEnd, _novoClienteTel, _novoClienteObs);
+        var dto = new CreateClienteDto(
+            _novoClienteNome.Trim(),
+            _novoClienteDoc.Trim(),
+            _novoClienteEnd.Trim(),
+            _novoClienteTel.Trim(),
+            string.IsNullOrWhiteSpace(_novoClienteObs) ? null : _novoClienteObs.Trim());
+
         var resp = await ClienteService.CreateAsync(dto);
         if (resp?.Success == true && resp.Data != null)
         {
@@ -344,7 +403,12 @@
         }
         else
         {
-            Snackbar.Add(resp?.Error ?? "Erro ao salvar cliente.", Severity.Error);
+            var msg = resp?.Error ?? "Erro ao cadastrar cliente. Verifique os dados e tente novamente.";
+            // duplicata de documento → exibir no campo em vez de snackbar
+            if (msg.Contains("CPF/CNPJ", StringComparison.OrdinalIgnoreCase))
+                _erroDoc = msg;
+            else
+                Snackbar.Add(msg, Severity.Error);
         }
 
         _salvandoCliente = false;

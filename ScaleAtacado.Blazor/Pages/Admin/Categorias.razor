@@ -37,9 +37,11 @@
     <TitleContent>@(_editando == null ? "Nova Categoria" : "Editar Categoria")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
-            FullWidth="true" Class="mb-3" Required="true" />
+            FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_form.Description" Label="Descrição" Variant="Variant.Outlined"
-            FullWidth="true" Lines="2" />
+            FullWidth="true" Lines="2"
+            Error="@(_erroDescricao != null)" ErrorText="@_erroDescricao" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>
@@ -59,6 +61,9 @@
     private CategoryResponseDto? _editando;
     private FormVm _form = new();
 
+    private string? _erroNome;
+    private string? _erroDescricao;
+
     protected override async Task OnInitializedAsync() => await CarregarAsync();
 
     private async Task CarregarAsync()
@@ -69,10 +74,13 @@
         _carregando = false;
     }
 
+    private void LimparErros() => _erroNome = _erroDescricao = null;
+
     private void AbrirNovo()
     {
         _editando = null;
         _form = new FormVm();
+        LimparErros();
         _dialogAberto = true;
     }
 
@@ -80,35 +88,51 @@
     {
         _editando = c;
         _form = new FormVm { Name = c.Name, Description = c.Description ?? "" };
+        LimparErros();
         _dialogAberto = true;
+    }
+
+    private bool ValidarCategoria()
+    {
+        LimparErros();
+
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            _erroNome = "Nome é obrigatório.";
+        else if (_form.Name.Trim().Length > 100)
+            _erroNome = "Nome deve ter no máximo 100 caracteres.";
+
+        if (!string.IsNullOrEmpty(_form.Description) && _form.Description.Length > 250)
+            _erroDescricao = "Descrição deve ter no máximo 250 caracteres.";
+
+        return _erroNome == null && _erroDescricao == null;
     }
 
     private async Task SalvarAsync()
     {
-        if (string.IsNullOrWhiteSpace(_form.Name)) return;
+        if (!ValidarCategoria()) return;
         _salvando = true;
 
         if (_editando == null)
         {
-            var resp = await CategoryService.CreateAsync(new CreateCategoryDto(_form.Name, _form.Description));
+            var resp = await CategoryService.CreateAsync(new CreateCategoryDto(_form.Name.Trim(), _form.Description));
             if (resp?.Success == true)
             {
                 Snackbar.Add("Categoria criada!", Severity.Success);
                 _dialogAberto = false;
                 await CarregarAsync();
             }
-            else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
+            else Snackbar.Add(resp?.Error ?? "Erro ao criar categoria.", Severity.Error);
         }
         else
         {
-            var resp = await CategoryService.UpdateAsync(_editando.Id, new UpdateCategoryDto(_form.Name, _form.Description));
+            var resp = await CategoryService.UpdateAsync(_editando.Id, new UpdateCategoryDto(_form.Name.Trim(), _form.Description));
             if (resp?.Success == true)
             {
                 Snackbar.Add("Categoria atualizada!", Severity.Success);
                 _dialogAberto = false;
                 await CarregarAsync();
             }
-            else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
+            else Snackbar.Add(resp?.Error ?? "Erro ao atualizar categoria.", Severity.Error);
         }
 
         _salvando = false;

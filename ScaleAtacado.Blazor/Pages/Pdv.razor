@@ -170,36 +170,29 @@
 </MudGrid>
 
 <!-- Dialog: Novo Cliente -->
-@if (_dialogClienteAberto)
-{
-    <MudOverlay Visible="true" DarkBackground="true" ZIndex="9999" />
-    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10000; width:100%; max-width:480px; padding:16px;">
-        <MudPaper Elevation="10" Class="pa-6">
-            <MudText Typo="Typo.h6" Class="mb-4">Novo Cliente</MudText>
-            <MudTextField @bind-Value="_novoClienteNome" Label="Nome / Razão Social"
-                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
-            <MudTextField @bind-Value="_novoClienteDoc" Label="CPF / CNPJ"
-                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-            <MudTextField @bind-Value="_novoClienteTel" Label="Telefone"
-                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-            <MudTextField @bind-Value="_novoClienteEnd" Label="Endereço"
-                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-            <MudTextField @bind-Value="_novoClienteObs" Label="Observações"
-                Variant="Variant.Outlined" FullWidth="true" Lines="2" Class="mb-4" />
-            <div class="d-flex justify-end gap-2">
-                <MudButton OnClick="@(() => _dialogClienteAberto = false)">Cancelar</MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                    OnClick="SalvarNovoClienteAsync" Disabled="_salvandoCliente">
-                    @if (_salvandoCliente)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                    }
-                    Salvar
-                </MudButton>
-            </div>
-        </MudPaper>
-    </div>
-}
+<MudDialog @bind-Visible="_dialogClienteAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>Novo Cliente</TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_novoClienteNome" Label="Nome / Razão Social"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_novoClienteDoc" Label="CPF / CNPJ"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+        <MudTextField @bind-Value="_novoClienteTel" Label="Telefone"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+        <MudTextField @bind-Value="_novoClienteEnd" Label="Endereço"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+        <MudTextField @bind-Value="_novoClienteObs" Label="Observações"
+            Variant="Variant.Outlined" FullWidth="true" Lines="2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogClienteAberto = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            OnClick="SalvarNovoClienteAsync" Disabled="_salvandoCliente">
+            @if (_salvandoCliente) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Salvar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     private ClienteResponseDto? _clienteSelecionado;

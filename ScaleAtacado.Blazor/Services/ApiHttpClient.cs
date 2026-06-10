@@ -28,7 +28,8 @@ public class ApiHttpClient
         try
         {
             await SetAuthHeaderAsync();
-            return await _http.GetFromJsonAsync<ApiResponse<T>>(url);
+            var r = await _http.GetAsync(url);
+            return await r.Content.ReadFromJsonAsync<ApiResponse<T>>();
         }
         catch { return null; }
     }

@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JS
+@inject ClienteService ClienteService
 
 <PageTitle>Pedidos — ScaleAtacado</PageTitle>
 
@@ -201,6 +202,7 @@
     private bool _dialogDetalhes;
     private bool _salvando;
     private OrderResponseDto? _pedidoDetalhe;
+    private ClienteResponseDto? _clienteDetalhe;
     private DeliveryStatus _editEntrega;
     private FinancialStatus _editFinanceiro;
 
@@ -217,6 +219,7 @@
     private async Task VerDetalhesAsync(Guid id)
     {
         _pedidoDetalhe = null;
+        _clienteDetalhe = null;
         _dialogDetalhes = true;
 
         var resp = await OrderService.GetByIdAsync(id);
@@ -225,6 +228,9 @@
             _pedidoDetalhe = resp.Data;
             _editEntrega = _pedidoDetalhe!.DeliveryStatus;
             _editFinanceiro = _pedidoDetalhe.FinancialStatus;
+
+            var clienteResp = await ClienteService.GetByIdAsync(_pedidoDetalhe.ClienteId);
+            _clienteDetalhe = clienteResp?.Data;
         }
         else
         {
@@ -281,51 +287,106 @@
     {
         if (_pedidoDetalhe == null) return;
 
-        var culture = new System.Globalization.CultureInfo("pt-BR");
+        var c = new System.Globalization.CultureInfo("pt-BR");
+        string H(string? s) => System.Net.WebUtility.HtmlEncode(s ?? "");
 
-        var linhasItens = string.Join("", _pedidoDetalhe.Items.Select(i =>
-            $"<tr><td>{System.Net.WebUtility.HtmlEncode(i.ProductName)}</td>" +
-            $"<td style='text-align:center'>{i.Quantity}</td>" +
-            $"<td style='text-align:right'>R$&nbsp;{i.TotalPrice.ToString("N2", culture)}</td></tr>"));
+        // dados do cliente
+        var nomeCliente    = H(_clienteDetalhe?.NomeRazaoSocial ?? _pedidoDetalhe.ClienteNome);
+        var docCliente     = H(_clienteDetalhe?.Documento ?? "");
+        var endCliente     = H(_clienteDetalhe?.Endereco ?? "");
+        var telCliente     = H(_clienteDetalhe?.Telefone ?? "");
+        var linhasCliente  =
+            $"<p><b>Cliente:</b> {nomeCliente}</p>" +
+            (docCliente.Length > 0  ? $"<p><b>CPF/CNPJ:</b> {docCliente}</p>" : "") +
+            (endCliente.Length > 0  ? $"<p><b>Endereço:</b> {endCliente}</p>" : "") +
+            (telCliente.Length > 0  ? $"<p><b>Telefone:</b> {telCliente}</p>"  : "");
 
-        var acrescimo = _pedidoDetalhe.AmountWithSurchargeTotal - _pedidoDetalhe.AmountTotal;
-        var linhaAcrescimo = acrescimo > 0
-            ? $"<tr><td colspan='2' style='color:#888'>Acréscimo ({_pedidoDetalhe.SurchargePercentage.ToString("N1", culture)}%)</td>" +
-              $"<td style='text-align:right;color:#888'>R$&nbsp;{acrescimo.ToString("N2", culture)}</td></tr>"
+        // pagamento
+        var temAcrescimo = _pedidoDetalhe.SurchargePercentage > 0;
+        var infoPagamento = H(_pedidoDetalhe.PaymentMethodName) +
+            (temAcrescimo ? $" (+{_pedidoDetalhe.SurchargePercentage.ToString("N1", c)}%)" : "");
+
+        // itens — 2 linhas cada
+        var sb = new System.Text.StringBuilder();
+        int num = 1;
+        foreach (var item in _pedidoDetalhe.Items)
+        {
+            var codigo      = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}] " : "";
+            var nome        = H(item.ProductName);
+            var unitBase    = item.UnitPrice;
+            var unitFinal   = temAcrescimo ? unitBase * (1 + _pedidoDetalhe.SurchargePercentage / 100m) : unitBase;
+            var totalFinal  = temAcrescimo
+                ? item.TotalPrice * (1 + _pedidoDetalhe.SurchargePercentage / 100m)
+                : item.TotalPrice;
+
+            // linha 1: número, código, nome
+            sb.Append($"<tr><td colspan='2' style='padding-top:6px'><b>#{num}</b> {codigo}{nome}</td></tr>");
+
+            // linha 2: qtd × preço unit → total c/ acréscimo
+            string detalhe;
+            if (item.Quantity == 1)
+                detalhe = $"1 un &times; R$&nbsp;{unitBase.ToString("N2", c)}" +
+                          (temAcrescimo ? $" &rarr; <b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>" : $" = <b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>");
+            else
+                detalhe = $"{item.Quantity} un &times; R$&nbsp;{unitBase.ToString("N2", c)}" +
+                          $" = R$&nbsp;{item.TotalPrice.ToString("N2", c)}" +
+                          (temAcrescimo ? $" &rarr; <b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>" : "");
+
+            sb.Append($"<tr><td style='padding-left:12px;padding-bottom:4px;color:#444;font-size:11px' colspan='2'>{detalhe}</td></tr>");
+            num++;
+        }
+
+        var acrescimo     = _pedidoDetalhe.AmountWithSurchargeTotal - _pedidoDetalhe.AmountTotal;
+        var linhaAcrescimo = temAcrescimo
+            ? $"<tr><td style='color:#777;padding-top:4px'>Acréscimo ({_pedidoDetalhe.SurchargePercentage.ToString("N1", c)}%)</td>" +
+              $"<td style='text-align:right;color:#777'>R$&nbsp;{acrescimo.ToString("N2", c)}</td></tr>"
             : "";
 
         var html =
             "<!DOCTYPE html><html><head><meta charset='utf-8'/>" +
-            $"<title>Recibo #{_pedidoDetalhe.OrderNumber}</title>" +
+            $"<title>Pedido #{_pedidoDetalhe.OrderNumber}</title>" +
             "<style>" +
-            "body{font-family:'Courier New',monospace;font-size:12px;width:300px;margin:0 auto;padding:12px}" +
-            "h2{text-align:center;margin:4px 0;font-size:15px}" +
+            "body{font-family:'Courier New',monospace;font-size:12px;width:320px;margin:0 auto;padding:12px}" +
+            "h2{text-align:center;margin:4px 0;font-size:15px;letter-spacing:1px}" +
             ".sub{text-align:center;margin:2px 0;font-size:11px}" +
-            "p{margin:3px 0}" +
-            "table{width:100%;border-collapse:collapse;margin:4px 0}" +
-            "th{border-bottom:1px solid #000;padding:2px 0;font-size:11px}" +
-            "td{padding:2px 0;font-size:11px}" +
+            "p{margin:2px 0}" +
+            "table{width:100%;border-collapse:collapse}" +
+            "td{vertical-align:top;padding:1px 0}" +
+            "td:last-child{text-align:right;white-space:nowrap}" +
             "hr{border:0;border-top:1px dashed #000;margin:6px 0}" +
-            ".total{font-weight:bold;font-size:13px;text-align:right}" +
-            ".rodape{text-align:center;font-size:10px;margin-top:8px}" +
+            ".tot{font-weight:bold;font-size:13px}" +
+            ".rodape{text-align:center;font-size:10px;margin-top:10px}" +
             "</style></head><body>" +
+
+            // cabeçalho
             "<h2>ScaleAtacado</h2>" +
-            "<p class='sub'>Recibo de Venda</p>" +
+            "<p class='sub'>PEDIDO DE COMPRA</p>" +
             "<hr/>" +
             $"<p><b>Pedido:</b> #{_pedidoDetalhe.OrderNumber}</p>" +
-            $"<p><b>Data:</b> {_pedidoDetalhe.OrderDate.ToString("dd/MM/yyyy HH:mm")}</p>" +
-            $"<p><b>Cliente:</b> {System.Net.WebUtility.HtmlEncode(_pedidoDetalhe.ClienteNome)}</p>" +
-            $"<p><b>Pagamento:</b> {System.Net.WebUtility.HtmlEncode(_pedidoDetalhe.PaymentMethodName)}</p>" +
+            $"<p><b>Data:</b> {_pedidoDetalhe.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +
             "<hr/>" +
-            "<table><thead><tr>" +
-            "<th style='text-align:left'>Produto</th>" +
-            "<th style='text-align:center'>Qtd</th>" +
-            "<th style='text-align:right'>Total</th>" +
-            "</tr></thead><tbody>" +
-            linhasItens +
+
+            // cliente
+            linhasCliente +
+            "<hr/>" +
+
+            // pagamento
+            $"<p><b>Pagamento:</b> {infoPagamento}</p>" +
+            "<hr/>" +
+
+            // itens
+            "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
+            "<table><tbody>" +
+            sb.ToString() +
+            "</tbody></table>" +
+            "<hr/>" +
+
+            // totais
+            "<table><tbody>" +
+            $"<tr><td>Subtotal</td><td>R$&nbsp;{_pedidoDetalhe.AmountTotal.ToString("N2", c)}</td></tr>" +
             linhaAcrescimo +
-            "</tbody></table><hr/>" +
-            $"<p class='total'>Total: R$&nbsp;{_pedidoDetalhe.AmountWithSurchargeTotal.ToString("N2", culture)}</p>" +
+            $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{_pedidoDetalhe.AmountWithSurchargeTotal.ToString("N2", c)}</td></tr>" +
+            "</tbody></table>" +
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +
             "</body></html>";

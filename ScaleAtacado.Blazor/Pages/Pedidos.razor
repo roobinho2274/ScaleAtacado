@@ -347,7 +347,13 @@
             num++;
         }
 
-        var acrescimo     = _pedidoDetalhe.AmountWithSurchargeTotal - _pedidoDetalhe.AmountTotal;
+        // Calcula a partir de AmountTotal + SurchargePercentage (consistente com os itens acima,
+        // evita depender de AmountWithSurchargeTotal que pode ter sido gravado antes do acréscimo ser configurado)
+        var subtotal      = _pedidoDetalhe.AmountTotal;
+        var totalFinalRec = temAcrescimo
+            ? Math.Round(subtotal * (1 + _pedidoDetalhe.SurchargePercentage / 100m), 2)
+            : subtotal;
+        var acrescimo     = totalFinalRec - subtotal;
         var linhaAcrescimo = temAcrescimo
             ? $"<tr><td style='color:#777'>Acréscimo ({_pedidoDetalhe.SurchargePercentage.ToString("N1", c)}%)</td>" +
               $"<td style='color:#777'>R$&nbsp;{acrescimo.ToString("N2", c)}</td></tr>"
@@ -392,9 +398,9 @@
 
             // totais
             "<table class='totais'><tbody>" +
-            $"<tr><td>Subtotal</td><td>R$&nbsp;{_pedidoDetalhe.AmountTotal.ToString("N2", c)}</td></tr>" +
+            $"<tr><td>Subtotal</td><td>R$&nbsp;{subtotal.ToString("N2", c)}</td></tr>" +
             linhaAcrescimo +
-            $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{_pedidoDetalhe.AmountWithSurchargeTotal.ToString("N2", c)}</td></tr>" +
+            $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +

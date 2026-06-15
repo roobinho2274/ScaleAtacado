@@ -37,9 +37,11 @@
     <TitleContent>@(_editando == null ? "Nova Categoria" : "Editar Categoria")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
+            Placeholder="ex: Bebidas, Laticínios, Hortifruti"
             FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_form.Description" Label="Descrição" Variant="Variant.Outlined"
+            Placeholder="Breve descrição do que esta categoria engloba (opcional)"
             FullWidth="true" Lines="2"
             Error="@(_erroDescricao != null)" ErrorText="@_erroDescricao" />
     </DialogContent>

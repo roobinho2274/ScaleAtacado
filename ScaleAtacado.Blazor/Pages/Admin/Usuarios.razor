@@ -55,12 +55,15 @@
     <TitleContent>Novo Usuário</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_formNovo.FullName" Label="Nome Completo"
+            Placeholder="ex: Carlos Oliveira"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroNomeNovo != null)" ErrorText="@_erroNomeNovo" />
         <MudTextField @bind-Value="_formNovo.Email" Label="E-mail" InputType="InputType.Email"
+            Placeholder="usuario@empresa.com"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroEmail != null)" ErrorText="@_erroEmail" />
         <MudTextField @bind-Value="_formNovo.Password" Label="Senha" InputType="InputType.Password"
+            Placeholder="Mínimo 6 caracteres, com letras e números"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             HelperText="Mínimo 6 caracteres"
             Error="@(_erroSenha != null)" ErrorText="@_erroSenha" />
@@ -85,6 +88,7 @@
     <TitleContent>Editar Usuário</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_formEditar.FullName" Label="Nome Completo"
+            Placeholder="ex: Carlos Oliveira"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroNomeEditar != null)" ErrorText="@_erroNomeEditar" />
         <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formEditar.Profile"

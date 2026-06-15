@@ -57,12 +57,14 @@
     <TitleContent>@(_editando == null ? "Nova Forma de Pagamento" : "Editar Forma de Pagamento")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
+            Placeholder="ex: Dinheiro, PIX, Cartão de Crédito"
             FullWidth="true" Class="mb-3" Required="true" />
         <MudNumericField @bind-Value="_form.DeadlineDays" Label="Prazo (dias)"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="0" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="0"
+            HelperText="0 = pagamento à vista" />
         <MudNumericField @bind-Value="_form.SurchargePercentage" Label="Acréscimo (%)"
             Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
-            HelperText="0 para sem acréscimo" />
+            HelperText="0 = sem acréscimo (ex: 2,50 para 2,5%)" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>

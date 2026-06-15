@@ -110,11 +110,11 @@
                     <MudText Typo="Typo.body2">@_pedidoDetalhe.PaymentMethodName</MudText>
                 </MudItem>
                 <MudItem xs="6" sm="3">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total s/ acréscimo</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Subtotal</MudText>
                     <MudText Typo="Typo.body2">R$ @_pedidoDetalhe.AmountTotal.ToString("N2")</MudText>
                 </MudItem>
                 <MudItem xs="6" sm="3">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total c/ acréscimo</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total Final</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Primary"><b>R$ @_pedidoDetalhe.AmountWithSurchargeTotal.ToString("N2")</b></MudText>
                 </MudItem>
             </MudGrid>
@@ -133,6 +133,23 @@
                     <MudTd Style="text-align:right">R$ @context.TotalPrice.ToString("N2")</MudTd>
                 </RowTemplate>
             </MudTable>
+
+            <!-- Desconto -->
+            <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
+                <MudGrid AlignItems="AlignItems.Center">
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="_editDesconto" Label="Desconto (R$)"
+                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2"
+                            HelperText="Desconto em reais aplicado ao total do pedido" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6" Class="d-flex align-end">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
+                            OnClick="SalvarDescontoAsync" Disabled="_salvando">
+                            Aplicar Desconto
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
 
             <MudGrid>
                 <MudItem xs="12" sm="6">
@@ -205,6 +222,7 @@
     private ClienteResponseDto? _clienteDetalhe;
     private DeliveryStatus _editEntrega;
     private FinancialStatus _editFinanceiro;
+    private decimal _editDesconto;
 
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
     {
@@ -228,6 +246,7 @@
             _pedidoDetalhe = resp.Data;
             _editEntrega = _pedidoDetalhe!.DeliveryStatus;
             _editFinanceiro = _pedidoDetalhe.FinancialStatus;
+            _editDesconto = _pedidoDetalhe.DiscountAmount;
 
             var clienteResp = await ClienteService.GetByIdAsync(_pedidoDetalhe.ClienteId);
             _clienteDetalhe = clienteResp?.Data;
@@ -237,6 +256,24 @@
             Snackbar.Add("Erro ao carregar pedido.", Severity.Error);
             _dialogDetalhes = false;
         }
+    }
+
+    private async Task SalvarDescontoAsync()
+    {
+        if (_pedidoDetalhe == null) return;
+        _salvando = true;
+        var resp = await OrderService.UpdateDiscountAsync(_pedidoDetalhe.Id, _editDesconto);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Desconto aplicado!", Severity.Success);
+            // Recarrega o pedido para refletir o novo total
+            var atualizado = await OrderService.GetByIdAsync(_pedidoDetalhe.Id);
+            if (atualizado?.Success == true)
+                _pedidoDetalhe = atualizado.Data;
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao aplicar desconto.", Severity.Error);
+        _salvando = false;
     }
 
     private async Task SalvarEntregaAsync()
@@ -301,10 +338,11 @@
             (endCliente.Length > 0  ? $"<p><b>Endereço:</b> {endCliente}</p>" : "") +
             (telCliente.Length > 0  ? $"<p><b>Telefone:</b> {telCliente}</p>"  : "");
 
-        // pagamento
-        var temAcrescimo = _pedidoDetalhe.SurchargePercentage > 0;
-        var infoPagamento = H(_pedidoDetalhe.PaymentMethodName) +
-            (temAcrescimo ? $" (+{_pedidoDetalhe.SurchargePercentage.ToString("N1", c)}%)" : "");
+        // pagamento — acréscimo embutido nos preços; não exibido separadamente
+        var infoPagamento = H(_pedidoDetalhe.PaymentMethodName);
+
+        // fator de acréscimo da forma de pagamento (1.0 quando não há acréscimo)
+        var fator = 1 + _pedidoDetalhe.SurchargePercentage / 100m;
 
         // itens — 2 linhas cada usando divs (permite truncamento + alinhamentos independentes)
         var sb = new System.Text.StringBuilder();
@@ -313,11 +351,8 @@
         {
             var codigo     = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}]&nbsp;" : "";
             var nome       = H(item.ProductName);
-            var unitBase   = item.UnitPrice;
-            var unitFinal  = temAcrescimo ? unitBase  * (1 + _pedidoDetalhe.SurchargePercentage / 100m) : unitBase;
-            var totalFinal = temAcrescimo
-                ? item.TotalPrice * (1 + _pedidoDetalhe.SurchargePercentage / 100m)
-                : item.TotalPrice;
+            var unitFinal  = Math.Round(item.UnitPrice  * fator, 2);
+            var totalFinal = Math.Round(item.TotalPrice * fator, 2);
 
             // linha 1: esquerda, trunca se nome muito longo
             sb.Append(
@@ -326,19 +361,11 @@
                 $"<b>#{num}</b>&nbsp;{codigo}{nome}" +
                 "</div>");
 
-            // linha 2: direita — valores alinhados verticalmente entre itens
-            string detalhe;
-            if (item.Quantity == 1)
-                detalhe = $"1&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitBase.ToString("N2", c)}" +
-                          (temAcrescimo
-                              ? $"&nbsp;&rarr;&nbsp;<b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>"
-                              : $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>");
-            else
-                detalhe = $"{item.Quantity}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitBase.ToString("N2", c)}" +
-                          $"&nbsp;=&nbsp;R$&nbsp;{item.TotalPrice.ToString("N2", c)}" +
-                          (temAcrescimo
-                              ? $"&nbsp;&rarr;&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>"
-                              : "");
+            // linha 2: direita — preço unitário já com acréscimo embutido
+            string detalhe = item.Quantity == 1
+                ? $"<b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>"
+                : $"{item.Quantity}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
+                  $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
 
             sb.Append(
                 "<div style='text-align:right;font-size:11px;color:#444;padding-bottom:3px'>" +
@@ -347,17 +374,10 @@
             num++;
         }
 
-        // Calcula a partir de AmountTotal + SurchargePercentage (consistente com os itens acima,
-        // evita depender de AmountWithSurchargeTotal que pode ter sido gravado antes do acréscimo ser configurado)
-        var subtotal      = _pedidoDetalhe.AmountTotal;
-        var totalFinalRec = temAcrescimo
-            ? Math.Round(subtotal * (1 + _pedidoDetalhe.SurchargePercentage / 100m), 2)
-            : subtotal;
-        var acrescimo     = totalFinalRec - subtotal;
-        var linhaAcrescimo = temAcrescimo
-            ? $"<tr><td style='color:#777'>Acréscimo ({_pedidoDetalhe.SurchargePercentage.ToString("N1", c)}%)</td>" +
-              $"<td style='color:#777'>R$&nbsp;{acrescimo.ToString("N2", c)}</td></tr>"
-            : "";
+        // subtotal = soma dos itens já com acréscimo embutido; desconto vem do pedido
+        var subtotalRec   = Math.Round(_pedidoDetalhe.AmountTotal * fator, 2);
+        var desconto      = _pedidoDetalhe.DiscountAmount;
+        var totalFinalRec = Math.Max(0m, subtotalRec - desconto);
 
         var html =
             "<!DOCTYPE html><html><head><meta charset='utf-8'/>" +
@@ -398,8 +418,8 @@
 
             // totais
             "<table class='totais'><tbody>" +
-            $"<tr><td>Subtotal</td><td>R$&nbsp;{subtotal.ToString("N2", c)}</td></tr>" +
-            linhaAcrescimo +
+            $"<tr><td>Subtotal</td><td>R$&nbsp;{subtotalRec.ToString("N2", c)}</td></tr>" +
+            $"<tr><td style='color:#777'>Desconto</td><td style='color:#777'>R$&nbsp;{desconto.ToString("N2", c)}</td></tr>" +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +
             "<hr/>" +

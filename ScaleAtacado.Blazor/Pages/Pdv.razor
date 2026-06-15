@@ -145,10 +145,18 @@
                 </div>
             }
 
+            <div class="d-flex align-center justify-space-between mb-2">
+                <MudText Typo="Typo.body2">Desconto:</MudText>
+                <MudNumericField @bind-Value="_desconto" Min="0m" Format="N2"
+                    Variant="Variant.Outlined" Margin="Margin.Dense"
+                    Style="width:120px" Placeholder="0,00"
+                    Disabled="_finalizando" />
+            </div>
+
             <MudDivider Class="my-2" />
             <div class="d-flex justify-space-between mb-4">
                 <MudText Typo="Typo.h6"><b>Total:</b></MudText>
-                <MudText Typo="Typo.h6" Color="Color.Primary"><b>R$ @_totalComAcrescimo.ToString("N2")</b></MudText>
+                <MudText Typo="Typo.h6" Color="Color.Primary"><b>R$ @_totalFinal.ToString("N2")</b></MudText>
             </div>
 
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
@@ -174,19 +182,24 @@
     <TitleContent>Novo Cliente</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_novoClienteNome" Label="Nome / Razão Social"
+            Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_novoClienteDoc" Label="CPF / CNPJ"
+            Placeholder="000.000.000-00 ou 00.000.000/0000-00"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
-            HelperText="11 dígitos para CPF ou 14 dígitos para CNPJ (apenas números)"
+            HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
             Error="@(_erroDoc != null)" ErrorText="@_erroDoc" />
         <MudTextField @bind-Value="_novoClienteTel" Label="Telefone"
+            Placeholder="(00) 9 0000-0000"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
             Error="@(_erroTel != null)" ErrorText="@_erroTel" />
         <MudTextField @bind-Value="_novoClienteEnd" Label="Endereço"
+            Placeholder="Rua, número, bairro, cidade — UF"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
             Error="@(_erroEnd != null)" ErrorText="@_erroEnd" />
         <MudTextField @bind-Value="_novoClienteObs" Label="Observações"
+            Placeholder="Informações adicionais sobre o cliente (opcional)"
             Variant="Variant.Outlined" FullWidth="true" Lines="2"
             Error="@(_erroObs != null)" ErrorText="@_erroObs" />
     </DialogContent>
@@ -205,6 +218,7 @@
     private ProductResponseDto? _produtoSelecionado;
     private PaymentMethodResponseDto? _formaPagamento;
     private int _quantidade = 1;
+    private decimal _desconto = 0m;
     private bool _finalizando;
     private bool _dialogClienteAberto;
     private bool _salvandoCliente;
@@ -229,6 +243,7 @@
     private decimal _totalComAcrescimo => _formaPagamento != null
         ? _subtotal * (1 + _formaPagamento.SurchargePercentage / 100m)
         : _subtotal;
+    private decimal _totalFinal => Math.Max(0m, _totalComAcrescimo - _desconto);
 
     protected override async Task OnInitializedAsync()
     {
@@ -295,6 +310,7 @@
         _clienteSelecionado = null;
         _formaPagamento = null;
         _quantidade = 1;
+        _desconto = 0m;
     }
 
     private async Task FinalizarPedidoAsync()
@@ -306,7 +322,8 @@
         var dto = new CreateOrderDto(
             _clienteSelecionado.Id,
             _formaPagamento.Id,
-            _itens.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList()
+            _itens.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList(),
+            _desconto
         );
 
         var resp = await OrderService.CreateAsync(dto);

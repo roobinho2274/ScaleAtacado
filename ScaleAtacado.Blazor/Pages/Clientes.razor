@@ -17,6 +17,7 @@
     <MudGrid>
         <MudItem xs="12" sm="8">
             <MudTextField @bind-Value="_busca" Label="Buscar por nome ou documento"
+                Placeholder="Nome, CPF/CNPJ ou telefone..."
                 Variant="Variant.Outlined"
                 Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                 OnKeyUp="OnKeyUp" />
@@ -67,14 +68,20 @@
     <TitleContent>@(_editando == null ? "Novo Cliente" : "Editar Cliente")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.NomeRazaoSocial" Label="Nome / Razão Social"
+            Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
         <MudTextField @bind-Value="_form.Documento" Label="CPF / CNPJ"
+            Placeholder="000.000.000-00 ou 00.000.000/0000-00"
+            HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
         <MudTextField @bind-Value="_form.Telefone" Label="Telefone"
+            Placeholder="(00) 9 0000-0000"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
         <MudTextField @bind-Value="_form.Endereco" Label="Endereço"
+            Placeholder="Rua, número, bairro, cidade — UF"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
         <MudTextField @bind-Value="_form.Observacoes" Label="Observações"
+            Placeholder="Informações adicionais sobre o cliente (opcional)"
             Variant="Variant.Outlined" FullWidth="true" Lines="2" />
     </DialogContent>
     <DialogActions>

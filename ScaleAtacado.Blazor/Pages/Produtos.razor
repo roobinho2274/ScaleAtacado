@@ -22,6 +22,7 @@
     <MudGrid>
         <MudItem xs="12" sm="5">
             <MudTextField @bind-Value="_busca" Label="Buscar por nome ou código"
+                Placeholder="ex: Coca-Cola ou 7891234567890"
                 Variant="Variant.Outlined"
                 Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                 OnKeyUp="OnKeyUp" />
@@ -98,17 +99,20 @@
     <TitleContent>@(_editando == null ? "Novo Produto" : "Editar Produto")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
+            Placeholder="ex: Coca-Cola 2L, Arroz Tipo 1 5kg"
             FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroNome != null)" ErrorText="@_erroNome" />
         <MudTextField @bind-Value="_form.Code" Label="Código (SKU)" Variant="Variant.Outlined"
-            FullWidth="true" Class="mb-3" HelperText="Opcional — máx. 50 caracteres"
+            Placeholder="ex: 7891234567890"
+            FullWidth="true" Class="mb-3" HelperText="Opcional — código de barras ou código interno"
             Error="@(_erroCode != null)" ErrorText="@_erroCode" />
-        <MudSelect T="Guid" Label="Categoria" @bind-Value="_form.CategoryId"
+        <MudSelect T="Guid?" Label="Categoria" @bind-Value="_form.CategoryId"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Placeholder="Selecione uma categoria"
             Error="@(_erroCategoria != null)" ErrorText="@_erroCategoria">
             @foreach (var cat in _categorias)
             {
-                <MudSelectItem T="Guid" Value="cat.Id">@cat.Name</MudSelectItem>
+                <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
             }
         </MudSelect>
         <MudGrid>
@@ -199,7 +203,7 @@
         {
             Name = p.Name,
             Code = p.Code ?? "",
-            CategoryId = p.CategoryId,
+            CategoryId = (Guid?)p.CategoryId,
             CostPrice = p.CostPrice,
             ProfitMargin = p.ProfitMargin
         };
@@ -219,7 +223,7 @@
         if (!string.IsNullOrEmpty(_form.Code) && _form.Code.Length > 50)
             _erroCode = "Código deve ter no máximo 50 caracteres.";
 
-        if (_form.CategoryId == Guid.Empty)
+        if (!_form.CategoryId.HasValue)
             _erroCategoria = "Selecione uma categoria.";
 
         if (_form.CostPrice <= 0)
@@ -241,7 +245,7 @@
 
         if (_editando == null)
         {
-            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId);
+            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value);
             var resp = await ProductService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -253,7 +257,7 @@
         }
         else
         {
-            var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId, true);
+            var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value, true);
             var resp = await ProductService.UpdateAsync(_editando.Id, dto);
             if (resp?.Success == true)
             {
@@ -282,7 +286,7 @@
     {
         public string Name { get; set; } = "";
         public string Code { get; set; } = "";
-        public Guid CategoryId { get; set; }
+        public Guid? CategoryId { get; set; }
         public decimal CostPrice { get; set; }
         public decimal ProfitMargin { get; set; }
     }

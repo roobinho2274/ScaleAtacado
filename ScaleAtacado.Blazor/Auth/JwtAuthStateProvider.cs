@@ -33,7 +33,7 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
 
     public async Task NotifyLoginAsync(string token)
     {
-        await _js.InvokeVoidAsync("localStorage.setItem", "authToken", token);
+        await _js.InvokeVoidAsync("sessionStorage.setItem", "authToken", token);
         var claims = ParseClaimsFromJwt(token);
         var identity = new ClaimsIdentity(claims, "jwt");
         NotifyAuthenticationStateChanged(
@@ -42,12 +42,12 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
 
     public async Task NotifyLogoutAsync()
     {
-        await _js.InvokeVoidAsync("localStorage.removeItem", "authToken");
+        await _js.InvokeVoidAsync("sessionStorage.removeItem", "authToken");
         NotifyAuthenticationStateChanged(Task.FromResult(Anonymous));
     }
 
     public async Task<string?> GetTokenAsync()
-        => await _js.InvokeAsync<string?>("localStorage.getItem", "authToken");
+        => await _js.InvokeAsync<string?>("sessionStorage.getItem", "authToken");
 
     private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {

@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Gerado em: 10/06/2026
+  Atualizado em: 15/06/2026
 ================================================================================
 
 STACK
@@ -10,11 +10,11 @@ STACK
 - Banco    : PostgreSQL 15 (Docker, container: scale_atacado_db, porta 5432)
 - ORM      : Entity Framework Core
 - Auth     : JWT (Bearer) — login via /api/auth/setup (primeiro uso) ou /api/auth/login
-- Impressão: SignalR PrintHub + PrintJobController (agente externo a implementar)
+- Impressão: SignalR PrintHub + PrintJobController (API pronta; PrintAgent Windows ainda não implementado)
 
 ESTRUTURA DE PROJETOS
 ---------------------
-ScaleAtacado.Domain          — entidades, enums
+ScaleAtacado.Domain          — entidades, enums (PrintStatus: OnHoldem/Printing/Printed/Canceled)
 ScaleAtacado.Application     — DTOs, services, validators (FluentValidation), interfaces
 ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService
 ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares
@@ -28,6 +28,7 @@ CONFIGURAÇÕES CRÍTICAS
 - CORS "BlazorPolicy"      : origens http://localhost:5197 e https://localhost:7252
 - Middleware order (Program.cs): app.UseCors() ANTES de app.UseHttpsRedirection()
 - docker-compose.yml       : APENAS PostgreSQL; sem Dockerfiles para API/Blazor ainda
+- PrintAgent:AgentKey      : "PrintAgent_ScaleAtacado_2026!" (em appsettings.json da API)
 
 BANCO DE DADOS
 --------------
@@ -73,8 +74,8 @@ PADRÃO ApiResponse
 record ApiResponse<T>(bool Success, T? Data, string? Error)  — Ok(data) / Fail(error)
 record PagedResult<T>(IEnumerable<T> Items, int TotalCount, int Page, int PageSize)
 
-BUGS CORRIGIDOS NESTA SESSÃO
-------------------------------
+BUGS CORRIGIDOS (sessões anteriores)
+--------------------------------------
 1. Páginas em branco: ApiHttpClient.GetAsync usava GetFromJsonAsync (lança em non-2xx);
    corrigido para _http.GetAsync() + r.Content.ReadFromJsonAsync() (não lança).
 
@@ -91,52 +92,127 @@ BUGS CORRIGIDOS NESTA SESSÃO
 
 6. Dialog "Novo Cliente" crash (MudOverlay duplicate section): substituído bloco
    @if + <MudOverlay> + <div posicionado> por <MudDialog @bind-Visible> padrão.
+   CAUSA: MudBlazor 9 usa SectionOutlet internamente no MudOverlay; conflita com
+   MudPopoverProvider já registrado no MainLayout.
 
-7. Recibo: implementado ImprimirReciboAsync em Pedidos.razor + printRecibo(html) em
-   index.html; abre nova janela com HTML formatado e dispara window.print().
+7. Recibo — cálculo de Acréscimo zerado: AmountWithSurchargeTotal gravado no banco pode
+   divergir do SurchargePercentage atual da forma de pagamento (se % for alterado após
+   o pedido). Solução: ImprimirReciboAsync calcula tudo a partir de AmountTotal +
+   SurchargePercentage (não usa AmountWithSurchargeTotal).
 
-RECIBO DE IMPRESSÃO (Pedidos.razor — ImprimirReciboAsync)
-----------------------------------------------------------
+8. Recibo — alinhamento de itens: itens estavam em <table> rows com colspan=2; o CSS
+   td:last-child{text-align:right} afetava também as linhas de colspan. Solução:
+   itens convertidos para <div> com alinhamento explícito por linha; tabela de totais
+   recebeu class="totais" para CSS isolado.
+
+RECIBO DE IMPRESSÃO — ESTADO ATUAL (Pedidos.razor → ImprimirReciboAsync)
+--------------------------------------------------------------------------
 - Busca dados completos do cliente ao abrir o pedido (ClienteService.GetByIdAsync)
+- JS printRecibo(html) em index.html: window.open + doc.write + setTimeout(400ms) + print()
 - Cabeçalho: número do pedido, data, nome/CPF-CNPJ/endereço/telefone do cliente,
-  forma de pagamento com % acréscimo
-- Itens em 2 linhas:
-    Linha 1 (esquerda, truncada com "…"): #N [CODIGO] Nome do Produto
-    Linha 2 (direita, alinhada): qtd × R$ unit = R$ total → R$ totalComAcrescimo
-- Rodapé: subtotal, acréscimo e TOTAL
-- Função JS: window.open + setTimeout 400ms + w.print()
+  forma de pagamento (+ % acréscimo quando aplicável)
+- Itens em 2 linhas usando <div> (não <tr> — garante alinhamentos independentes):
+    Linha 1 (esquerda, overflow:hidden + text-overflow:ellipsis): #N [CODIGO] Nome
+    Linha 2 (direita): qtd × R$ unitBase [→ R$ unitComAcrescimo] = R$ total
+- Rodapé (tabela class="totais"): Subtotal | Acréscimo (se houver) | TOTAL
 
-VALIDAÇÃO "NOVO CLIENTE" NO PDV (Pdv.razor)
---------------------------------------------
-- Validação client-side antes de chamar a API (espelha o servidor):
-    Nome: obrigatório, max 200
-    CPF/CNPJ: obrigatório, 11 dígitos (CPF) ou 14 dígitos (CNPJ)
-    Telefone: obrigatório, max 20
-    Endereço: obrigatório, max 300
-    Observações: opcional, max 500
-- Erros exibidos no campo (Error/ErrorText do MudTextField), não snackbar
-- Erro de CPF/CNPJ duplicado (vindo da API) também exibido no campo
+PRÓXIMA ALTERAÇÃO SOLICITADA NO RECIBO (ainda não aplicada):
+  - Embutir acréscimo direto no preço unitário dos itens (ex: Coca R$10 + 10% → R$11)
+  - Remover a linha "Acréscimo" do rodapé
+  - Adicionar linha "Desconto: R$ 0,00" no rodapé (placeholder para próxima etapa)
+  - Pagamento: exibir apenas o nome (sem o "(+X%)")
 
-PENDÊNCIAS MAPEADAS (ver análise completa no chat)
---------------------------------------------------
+VALIDAÇÃO CLIENT-SIDE (padrão unificado em todos os formulários)
+-----------------------------------------------------------------
+PADRÃO: campos string? _erroX, MudTextField com Error="@(_erroX != null)" ErrorText="@_erroX",
+método ValidarXxx() chamado antes de toda chamada à API. Erros da API (duplicatas, etc.)
+mapeados para o campo específico (não snackbar genérico).
+
+Pdv.razor — Novo Cliente:
+  Nome: obrigatório, max 200
+  CPF/CNPJ: obrigatório, 11 dígitos (CPF) ou 14 dígitos (CNPJ)
+  Telefone: obrigatório, max 20
+  Endereço: obrigatório, max 300
+  Observações: opcional, max 500
+  Erro de CPF/CNPJ duplicado da API → exibe no campo CPF/CNPJ
+
+Produtos.razor:
+  Nome: obrigatório, max 100
+  Código: opcional, max 50
+  Categoria: obrigatório (Guid != Empty)
+  Preço de Custo: obrigatório, > 0
+  Margem de Lucro: 0–1000%
+  MudSelect e MudNumericField também usam Error/ErrorText
+
+Admin/Categorias.razor:
+  Nome: obrigatório, max 100
+  Descrição: opcional, max 250
+
+Admin/Usuarios.razor:
+  Criar — FullName: obrigatório, max 200; Email: obrigatório, formato válido; Senha: min 6
+  Editar — FullName: obrigatório, max 200
+  EmailValido(): new System.Net.Mail.MailAddress(email) em try/catch
+  Erro de email duplicado da API → exibe no campo Email
+
+INFRAESTRUTURA DE IMPRESSÃO — API (100% PRONTA)
+------------------------------------------------
+PrintHub.cs:
+  - OnConnectedAsync: ?agentKey=xxx → grupo "PrintAgents"; demais → grupo "Clients"
+
+PrintJobController.cs:
+  - GET  /api/printjob/pendentes        — retorna jobs OnHoldem+Failed (X-Agent-Key)
+  - PATCH /api/printjob/{id}/status     — atualiza status + notifica grupo "Clients" (X-Agent-Key)
+  - GET  /api/printjob/{jobId}/order    — retorna OrderResponseDto completo (X-Agent-Key)
+  - GET  /api/printjob                  — monitoramento (JWT Admin)
+
+PedidoController.Finalizar:
+  - Cria PrintJob com Status=OnHoldem
+  - Emite SignalR: _printHub.Clients.Group("PrintAgents").SendAsync("NewPrintJob", printJobId)
+
+Autenticação do agente: header X-Agent-Key (sem JWT)
+Chave: "PrintAgent_ScaleAtacado_2026!" (PrintAgent:AgentKey em appsettings.json)
+
+FLUXO COMPLETO DO PRINT AGENT
+------------------------------
+1. PDV finaliza pedido → API cria PrintJob (OnHoldem) → SignalR "NewPrintJob" {jobId}
+2. PrintAgent recebe evento → GET /api/printjob/{jobId}/order
+3. Formata recibo como texto → imprime via Windows GDI+ (System.Drawing.Printing)
+4. PATCH /api/printjob/{jobId}/status → { Status: "Printed" }
+5. API notifica Blazor via SignalR "PrintJobStatusChanged"
+Failsafe: ao religar, PrintAgent consulta GET /pendentes e processa jobs perdidos
+
+INSTALAÇÃO DO PRINT AGENT (quando implementado)
+------------------------------------------------
+1. Editar appsettings.json: ApiUrl, AgentKey, PrinterName (vazio = padrão do Windows)
+2. Descobrir nome da impressora: Get-Printer | Select Name, Default
+3. Registrar serviço Windows:
+   New-Service -Name "ScaleAtacadoPrint" -BinaryPathName "...\ScaleAtacado.PrintAgent.exe"
+               -DisplayName "ScaleAtacado - Agente de Impressão" -StartupType Automatic
+   Start-Service ScaleAtacadoPrint
+4. Certificado HTTPS: dotnet dev-certs https --trust
+
+PENDÊNCIAS MAPEADAS
+-------------------
 CRÍTICO:
-  1. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
-  2. PrintAgent: app Windows/Worker que conecta no SignalR e imprime na térmica
+  1. [PRÓXIMO PASSO] Alterar recibo: embutir acréscimo no preço do item, trocar linha
+     Acréscimo por Desconto: R$ 0,00 (ver detalhe em "PRÓXIMA ALTERAÇÃO SOLICITADA")
+  2. [PRÓXIMO PASSO] Desconto: implementar lógica de desconto nos pedidos
+  3. PrintAgent: criar projeto ScaleAtacado.PrintAgent (Worker Service .NET 8)
+     — SignalR client + polling /pendentes + Windows printing + PATCH status
+  4. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
 
 FUNCIONAL:
-  3. Auditoria de logoff: endpoint POST /api/auth/logout + chamada no Blazor
-  4. Auditoria de Clientes e Usuários: ClienteAppService e UserAppService não chamam
+  5. Auditoria de logoff: endpoint POST /api/auth/logout + chamada no Blazor
+  6. Auditoria de Clientes e Usuários: ClienteAppService e UserAppService não chamam
      RegistrarAsync (só AuthController, OrderAppService e ProductAppService auditam)
-  5. Filtro de categoria em Produtos: aplicado client-side hoje (bug de paginação);
+  7. Filtro de categoria em Produtos: aplicado client-side hoje (bug de paginação);
      precisar adicionar categoryId no ProductController/AppService/Repository
 
 UX:
-  6. Filtro por data nos Pedidos (API já suporta from/to, falta UI)
-  7. Confirmação antes de desativar/excluir (Snackbar de confirmação ou MudMessageBox)
-
-MINOR:
-  8. Label de busca em Clientes diz "nome ou documento" mas já busca telefone também
-  9. Dashboard/Home com métricas (vendas do dia, pedidos pendentes, etc.)
+  8. Filtro por data nos Pedidos (API já suporta from/to, falta UI)
+  9. Confirmação antes de desativar/excluir (MudMessageBox)
+  10. Label de busca em Clientes diz "nome ou documento" mas já busca telefone também
+  11. Dashboard/Home com métricas (vendas do dia, pedidos pendentes, etc.)
 
 ERROS COMUNS E SOLUÇÕES
 ------------------------
@@ -147,11 +223,14 @@ ERROS COMUNS E SOLUÇÕES
   Solução: DELETE FROM "Companies"; — NÃO basta apagar AspNetUsers.
 
 - MudOverlay crash "already a subscriber to mud-overlay-to-popover-provider":
-  Causa: MudOverlay usado diretamente numa página que já tem MudPopoverProvider no layout.
+  Causa: MudOverlay usado diretamente; MudBlazor 9 registra SectionOutlet internamente.
   Solução: usar <MudDialog @bind-Visible> em vez de MudOverlay manual.
 
 - Produto/Cliente com 400 sem mensagem: FluentValidation retorna ValidationProblemDetails
   (não ApiResponse), então o catch em ApiHttpClient retorna null.
-  Solução: validar client-side antes de chamar a API.
+  Solução: validar client-side antes de chamar a API (padrão já implementado).
+
+- Acréscimo zerado no recibo: AmountWithSurchargeTotal no banco pode estar desatualizado.
+  Solução: calcular sempre a partir de AmountTotal * (1 + SurchargePercentage/100).
 
 ================================================================================

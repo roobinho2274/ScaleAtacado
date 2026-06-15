@@ -12,6 +12,7 @@ public class Order
     public Guid ClienteId { get; set; }
     public Guid PaymentMethodId { get; set; }
     public decimal AmountTotal { get; set; } = 0;
+    public decimal DiscountAmount { get; set; } = 0;
     public decimal AmountWithSurchargeTotal { get; set; }
     public DeliveryStatus DeliveryStatus { get; set; } = DeliveryStatus.AguardandoSeparacao;
     public FinancialStatus FinancialStatus { get; set; } = FinancialStatus.EmAberto;

@@ -31,6 +31,9 @@ public class OrderService
     public Task<ApiResponse?> DesbloquearAsync(Guid id)
         => _api.PostAsync($"api/pedido/{id}/desbloquear");
 
+    public Task<ApiResponse?> UpdateDiscountAsync(Guid id, decimal discountAmount)
+        => _api.PatchAsync($"api/pedido/{id}/desconto", new UpdateDiscountDto(discountAmount));
+
     public Task<ApiResponse?> UpdateDeliveryStatusAsync(Guid id, DeliveryStatus status)
         => _api.PatchAsync($"api/pedido/{id}/entrega", new UpdateDeliveryStatusDto(status));
 

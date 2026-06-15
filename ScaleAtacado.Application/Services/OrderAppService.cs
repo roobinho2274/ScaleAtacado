@@ -60,7 +60,8 @@ public class OrderAppService
 
         var subtotal = items.Sum(i => i.TotalPrice);
         var surcharge = subtotal * (paymentMethod.SurchargePercentage / 100);
-        var totalComAcrescimo = subtotal + surcharge;
+        var discount = Math.Max(0m, dto.DiscountAmount);
+        var totalFinal = subtotal + surcharge - discount;
 
         var orderNumber = await _orderRepository.GetNextOrderNumberAsync(companyId);
 
@@ -74,7 +75,8 @@ public class OrderAppService
             UserId = userId,
             OrderDate = DateTime.UtcNow,
             AmountTotal = subtotal,
-            AmountWithSurchargeTotal = totalComAcrescimo,
+            DiscountAmount = discount,
+            AmountWithSurchargeTotal = totalFinal,
             DeliveryStatus = DeliveryStatus.AguardandoSeparacao,
             FinancialStatus = FinancialStatus.EmAberto,
             IsLocked = false
@@ -217,12 +219,32 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> UpdateDiscountAsync(Guid id, decimal discountAmount, Guid companyId)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        var paymentMethod = await _paymentMethodRepository.GetByIdAsync(order.PaymentMethodId, companyId);
+        var surchargePercentage = paymentMethod?.SurchargePercentage ?? 0m;
+
+        var discount = Math.Max(0m, discountAmount);
+        var surcharge = order.AmountTotal * (surchargePercentage / 100);
+        order.DiscountAmount = discount;
+        order.AmountWithSurchargeTotal = order.AmountTotal + surcharge - discount;
+
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        return ApiResponse.Ok();
+    }
+
     private static OrderResponseDto ToDto(Order o, string clienteNome, string paymentName, decimal surcharge) => new(
         o.Id, o.OrderNumber, o.CompanyId,
         o.ClienteId, clienteNome,
         o.PaymentMethodId, paymentName, surcharge,
         o.UserId, o.OrderDate,
-        o.AmountTotal, o.AmountWithSurchargeTotal,
+        o.AmountTotal, o.DiscountAmount, o.AmountWithSurchargeTotal,
         o.DeliveryStatus, o.FinancialStatus, o.IsLocked,
         o.Items.Select(i => new OrderItemResponseDto(
             i.Id, i.ProductId,

@@ -94,6 +94,15 @@ public class PedidoController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPatch("{id:guid}/desconto")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountDto dto)
+    {
+        var result = await _service.UpdateDiscountAsync(id, dto.DiscountAmount, User.GetCompanyId());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPatch("{id:guid}/financeiro")]
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]

@@ -14,6 +14,7 @@ public record OrderResponseDto(
     Guid UserId,
     DateTime OrderDate,
     decimal AmountTotal,
+    decimal DiscountAmount,
     decimal AmountWithSurchargeTotal,
     DeliveryStatus DeliveryStatus,
     FinancialStatus FinancialStatus,

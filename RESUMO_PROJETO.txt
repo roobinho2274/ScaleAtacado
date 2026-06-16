@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Atualizado em: 15/06/2026
+  Atualizado em: 15/06/2026 (sessão 3)
 ================================================================================
 
 STACK
@@ -78,7 +78,7 @@ OrderService        — GetAllAsync, GetByIdAsync, CreateAsync, FinalizarAsync,
                       UpdateDiscountAsync, UpdateDeliveryStatusAsync,
                       UpdateFinancialStatusAsync, DesbloquearAsync
 CategoryService     — GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync
-UserService         — GetAllAsync, CreateAsync, UpdateAsync, DeactivateAsync
+UserService         — GetAllAsync, CreateAsync, UpdateAsync, ChangePasswordAsync, DeactivateAsync
 AuditoriaService    — GetAllAsync(de?, ate?)
 AuthService         — LoginAsync, LogoutAsync
 
@@ -106,6 +106,21 @@ JS printRecibo(html) em index.html: window.open + doc.write + setTimeout(400ms) 
 - Totais: Subtotal | Desconto | TOTAL
 - Acréscimo embutido no preço unitário — não exibido como linha separada
 
+GESTÃO DE USUÁRIOS — ESTADO ATUAL
+-----------------------------------
+- Senha criptografada: PBKDF2 via ASP.NET Identity (nunca armazenada em plain text)
+- Admin NÃO consegue ver a senha de outro usuário; pode apenas redefini-la
+- Endpoint alterar senha: PATCH /api/user/{id}/senha { NewPassword }
+  → Usa GeneratePasswordResetTokenAsync + ResetPasswordAsync (sem exigir senha atual)
+- Usuarios.razor: ícone 🔒 (amarelo) em cada linha → dialog "Alterar Senha — [Nome]"
+  - Campos: Nova Senha + Confirmar (validação de igualdade)
+  - Alerta informativo sobre criptografia exibido no dialog
+- Regras de senha exibidas visivelmente nos dialogs de criação e de alteração:
+    • Mínimo 6 caracteres
+    • Pelo menos uma letra minúscula (a-z)
+    • Pelo menos um número (0-9)
+- Validação client-side em ValidarSenha() verifica as mesmas 3 regras antes de chamar a API
+
 VALIDAÇÃO CLIENT-SIDE (padrão unificado)
 -----------------------------------------
 Campos string? _erroX → Error/ErrorText nos MudTextField; ValidarXxx() antes de chamar API.
@@ -113,7 +128,8 @@ Pdv.razor     — Nome, CPF/CNPJ (11/14 dígitos), Telefone, Endereço, Observa�
 Clientes.razor — mesmos campos
 Produtos.razor — Nome, Código SKU, Categoria (Guid? — começa vazia), CostPrice, Margem
 Categorias.razor — Nome, Descrição
-Usuarios.razor — FullName, Email (MailAddress), Senha (min 6); erros de duplicata no campo
+Usuarios.razor — FullName, Email (MailAddress), Senha (min 6 + minúscula + dígito);
+                 erros de duplicata no campo; dialog separado para alterar senha
 
 PLACEHOLDERS (adicionados em todos os formulários)
 ---------------------------------------------------
@@ -171,6 +187,7 @@ BUGS CORRIGIDOS (histórico)
 6. Recibo Acréscimo zerado: calcula via SurchargePercentage, não AmountWithSurchargeTotal
 7. Alinhamento de itens no recibo: <div> em vez de <tr> para alinhamentos independentes
 8. Categoria com zeros no formulário de produto: Guid → Guid? (começa nulo/vazio)
+9. PrintJobController 500 após AddDiscountToOrder: parâmetro DiscountAmount faltando no ctor do DTO
 
 PENDÊNCIAS MAPEADAS
 -------------------
@@ -184,6 +201,10 @@ FUNCIONAL:
   5. Filtro de categoria em Produtos: client-side hoje (quebra paginação)
   6. Filtro por data nos Pedidos (API suporta from/to, falta UI)
   7. Confirmação antes de desativar/excluir (MudMessageBox)
+
+UX/QUALIDADE:
+  8. Reativação de usuário desativado (hoje só desativa, não reativa)
+  9. Paginação client-side em Usuários (lista cresce com o tempo)
 
 ERROS COMUNS E SOLUÇÕES
 ------------------------

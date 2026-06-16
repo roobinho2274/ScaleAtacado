@@ -9,61 +9,74 @@ STACK
 - Frontend : Blazor WebAssembly .NET 8 + MudBlazor 9.4.0 — HTTPS 7252 / HTTP 5197
 - Banco    : PostgreSQL 15 (Docker, container: scale_atacado_db, porta 5432)
 - ORM      : Entity Framework Core
-- Auth     : JWT (Bearer) — login via /api/auth/setup (primeiro uso) ou /api/auth/login
-- Impressão: SignalR PrintHub + PrintJobController (API pronta; PrintAgent Windows ainda não implementado)
+- Auth     : JWT (Bearer) — token em sessionStorage (expira ao fechar o browser/aba)
+- Impressão: SignalR PrintHub + PrintJobController (API pronta; PrintAgent Windows pendente)
 
 ESTRUTURA DE PROJETOS
 ---------------------
 ScaleAtacado.Domain          — entidades, enums (PrintStatus: OnHoldem/Printing/Printed/Canceled)
 ScaleAtacado.Application     — DTOs, services, validators (FluentValidation), interfaces
-ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService
+ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService, Migrations
 ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares
 ScaleAtacado.Blazor          — frontend WASM
 ScaleAtacado.Shared          — ApiResponse<T>, PagedResult<T> (compartilhados)
 
 CONFIGURAÇÕES CRÍTICAS
 ----------------------
-- Blazor appsettings.json  : { "ApiUrl": "https://localhost:7039" }
-- .vscode/launch.json      : API usa "launchProfile": "https" (obrigatório para evitar mixed content)
-- CORS "BlazorPolicy"      : origens http://localhost:5197 e https://localhost:7252
+- API appsettings.json        : template sem segredos (connection string, JWT key, AgentKey vazios)
+- API appsettings.Development.json : segredos reais — NÃO está no git (ignorado)
+  Ao clonar o projeto, criar este arquivo com os valores reais.
+- Blazor wwwroot/appsettings.json : { "ApiUrl": "https://localhost:7039" }
+- CORS "BlazorPolicy"         : origens http://localhost:5197 e https://localhost:7252
 - Middleware order (Program.cs): app.UseCors() ANTES de app.UseHttpsRedirection()
-- docker-compose.yml       : APENAS PostgreSQL; sem Dockerfiles para API/Blazor ainda
-- PrintAgent:AgentKey      : "PrintAgent_ScaleAtacado_2026!" (em appsettings.json da API)
+- docker-compose.yml          : APENAS PostgreSQL; sem Dockerfiles para API/Blazor ainda
+- Swagger                     : DESATIVADO (removido do Program.cs; launchBrowser=false)
 
 BANCO DE DADOS
 --------------
-- Conexão padrão: "Host=localhost;Port=5432;Database=scale_atacado;Username=admin;Password=Scale@123"
+- Conexão: Host=localhost;Port=5432;Database=scale_atacado;Username=admin;Password=Scale@123
+  (apenas em appsettings.Development.json — fora do git)
 - Acesso direto: docker exec -it scale_atacado_db psql -U admin -d scale_atacado
-- Primeiro uso: POST /api/auth/setup  { "adminName","adminEmail","adminPassword","companyName" }
-  (verifica tabela Companies — se existir registro, retorna "já configurado")
-- Usuários ficam em AspNetUsers (ASP.NET Identity)
-- Perfis: Admin = 0, Attendant = 1
+- Primeiro uso: POST /api/auth/setup { "adminName","adminEmail","adminPassword","companyName" }
+  (pode ser chamado via curl, Postman ou PowerShell — sem Swagger)
+- Usuários: AspNetUsers (ASP.NET Identity) | Perfis: Admin=0, Attendant=1
+
+MIGRATIONS EF CORE (devem estar no git — definem o schema do banco)
+-------------------------------------------------------------------
+- InitialCreate
+- Phase1_DomainRefactor
+- AddDiscountToOrder          ← adicionada nesta sessão (coluna DiscountAmount na Orders)
+
+Para aplicar migrations:
+  docker compose up -d
+  dotnet ef database update --project ScaleAtacado.Infrastructure --startup-project ScaleAtacado.Api
 
 JWT CLAIMS
 ----------
 sub, email, companyId, fullName, profile (ex: "Admin"), role (ClaimTypes.Role), jti
+Token armazenado em sessionStorage (expira ao fechar browser/aba — login obrigatório a cada sessão)
 
 PÁGINAS BLAZOR IMPLEMENTADAS
 -----------------------------
-/pdv              — Ponto de Venda (cliente, produtos, qtd, pagamento, acréscimo, finalizar)
-/pedidos          — Lista paginada com filtros status entrega/financeiro; dialog de detalhes
-                    com atualização de status, desbloqueio (Admin), impressão de recibo
+/pdv              — Ponto de Venda: cliente, produtos, qtd, pagamento, desconto (R$), finalizar
+/pedidos          — Lista paginada c/ filtros; dialog de detalhes: aplicar desconto, status, recibo
 /clientes         — CRUD com busca por nome/documento/telefone
-/produtos         — CRUD com filtro por categoria; edição restrita a Admin; preço calculado ao vivo
+/produtos         — CRUD com filtro por categoria; edição restrita a Admin
 /login            — autenticação JWT
 /admin/formas-pagamento — CRUD de formas de pagamento com prazo e % acréscimo
 /admin/categorias       — CRUD de categorias de produto
-/admin/usuarios         — CRUD de usuários (Admin + Atendente); criar/editar/desativar
-/admin/auditoria        — log com filtro por período; detalhe de valor anterior/novo
+/admin/usuarios         — CRUD de usuários (Admin + Atendente)
+/admin/auditoria        — log com filtro por período
 
 SERVIÇOS BLAZOR (Services/)
 ----------------------------
-ApiHttpClient       — wrapper HTTP com JWT automático; todos os métodos com try/catch → null
+ApiHttpClient       — wrapper HTTP com JWT automático; try/catch → null
 ClienteService      — SearchAsync, GetByIdAsync, CreateAsync, UpdateAsync, DeactivateAsync
 ProductService      — GetAllAsync (paginado), GetAllActiveAsync (para PDV), CRUD
 PaymentMethodService — GetAllAsync(onlyActive?), CreateAsync, UpdateAsync, DeactivateAsync
-OrderService        — GetAllAsync (filtros), GetByIdAsync, CreateAsync, FinalizarAsync,
-                      UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync, DesbloquearAsync
+OrderService        — GetAllAsync, GetByIdAsync, CreateAsync, FinalizarAsync,
+                      UpdateDiscountAsync, UpdateDeliveryStatusAsync,
+                      UpdateFinancialStatusAsync, DesbloquearAsync
 CategoryService     — GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync
 UserService         — GetAllAsync, CreateAsync, UpdateAsync, DeactivateAsync
 AuditoriaService    — GetAllAsync(de?, ate?)
@@ -71,166 +84,114 @@ AuthService         — LoginAsync, LogoutAsync
 
 PADRÃO ApiResponse
 ------------------
-record ApiResponse<T>(bool Success, T? Data, string? Error)  — Ok(data) / Fail(error)
+record ApiResponse<T>(bool Success, T? Data, string? Error)
 record PagedResult<T>(IEnumerable<T> Items, int TotalCount, int Page, int PageSize)
 
-BUGS CORRIGIDOS (sessões anteriores)
---------------------------------------
-1. Páginas em branco: ApiHttpClient.GetAsync usava GetFromJsonAsync (lança em non-2xx);
-   corrigido para _http.GetAsync() + r.Content.ReadFromJsonAsync() (não lança).
+FUNCIONALIDADE DE DESCONTO (implementada nesta sessão)
+------------------------------------------------------
+- Campo DiscountAmount (decimal, default 0) na entidade Order e na tabela Orders
+- PDV: campo "Desconto (R$)" no resumo antes de finalizar; refletido no Total em tempo real
+- Pedidos: seção "Aplicar Desconto" no dialog de detalhes (edição pós-criação)
+- Endpoint: PATCH /api/pedido/{id}/desconto { DiscountAmount }
+- Cálculo: AmountWithSurchargeTotal = (AmountTotal × fator) − DiscountAmount
+- Recibo: linha "Desconto" mostra o valor real; TOTAL reflete o desconto
 
-2. Barra amarela (#blazor-error-ui): mesmo motivo do item 1.
+RECIBO DE IMPRESSÃO — ESTADO ATUAL
+------------------------------------
+JS printRecibo(html) em index.html: window.open + doc.write + setTimeout(400ms) + print()
+- Cabeçalho: nº pedido, data, dados completos do cliente, forma de pagamento
+- Itens (2 linhas por div):
+    Linha 1: #N [CODIGO] Nome (esquerda, truncado com "…")
+    Linha 2: qtd × R$ unitário_com_acréscimo = R$ total (direita)
+- Totais: Subtotal | Desconto | TOTAL
+- Acréscimo embutido no preço unitário — não exibido como linha separada
 
-3. Mixed content (HTTPS→HTTP bloqueado): ApiUrl mudou para https://7039; launch.json
-   adicionou "launchProfile":"https"; CORS reordenado antes de UseHttpsRedirection.
+VALIDAÇÃO CLIENT-SIDE (padrão unificado)
+-----------------------------------------
+Campos string? _erroX → Error/ErrorText nos MudTextField; ValidarXxx() antes de chamar API.
+Pdv.razor     — Nome, CPF/CNPJ (11/14 dígitos), Telefone, Endereço, Observações
+Clientes.razor — mesmos campos
+Produtos.razor — Nome, Código SKU, Categoria (Guid? — começa vazia), CostPrice, Margem
+Categorias.razor — Nome, Descrição
+Usuarios.razor — FullName, Email (MailAddress), Senha (min 6); erros de duplicata no campo
 
-4. Produto 400 ao criar: FluentValidation validava CompanyId != Guid.Empty mas Blazor
-   envia Guid.Empty; removida a regra de CompanyId do CreateProductValidator.
-
-5. PDV sem produtos: ProductService.GetAllActiveAsync deserializava PagedResult<T> como
-   IEnumerable<T>; corrigido para ler PagedResult e retornar .Items.
-
-6. Dialog "Novo Cliente" crash (MudOverlay duplicate section): substituído bloco
-   @if + <MudOverlay> + <div posicionado> por <MudDialog @bind-Visible> padrão.
-   CAUSA: MudBlazor 9 usa SectionOutlet internamente no MudOverlay; conflita com
-   MudPopoverProvider já registrado no MainLayout.
-
-7. Recibo — cálculo de Acréscimo zerado: AmountWithSurchargeTotal gravado no banco pode
-   divergir do SurchargePercentage atual da forma de pagamento (se % for alterado após
-   o pedido). Solução: ImprimirReciboAsync calcula tudo a partir de AmountTotal +
-   SurchargePercentage (não usa AmountWithSurchargeTotal).
-
-8. Recibo — alinhamento de itens: itens estavam em <table> rows com colspan=2; o CSS
-   td:last-child{text-align:right} afetava também as linhas de colspan. Solução:
-   itens convertidos para <div> com alinhamento explícito por linha; tabela de totais
-   recebeu class="totais" para CSS isolado.
-
-RECIBO DE IMPRESSÃO — ESTADO ATUAL (Pedidos.razor → ImprimirReciboAsync)
---------------------------------------------------------------------------
-- Busca dados completos do cliente ao abrir o pedido (ClienteService.GetByIdAsync)
-- JS printRecibo(html) em index.html: window.open + doc.write + setTimeout(400ms) + print()
-- Cabeçalho: número do pedido, data, nome/CPF-CNPJ/endereço/telefone do cliente,
-  forma de pagamento (+ % acréscimo quando aplicável)
-- Itens em 2 linhas usando <div> (não <tr> — garante alinhamentos independentes):
-    Linha 1 (esquerda, overflow:hidden + text-overflow:ellipsis): #N [CODIGO] Nome
-    Linha 2 (direita): qtd × R$ unitBase [→ R$ unitComAcrescimo] = R$ total
-- Rodapé (tabela class="totais"): Subtotal | Acréscimo (se houver) | TOTAL
-
-PRÓXIMA ALTERAÇÃO SOLICITADA NO RECIBO (ainda não aplicada):
-  - Embutir acréscimo direto no preço unitário dos itens (ex: Coca R$10 + 10% → R$11)
-  - Remover a linha "Acréscimo" do rodapé
-  - Adicionar linha "Desconto: R$ 0,00" no rodapé (placeholder para próxima etapa)
-  - Pagamento: exibir apenas o nome (sem o "(+X%)")
-
-VALIDAÇÃO CLIENT-SIDE (padrão unificado em todos os formulários)
------------------------------------------------------------------
-PADRÃO: campos string? _erroX, MudTextField com Error="@(_erroX != null)" ErrorText="@_erroX",
-método ValidarXxx() chamado antes de toda chamada à API. Erros da API (duplicatas, etc.)
-mapeados para o campo específico (não snackbar genérico).
-
-Pdv.razor — Novo Cliente:
-  Nome: obrigatório, max 200
-  CPF/CNPJ: obrigatório, 11 dígitos (CPF) ou 14 dígitos (CNPJ)
-  Telefone: obrigatório, max 20
-  Endereço: obrigatório, max 300
-  Observações: opcional, max 500
-  Erro de CPF/CNPJ duplicado da API → exibe no campo CPF/CNPJ
-
-Produtos.razor:
-  Nome: obrigatório, max 100
-  Código: opcional, max 50
-  Categoria: obrigatório (Guid != Empty)
-  Preço de Custo: obrigatório, > 0
-  Margem de Lucro: 0–1000%
-  MudSelect e MudNumericField também usam Error/ErrorText
-
-Admin/Categorias.razor:
-  Nome: obrigatório, max 100
-  Descrição: opcional, max 250
-
-Admin/Usuarios.razor:
-  Criar — FullName: obrigatório, max 200; Email: obrigatório, formato válido; Senha: min 6
-  Editar — FullName: obrigatório, max 200
-  EmailValido(): new System.Net.Mail.MailAddress(email) em try/catch
-  Erro de email duplicado da API → exibe no campo Email
+PLACEHOLDERS (adicionados em todos os formulários)
+---------------------------------------------------
+Todos os campos de texto têm Placeholder descritivo e HelperText onde relevante.
+Campos de busca também têm placeholder (ex: "Nome, CPF/CNPJ ou telefone...").
 
 INFRAESTRUTURA DE IMPRESSÃO — API (100% PRONTA)
 ------------------------------------------------
-PrintHub.cs:
-  - OnConnectedAsync: ?agentKey=xxx → grupo "PrintAgents"; demais → grupo "Clients"
+PrintHub.cs: ?agentKey=xxx → grupo "PrintAgents"; demais → grupo "Clients"
+PrintJobController:
+  GET  /api/printjob/pendentes        (X-Agent-Key)
+  PATCH /api/printjob/{id}/status     (X-Agent-Key) + notifica "Clients" via SignalR
+  GET  /api/printjob/{jobId}/order    (X-Agent-Key) — retorna OrderResponseDto completo
+  GET  /api/printjob                  (JWT Admin)
+PedidoController.Finalizar: cria PrintJob OnHoldem → SignalR "NewPrintJob" {printJobId}
+Chave do agente: em appsettings.Development.json → PrintAgent:AgentKey
 
-PrintJobController.cs:
-  - GET  /api/printjob/pendentes        — retorna jobs OnHoldem+Failed (X-Agent-Key)
-  - PATCH /api/printjob/{id}/status     — atualiza status + notifica grupo "Clients" (X-Agent-Key)
-  - GET  /api/printjob/{jobId}/order    — retorna OrderResponseDto completo (X-Agent-Key)
-  - GET  /api/printjob                  — monitoramento (JWT Admin)
+FLUXO DO PRINT AGENT (app Windows — ainda não implementado)
+------------------------------------------------------------
+1. PDV finaliza → API cria PrintJob (OnHoldem) → SignalR "NewPrintJob" {jobId}
+2. PrintAgent recebe → GET /api/printjob/{jobId}/order
+3. Formata recibo → imprime via System.Drawing.Printing (Windows GDI+)
+4. PATCH /api/printjob/{jobId}/status → Printed
+5. API notifica Blazor via "PrintJobStatusChanged"
+Failsafe: ao iniciar, consulta GET /pendentes e processa jobs perdidos
+Instalação: New-Service + Start-Service (ver instruções no chat)
 
-PedidoController.Finalizar:
-  - Cria PrintJob com Status=OnHoldem
-  - Emite SignalR: _printHub.Clients.Group("PrintAgents").SendAsync("NewPrintJob", printJobId)
+SEGURANÇA E SESSÃO
+------------------
+- Token JWT em sessionStorage (não persiste entre sessões do browser)
+- Ao abrir nova aba ou fechar/reabrir o browser: login obrigatório
+- F5 na mesma aba: mantém sessão (comportamento esperado)
+- appsettings.Development.json fora do git (segredos protegidos)
+- Swagger desativado em produção e sem abertura automática do browser
 
-Autenticação do agente: header X-Agent-Key (sem JWT)
-Chave: "PrintAgent_ScaleAtacado_2026!" (PrintAgent:AgentKey em appsettings.json)
+GIT / CONTROLE DE VERSÃO
+--------------------------
+Arquivos ignorados (.gitignore):
+  appsettings.Development.json  — segredos reais
+  .vscode/                      — config local de IDE
+  *.docx                        — documentos Word
+  bin/, obj/, .vs/              — artefatos de build (padrão VS)
+Arquivos rastreados importantes:
+  appsettings.json              — template sem valores (serve de documentação das chaves)
+  Migrations/                   — DEVE estar no git (histórico do schema)
+  RESUMO_PROJETO.txt            — este arquivo
 
-FLUXO COMPLETO DO PRINT AGENT
-------------------------------
-1. PDV finaliza pedido → API cria PrintJob (OnHoldem) → SignalR "NewPrintJob" {jobId}
-2. PrintAgent recebe evento → GET /api/printjob/{jobId}/order
-3. Formata recibo como texto → imprime via Windows GDI+ (System.Drawing.Printing)
-4. PATCH /api/printjob/{jobId}/status → { Status: "Printed" }
-5. API notifica Blazor via SignalR "PrintJobStatusChanged"
-Failsafe: ao religar, PrintAgent consulta GET /pendentes e processa jobs perdidos
-
-INSTALAÇÃO DO PRINT AGENT (quando implementado)
-------------------------------------------------
-1. Editar appsettings.json: ApiUrl, AgentKey, PrinterName (vazio = padrão do Windows)
-2. Descobrir nome da impressora: Get-Printer | Select Name, Default
-3. Registrar serviço Windows:
-   New-Service -Name "ScaleAtacadoPrint" -BinaryPathName "...\ScaleAtacado.PrintAgent.exe"
-               -DisplayName "ScaleAtacado - Agente de Impressão" -StartupType Automatic
-   Start-Service ScaleAtacadoPrint
-4. Certificado HTTPS: dotnet dev-certs https --trust
+BUGS CORRIGIDOS (histórico)
+-----------------------------
+1. Páginas em branco: GetFromJsonAsync → GetAsync + ReadFromJsonAsync
+2. Mixed content HTTPS→HTTP: ApiUrl corrigida + CORS reordenado
+3. Produto 400: CompanyId != Guid.Empty removido do validator
+4. PDV sem produtos: PagedResult desserializado corretamente
+5. Dialog "Novo Cliente" crash (MudOverlay): substituído por <MudDialog @bind-Visible>
+6. Recibo Acréscimo zerado: calcula via SurchargePercentage, não AmountWithSurchargeTotal
+7. Alinhamento de itens no recibo: <div> em vez de <tr> para alinhamentos independentes
+8. Categoria com zeros no formulário de produto: Guid → Guid? (começa nulo/vazio)
 
 PENDÊNCIAS MAPEADAS
 -------------------
 CRÍTICO:
-  1. [PRÓXIMO PASSO] Alterar recibo: embutir acréscimo no preço do item, trocar linha
-     Acréscimo por Desconto: R$ 0,00 (ver detalhe em "PRÓXIMA ALTERAÇÃO SOLICITADA")
-  2. [PRÓXIMO PASSO] Desconto: implementar lógica de desconto nos pedidos
-  3. PrintAgent: criar projeto ScaleAtacado.PrintAgent (Worker Service .NET 8)
-     — SignalR client + polling /pendentes + Windows printing + PATCH status
-  4. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
+  1. PrintAgent: criar ScaleAtacado.PrintAgent (Worker Service .NET 8)
+  2. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
 
 FUNCIONAL:
-  5. Auditoria de logoff: endpoint POST /api/auth/logout + chamada no Blazor
-  6. Auditoria de Clientes e Usuários: ClienteAppService e UserAppService não chamam
-     RegistrarAsync (só AuthController, OrderAppService e ProductAppService auditam)
-  7. Filtro de categoria em Produtos: aplicado client-side hoje (bug de paginação);
-     precisar adicionar categoryId no ProductController/AppService/Repository
-
-UX:
-  8. Filtro por data nos Pedidos (API já suporta from/to, falta UI)
-  9. Confirmação antes de desativar/excluir (MudMessageBox)
-  10. Label de busca em Clientes diz "nome ou documento" mas já busca telefone também
-  11. Dashboard/Home com métricas (vendas do dia, pedidos pendentes, etc.)
+  3. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
+  4. Auditoria de Clientes e Usuários (ClienteAppService/UserAppService não auditam)
+  5. Filtro de categoria em Produtos: client-side hoje (quebra paginação)
+  6. Filtro por data nos Pedidos (API suporta from/to, falta UI)
+  7. Confirmação antes de desativar/excluir (MudMessageBox)
 
 ERROS COMUNS E SOLUÇÕES
 ------------------------
-- 401 em todas as chamadas: token expirado ou API reiniciada com nova chave.
-  Solução: logout + login novamente.
-
-- "O sistema já foi configurado": tabela Companies tem registro.
-  Solução: DELETE FROM "Companies"; — NÃO basta apagar AspNetUsers.
-
-- MudOverlay crash "already a subscriber to mud-overlay-to-popover-provider":
-  Causa: MudOverlay usado diretamente; MudBlazor 9 registra SectionOutlet internamente.
-  Solução: usar <MudDialog @bind-Visible> em vez de MudOverlay manual.
-
-- Produto/Cliente com 400 sem mensagem: FluentValidation retorna ValidationProblemDetails
-  (não ApiResponse), então o catch em ApiHttpClient retorna null.
-  Solução: validar client-side antes de chamar a API (padrão já implementado).
-
-- Acréscimo zerado no recibo: AmountWithSurchargeTotal no banco pode estar desatualizado.
-  Solução: calcular sempre a partir de AmountTotal * (1 + SurchargePercentage/100).
+- 401: token expirado → logout + login
+- "Sistema já configurado": DELETE FROM "Companies"; (não basta apagar AspNetUsers)
+- MudOverlay crash: usar <MudDialog @bind-Visible> em vez de MudOverlay manual
+- 400 sem mensagem: FluentValidation → ValidationProblemDetails (não ApiResponse)
+  → validar client-side antes de chamar a API
+- 500 ao criar pedido: migration pendente → dotnet ef database update
 
 ================================================================================

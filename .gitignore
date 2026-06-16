@@ -361,3 +361,12 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# VS Code - configurações locais de máquina
+.vscode/
+
+# Segredos de aplicação — os valores reais ficam aqui, fora do git
+appsettings.Development.json
+
+# Documentos Word (binários, sem diff útil no git)
+*.docx

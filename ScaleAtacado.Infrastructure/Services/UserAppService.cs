@@ -81,6 +81,25 @@ public class UserAppService
         return ApiResponse<IEnumerable<UserResponseDto>>.Ok(users.Select(ToDto));
     }
 
+    public async Task<ApiResponse> ChangePasswordAsync(Guid id, string newPassword, Guid companyId)
+    {
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null || user.CompanyId != companyId)
+            return ApiResponse.Fail("Usuário não encontrado.");
+
+        // Gera token interno para reset sem exigir a senha atual (fluxo de admin)
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            return ApiResponse.Fail(errors);
+        }
+
+        return ApiResponse.Ok();
+    }
+
     public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());

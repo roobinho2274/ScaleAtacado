@@ -39,10 +39,16 @@
         <MudTd DataLabel="Cadastro" Style="text-align:center">@context.CreatedAt.ToString("dd/MM/yyyy")</MudTd>
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                title="Editar dados"
                 OnClick="@(() => AbrirEdicao(context))" />
+            <MudIconButton Icon="@Icons.Material.Filled.Lock" Size="Size.Small"
+                title="Alterar senha"
+                Color="Color.Warning"
+                OnClick="@(() => AbrirAlterarSenha(context))" />
             @if (context.IsActive)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
+                    title="Desativar usuário"
                     Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
             }
         </MudTd>
@@ -63,10 +69,15 @@
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_erroEmail != null)" ErrorText="@_erroEmail" />
         <MudTextField @bind-Value="_formNovo.Password" Label="Senha" InputType="InputType.Password"
-            Placeholder="Mínimo 6 caracteres, com letras e números"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            HelperText="Mínimo 6 caracteres"
+            Placeholder="Crie uma senha segura"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
             Error="@(_erroSenha != null)" ErrorText="@_erroSenha" />
+        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
+            <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Mínimo de 6 caracteres</MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Pelo menos uma letra minúscula (a-z)</MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Pelo menos um número (0-9)</MudText>
+        </MudPaper>
         <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formNovo.Profile"
             Variant="Variant.Outlined" FullWidth="true">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
@@ -107,21 +118,60 @@
     </DialogActions>
 </MudDialog>
 
+<!-- Dialog: Alterar Senha -->
+<MudDialog @bind-Visible="_dialogSenha" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        Alterar Senha — @_alterandoSenha?.FullName
+    </TitleContent>
+    <DialogContent>
+        <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
+            A senha é armazenada criptografada. Nem administradores conseguem ver a senha atual.
+        </MudAlert>
+        <MudTextField @bind-Value="_formSenha.NewPassword" Label="Nova Senha" InputType="InputType.Password"
+            Placeholder="Crie uma senha segura"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
+            Error="@(_erroNovaSenha != null)" ErrorText="@_erroNovaSenha" />
+        <MudTextField @bind-Value="_formSenha.Confirm" Label="Confirmar Nova Senha" InputType="InputType.Password"
+            Placeholder="Repita a senha"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_erroConfirmar != null)" ErrorText="@_erroConfirmar" />
+        <MudPaper Class="pa-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
+            <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Mínimo de 6 caracteres</MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Pelo menos uma letra minúscula (a-z)</MudText>
+            <MudText Typo="Typo.caption" Style="display:block">• Pelo menos um número (0-9)</MudText>
+        </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogSenha = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning"
+            OnClick="SalvarSenhaAsync" Disabled="_salvando">
+            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Alterar Senha
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<UserResponseDto> _usuarios = new();
     private bool _carregando;
     private bool _dialogNovo;
     private bool _dialogEditar;
+    private bool _dialogSenha;
     private bool _salvando;
     private UserResponseDto? _editando;
+    private UserResponseDto? _alterandoSenha;
 
     private NovoVm _formNovo = new();
     private EditarVm _formEditar = new();
+    private SenhaVm _formSenha = new();
 
     private string? _erroNomeNovo;
     private string? _erroEmail;
     private string? _erroSenha;
     private string? _erroNomeEditar;
+    private string? _erroNovaSenha;
+    private string? _erroConfirmar;
 
     protected override async Task OnInitializedAsync() => await CarregarAsync();
 
@@ -148,6 +198,14 @@
         _dialogEditar = true;
     }
 
+    private void AbrirAlterarSenha(UserResponseDto u)
+    {
+        _alterandoSenha = u;
+        _formSenha = new SenhaVm();
+        _erroNovaSenha = _erroConfirmar = null;
+        _dialogSenha = true;
+    }
+
     private bool ValidarNovo()
     {
         _erroNomeNovo = _erroEmail = _erroSenha = null;
@@ -162,10 +220,7 @@
         else if (!EmailValido(_formNovo.Email))
             _erroEmail = "E-mail inválido.";
 
-        if (string.IsNullOrWhiteSpace(_formNovo.Password))
-            _erroSenha = "Senha é obrigatória.";
-        else if (_formNovo.Password.Length < 6)
-            _erroSenha = "Senha deve ter no mínimo 6 caracteres.";
+        _erroSenha = ValidarSenha(_formNovo.Password);
 
         return _erroNomeNovo == null && _erroEmail == null && _erroSenha == null;
     }
@@ -180,6 +235,33 @@
             _erroNomeEditar = "Nome deve ter no máximo 200 caracteres.";
 
         return _erroNomeEditar == null;
+    }
+
+    private bool ValidarAlterarSenha()
+    {
+        _erroNovaSenha = _erroConfirmar = null;
+
+        _erroNovaSenha = ValidarSenha(_formSenha.NewPassword);
+
+        if (string.IsNullOrWhiteSpace(_formSenha.Confirm))
+            _erroConfirmar = "Confirmação de senha é obrigatória.";
+        else if (_formSenha.NewPassword != _formSenha.Confirm)
+            _erroConfirmar = "As senhas não coincidem.";
+
+        return _erroNovaSenha == null && _erroConfirmar == null;
+    }
+
+    private static string? ValidarSenha(string senha)
+    {
+        if (string.IsNullOrWhiteSpace(senha))
+            return "Senha é obrigatória.";
+        if (senha.Length < 6)
+            return "Senha deve ter no mínimo 6 caracteres.";
+        if (!senha.Any(char.IsLower))
+            return "Senha deve conter pelo menos uma letra minúscula (a-z).";
+        if (!senha.Any(char.IsDigit))
+            return "Senha deve conter pelo menos um número (0-9).";
+        return null;
     }
 
     private static bool EmailValido(string email)
@@ -233,6 +315,22 @@
         _salvando = false;
     }
 
+    private async Task SalvarSenhaAsync()
+    {
+        if (!ValidarAlterarSenha()) return;
+        _salvando = true;
+
+        var resp = await UserService.ChangePasswordAsync(_alterandoSenha!.Id, _formSenha.NewPassword);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add($"Senha de {_alterandoSenha.FullName} alterada com sucesso!", Severity.Success);
+            _dialogSenha = false;
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao alterar senha.", Severity.Error);
+
+        _salvando = false;
+    }
+
     private async Task DesativarAsync(UserResponseDto u)
     {
         var resp = await UserService.DeactivateAsync(u.Id);
@@ -256,5 +354,11 @@
     {
         public string FullName { get; set; } = "";
         public UserProfile Profile { get; set; } = UserProfile.Attendant;
+    }
+
+    private class SenhaVm
+    {
+        public string NewPassword { get; set; } = "";
+        public string Confirm { get; set; } = "";
     }
 }

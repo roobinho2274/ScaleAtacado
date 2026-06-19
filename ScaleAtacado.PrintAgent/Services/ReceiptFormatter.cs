@@ -12,7 +12,11 @@ public class ReceiptFormatter
         var surchargeRate = 1 + order.SurchargePercentage / 100m;
 
         lines.Add(Line('='));
-        lines.Add(Center("ScaleAtacado"));
+        lines.Add(Center(order.CompanyName ?? "ScaleAtacado"));
+        if (!string.IsNullOrWhiteSpace(order.CompanyCNPJ))
+            lines.Add(Center($"CNPJ: {order.CompanyCNPJ}"));
+        if (!string.IsNullOrWhiteSpace(order.CompanyAddress))
+            lines.Add(Center(Truncate(order.CompanyAddress, Width)));
         lines.Add(Center("PEDIDO DE COMPRA"));
         lines.Add(Line('='));
         lines.Add($"Pedido: #{order.OrderNumber:D4}");

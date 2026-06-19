@@ -5,6 +5,7 @@
 @inject IDialogService DialogService
 @inject CustomerService CustomerService
 @inject PaymentMethodService PaymentMethodService
+@inject CompanyService CompanyService
 
 <PageTitle>Pedidos — ScaleAtacado</PageTitle>
 
@@ -305,11 +306,15 @@
     private List<PaymentMethodResponseDto> _paymentMethods = new();
     private bool _printPreviewOpen;
     private string _printPreviewHtml = "";
+    private CompanyResponseDto? _company;
 
     protected override async Task OnInitializedAsync()
     {
-        var pmResp = await PaymentMethodService.GetAllAsync(onlyActive: true);
+        var pmResp   = await PaymentMethodService.GetAllAsync(onlyActive: true);
         _paymentMethods = pmResp?.Data?.ToList() ?? new();
+
+        var compResp = await CompanyService.GetAsync();
+        _company = compResp?.Data;
     }
 
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
@@ -491,6 +496,16 @@
         var subtotalRec   = Math.Round(o.AmountTotal * surchargeRate, 2);
         var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount);
 
+        var companyName    = H(_company?.Name ?? "ScaleAtacado");
+        var companyCnpj    = H(_company?.CNPJ ?? "");
+        var companyAddress = H(_company?.Address ?? "");
+
+        var companyHeader =
+            $"<h2>{companyName}</h2>" +
+            (companyCnpj.Length    > 0 ? $"<p class='sub'>CNPJ: {companyCnpj}</p>"      : "") +
+            (companyAddress.Length > 0 ? $"<p class='sub'>{companyAddress}</p>"          : "") +
+            "<p class='sub'>PEDIDO DE COMPRA</p>";
+
         return
             "<!DOCTYPE html><html><head><meta charset='utf-8'/>" +
             $"<title>Pedido #{o.OrderNumber}</title>" +
@@ -506,8 +521,7 @@
             ".tot{font-weight:bold;font-size:13px}" +
             ".rodape{text-align:center;font-size:10px;margin-top:10px}" +
             "</style></head><body>" +
-            "<h2>ScaleAtacado</h2>" +
-            "<p class='sub'>PEDIDO DE COMPRA</p>" +
+            companyHeader +
             "<hr/>" +
             $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +
             $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +

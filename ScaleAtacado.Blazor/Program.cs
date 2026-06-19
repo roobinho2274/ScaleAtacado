@@ -28,5 +28,6 @@ builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuditLogService>();
+builder.Services.AddScoped<CompanyService>();
 
 await builder.Build().RunAsync();

@@ -83,9 +83,11 @@ public class AuthController : ControllerBase
         // Criar empresa
         var company = new Company
         {
-            Id = Guid.NewGuid(),
-            Name = dto.CompanyName,
-            CNPJ = dto.CompanyCNPJ,
+            Id      = Guid.NewGuid(),
+            Name    = dto.CompanyName,
+            CNPJ    = dto.CompanyCNPJ,
+            Address = dto.CompanyAddress,
+            Phone   = dto.CompanyPhone,
             IsActive = true
         };
 

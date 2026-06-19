@@ -91,6 +91,7 @@ UserProfile     : Admin=0, Attendant=1
 
 INTERFACES (Application/Interfaces)
 -------------------------------------
+ICompanyRepository    : GetByIdAsync, UpdateAsync, SaveChangesAsync
 ICustomerRepository   : GetByTaxIdAsync, SearchAsync, GetByIdAsync, AddAsync, UpdateAsync, SaveChangesAsync
 IAuditLogRepository   : AddAsync, GetByCompanyAsync, SaveChangesAsync
 IOrderRepository      : GetByIdAsync, GetAllAsync(customerId,...), GetNextOrderNumberAsync, AddAsync, UpdateAsync, SaveChangesAsync
@@ -98,22 +99,28 @@ IProductRepository, ICategoryRepository, IPaymentMethodRepository — nomes já 
 
 DTOs (Application/DTOs)
 ------------------------
+CompanyResponseDto(Id, Name, CNPJ, Address?, Phone?, IsActive)
+UpdateCompanyDto(Name, CNPJ, Address?, Phone?)
 CustomerResponseDto(Id, CompanyId, LegalName, TaxId, Address, Phone, Notes, IsActive)
 CreateCustomerDto(LegalName, TaxId, Address, Phone, Notes)
 UpdateCustomerDto(LegalName, TaxId, Address, Phone, Notes, IsActive)
 AuditLogResponseDto(Id, CompanyId, UserId, Operation, EntityName, EntityId, PreviousValue, NewValue, Timestamp)
 OrderResponseDto        — inclui CustomerId, CustomerName, PaymentMethodId, PaymentMethodName,
-                          SurchargePercentage (lido direto do PaymentMethod, não armazenado no Order)
+                          SurchargePercentage (lido direto do PaymentMethod, não armazenado no Order);
+                          campos opcionais: CompanyName?, CompanyCNPJ?, CompanyAddress?
+                          (preenchidos apenas pela rota do PrintAgent: GET /api/printjob/{id}/order)
 OrderListItemDto        — inclui CustomerName (renomeado de ClienteNome)
 CreateOrderDto          — inclui CustomerId (renomeado de ClienteId)
 UpdateOrderPaymentMethodDto(PaymentMethodId) — para PATCH /api/order/{id}/payment
 
 SERVICES (Application/Services)
 ---------------------------------
+CompanyAppService   — GetAsync(companyId), UpdateAsync(companyId, dto)
 CustomerAppService  — CreateAsync, UpdateAsync, GetByIdAsync, GetAllAsync, DeactivateAsync
 AuditLogAppService  — RecordAsync(companyId, userId, operation, entityName, entityId?, previousValue?, newValue?)
                       GetByCompanyAsync(companyId, from?, to?)
-OrderAppService     — CreateAsync, GetAllAsync, GetByIdAsync, FinalizeAsync, UnlockAsync,
+OrderAppService     — CreateAsync, GetAllAsync, GetByIdAsync, FinalizeAsync (não cria PrintJob),
+                      UnlockAsync, CreatePrintJobAsync(orderId, companyId) → ApiResponse<Guid>,
                       UpdatePaymentMethodAsync, UpdateDiscountAsync,
                       UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync
 ProductAppService   — CreateAsync, UpdateAsync, GetByIdAsync, GetAllAsync, DeactivateAsync
@@ -146,7 +153,10 @@ DbSet<Company>     Companies
 API ROUTES
 ----------
 POST   /api/auth/login
-POST   /api/auth/setup
+POST   /api/auth/setup             { adminName, adminEmail, adminPassword, companyName, companyCNPJ,
+                                     companyAddress?, companyPhone? }
+GET    /api/company                (JWT — todos os usuários autenticados)
+PUT    /api/company                { Name, CNPJ, Address?, Phone? }   (AdminOnly)
 GET    /api/customer
 GET    /api/customer/{id}
 POST   /api/customer
@@ -158,6 +168,7 @@ GET    /api/order/{id}
 POST   /api/order
 POST   /api/order/{id}/finalize
 POST   /api/order/{id}/unlock
+POST   /api/order/{id}/printjob    — cria PrintJob e dispara SignalR "NewPrintJob" ao grupo PrintAgents
 PATCH  /api/order/{id}/payment     { PaymentMethodId }      (AdminOnly — recalcula totais)
 PATCH  /api/order/{id}/discount    { DiscountAmount }
 PATCH  /api/order/{id}/delivery    { Status }
@@ -170,7 +181,7 @@ PATCH  /api/user/{id}/password     { NewPassword }
 DELETE /api/user/{id}
 GET    /api/printjob/pending       (X-Agent-Key)
 PATCH  /api/printjob/{id}/status   (X-Agent-Key)
-GET    /api/printjob/{id}/order    (X-Agent-Key)
+GET    /api/printjob/{id}/order    (X-Agent-Key) — retorna OrderResponseDto com CompanyName/CNPJ/Address
 GET    /api/printjob               (JWT Admin)
 
 JWT CLAIMS
@@ -188,22 +199,31 @@ PÁGINAS BLAZOR IMPLEMENTADAS
                           nota de rodapé quando há acréscimo,
                           desconto, status entrega/financeiro,
                           seção Admin: alterar forma de pagamento (recalcula totais),
-                          desbloquear pedido, imprimir recibo (JS printRecibo);
-                          Injeta PaymentMethodService para carregar lista de formas de pagamento
+                          desbloquear pedido, botão "Imprimir Recibo";
+                          ao clicar em "Imprimir Recibo": abre MudDialog com <iframe srcdoc="...">
+                          mostrando prévia HTML do recibo (nome/CNPJ/endereço da empresa dinâmicos);
+                          botão "Confirmar Impressão" chama POST /api/order/{id}/printjob
+                          e dispara SignalR para o PrintAgent físico;
+                          Injeta PaymentMethodService e CompanyService
 /clientes               — CRUD com busca por nome/CPF-CNPJ/telefone
 /produtos               — CRUD paginado com filtro categoria; edição restrita a Admin
 /admin/formas-pagamento — CRUD: nome, prazo (dias), acréscimo (%)
 /admin/categorias       — CRUD simples
 /admin/usuarios         — CRUD + dialog separado "Alterar Senha"; perfis Admin/Atendente
+/admin/empresa          — Edição de dados da empresa: Nome, CNPJ, Endereço, Telefone;
+                          GET /api/company ao carregar, PUT /api/company ao salvar (AdminOnly)
 /admin/auditoria        — log com filtro por período; dialog de detalhes c/ valor anterior/novo
 
 SERVIÇOS BLAZOR (Services/)
 ----------------------------
-ApiHttpClient        — wrapper HTTP com JWT automático; erros → null
+ApiHttpClient        — wrapper HTTP com JWT automático; erros → null;
+                       PutAsync<T> (genérico) e PutAsync não-genérico (retorna ApiResponse)
+CompanyService       — GetAsync() → GET /api/company, UpdateAsync(dto) → PUT /api/company
 CustomerService      — SearchAsync, GetByIdAsync, CreateAsync, UpdateAsync, DeactivateAsync
 ProductService       — GetAllAsync(paginado), GetAllActiveAsync, CreateAsync, UpdateAsync, DeactivateAsync
 PaymentMethodService — GetAllAsync(onlyActive?), CreateAsync, UpdateAsync, DeactivateAsync
 OrderService         — GetAllAsync, GetByIdAsync, CreateAsync, FinalizeAsync, UnlockAsync,
+                       CreatePrintJobAsync(orderId) → POST /api/order/{id}/printjob,
                        UpdatePaymentMethodAsync, UpdateDiscountAsync,
                        UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync
 CategoryService      — GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync
@@ -241,6 +261,22 @@ ALTERAÇÃO DE FORMA DE PAGAMENTO EM PEDIDOS (Admin)
     • Ao salvar: chama OrderService.UpdatePaymentMethodAsync → recarrega pedido
 - SurchargePercentage vem do OrderResponseDto (calculado ao buscar, não armazenado na tabela)
 
+PERSONALIZAÇÃO DA EMPRESA
+--------------------------
+- Entidade Company (tabela Companies): Name, CNPJ, Address?, Phone?, IsActive
+- GET  /api/company  — retorna dados da empresa do usuário autenticado
+- PUT  /api/company  — atualiza Name, CNPJ, Address, Phone (AdminOnly)
+- POST /api/auth/setup agora aceita companyAddress? e companyPhone? opcionais
+- ICompanyRepository → CompanyRepository (Infrastructure)
+- CompanyAppService: GetAsync, UpdateAsync (Application)
+- Blazor /admin/empresa: formulário simples; carrega via CompanyService.GetAsync() e salva via UpdateAsync()
+- Blazor CompanyService: GetAsync() → GET /api/company, UpdateAsync(dto) → PUT /api/company
+- Pedidos.razor: injeta CompanyService, carrega _company em OnInitializedAsync;
+  BuildReceiptHtml usa _company?.Name/CNPJ/Address no cabeçalho da prévia (fallback "ScaleAtacado")
+- PrintJobController.GetOrderForAgent: injeta ICompanyRepository, preenche
+  CompanyName/CompanyCNPJ/CompanyAddress no OrderResponseDto antes de retornar ao PrintAgent
+- ReceiptFormatter: Center(order.CompanyName ?? "ScaleAtacado") + linhas de CNPJ e Endereço se presentes
+
 EXIBIÇÃO DE PREÇOS COM ACRÉSCIMO (Pedidos.razor — dialog de detalhes)
 -----------------------------------------------------------------------
 - UnitPrice e TotalPrice nos OrderItems são armazenados sem acréscimo (preço base)
@@ -252,13 +288,30 @@ EXIBIÇÃO DE PREÇOS COM ACRÉSCIMO (Pedidos.razor — dialog de detalhes)
     "* Preços exibidos com acréscimo de X% (NomeForma) já incluído."
 - AmountWithSurchargeTotal (o total final correto) é mostrado diretamente do DTO — já está correto
 
-RECIBO DE IMPRESSÃO (browser)
-------------------------------
-JS printRecibo(html) em index.html: window.open + doc.write + setTimeout(400ms) + print()
+RECIBO DE IMPRESSÃO
+--------------------
+FLUXO (unificado com PrintAgent):
+  1. Usuário clica "Imprimir Recibo" no dialog de detalhes do pedido
+  2. Pedidos.razor abre MudDialog com <iframe srcdoc="..."> mostrando prévia HTML
+  3. Usuário clica "Confirmar Impressão" → POST /api/order/{id}/printjob → cria PrintJob
+  4. API dispara SignalR "NewPrintJob" {printJobId} ao grupo "PrintAgents"
+  5. PrintAgent recebe → GET /api/printjob/{id}/order → formata → imprime fisicamente
+  6. PrintAgent → PATCH /api/printjob/{id}/status → Printed
+
+PRÉVIA HTML (BuildReceiptHtml — Pedidos.razor):
+- MudDialog nativo (sem popup/window.open); iframe com srcdoc
 - Fonte monospace "Courier New", largura 320px
-- Cabeçalho: nº pedido, data, dados do cliente (buscados via CustomerService.GetByIdAsync)
-- Forma de pagamento; itens em 2 linhas (nome truncado / qtd × R$ unitário_com_acréscimo)
-- Totais: Subtotal | Desconto | TOTAL (acréscimo embutido nos preços unitários)
+- Cabeçalho dinâmico: CompanyService.GetAsync() carregado em OnInitializedAsync;
+  exibe Nome + CNPJ + Endereço se preenchidos; fallback "ScaleAtacado"
+- Dados do cliente buscados via CustomerService.GetByIdAsync
+- Itens com preço COM acréscimo; totais: Subtotal | Desconto | TOTAL
+
+IMPRESSÃO FÍSICA (ReceiptFormatter.cs — PrintAgent):
+- Largura 40 colunas, fonte Bold 8pt, margens zeradas
+- Cabeçalho dinâmico: order.CompanyName ?? "ScaleAtacado";
+  exibe CNPJ e Endereço se presentes no OrderResponseDto
+- Mesmos cálculos de acréscimo e totais que a prévia HTML
+- PrinterName configurado em PrintAgent/appsettings.json: "EPSON TM-T20X Receipt"
 
 GESTÃO DE USUÁRIOS
 -------------------
@@ -280,23 +333,29 @@ INFRAESTRUTURA DE IMPRESSÃO (PrintAgent)
 -----------------------------------------
 PrintHub.cs: ?agentKey=xxx → grupo "PrintAgents"; demais → grupo "Clients"
 
-API (100% pronta):
-  GET  /api/printjob/pending       (X-Agent-Key) — jobs pendentes
-  PATCH /api/printjob/{id}/status  (X-Agent-Key) — atualiza status + notifica via SignalR
-  GET  /api/printjob/{id}/order    (X-Agent-Key) — retorna OrderResponseDto completo
+API:
+  GET  /api/printjob/pending       (X-Agent-Key) — jobs pendentes (failsafe ao iniciar)
+  PATCH /api/printjob/{id}/status  (X-Agent-Key) — atualiza status
+  GET  /api/printjob/{id}/order    (X-Agent-Key) — retorna OrderResponseDto com campos da empresa
+  POST /api/order/{id}/printjob    (JWT) — cria PrintJob + SignalR "NewPrintJob" {printJobId}
   GET  /api/printjob               (JWT Admin)
-OrderAppService.FinalizeAsync: cria PrintJob OnHoldem → SignalR "NewPrintJob" {printJobId}
 Chave do agente: em appsettings.Development.json → PrintAgent:AgentKey
 
-PrintAgent Windows (Worker Service — parcialmente criado, sem impressão física ainda):
-  ReceiptFormatter.cs — formata recibo texto 42 colunas (já usa CustomerName, ProductName etc.)
-  Fluxo planejado:
-    1. PDV finaliza → API cria PrintJob → SignalR "NewPrintJob"
-    2. Agent recebe → GET /api/printjob/{id}/order
-    3. Formata → imprime via System.Drawing.Printing
-    4. PATCH /api/printjob/{id}/status → Printed
-    5. API notifica Blazor via "PrintJobStatusChanged"
-  Failsafe: ao iniciar, consulta GET /pending para processar jobs perdidos
+PrintAgent Windows (Worker Service — IMPLEMENTADO):
+  Worker.cs:
+    - Conecta ao SignalR Hub com ?agentKey=xxx
+    - On "NewPrintJob": ProcessJobAsync(printJobId) direto (sem buscar pendentes)
+    - Failsafe: ao iniciar consulta /pending e processa cada job
+  ReceiptFormatter.cs:
+    - 40 colunas, usa order.CompanyName/CompanyCNPJ/CompanyAddress dinâmicos
+    - Acréscimo aplicado nos preços unitários e no subtotal
+    - Datas em dd/MM/yyyy HH:mm (hora local)
+  PrintService.cs:
+    - System.Drawing.Printing (net8.0-windows)
+    - Margens zeradas, Bold 8pt
+  PrintApiClient.cs:
+    - GetOrderForAgentAsync(printJobId), UpdateStatusAsync(printJobId, status, error?)
+  appsettings.json: PrinterName: "EPSON TM-T20X Receipt"
 
 SEGURANÇA E SESSÃO
 ------------------
@@ -319,18 +378,17 @@ ERROS COMUNS E SOLUÇÕES
 PENDÊNCIAS MAPEADAS
 -------------------
 CRÍTICO:
-  1. PrintAgent: finalizar implementação física (impressão via System.Drawing.Printing)
-  2. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
+  1. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
 
 FUNCIONAL:
-  3. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
-  4. Auditoria de Clientes e Usuários (CustomerAppService/UserAppService não auditam)
-  5. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
-  6. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
-  7. Confirmação antes de desativar/excluir (MudMessageBox)
+  2. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
+  3. Auditoria de Clientes e Usuários (CustomerAppService/UserAppService não auditam)
+  4. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
+  5. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
+  6. Confirmação antes de desativar/excluir (MudMessageBox)
 
 UX/QUALIDADE:
-  8. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
-  9. Paginação server-side em Usuários (lista cresce com o tempo)
+  7. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
+  8. Paginação server-side em Usuários (lista cresce com o tempo)
 
 ================================================================================

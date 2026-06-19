@@ -16,17 +16,20 @@ public class PrintJobController : ControllerBase
 {
     private readonly IPrintJobRepository _repository;
     private readonly IOrderRepository _orderRepository;
+    private readonly ICompanyRepository _companyRepository;
     private readonly IHubContext<PrintHub> _hub;
     private readonly IConfiguration _configuration;
 
     public PrintJobController(
         IPrintJobRepository repository,
         IOrderRepository orderRepository,
+        ICompanyRepository companyRepository,
         IHubContext<PrintHub> hub,
         IConfiguration configuration)
     {
         _repository = repository;
         _orderRepository = orderRepository;
+        _companyRepository = companyRepository;
         _hub = hub;
         _configuration = configuration;
     }
@@ -82,6 +85,8 @@ public class PrintJobController : ControllerBase
         if (order == null)
             return NotFound(ApiResponse.Fail("Pedido não encontrado."));
 
+        var company = await _companyRepository.GetByIdAsync(order.CompanyId);
+
         var dto = new OrderResponseDto(
             order.Id, order.OrderNumber, order.CompanyId,
             order.CustomerId, order.Customer.LegalName,
@@ -91,7 +96,10 @@ public class PrintJobController : ControllerBase
             order.DeliveryStatus, order.FinancialStatus, order.IsLocked,
             order.Items.Select(i => new OrderItemResponseDto(
                 i.Id, i.ProductId, i.Product?.Name ?? string.Empty, i.Product?.Code,
-                i.Quantity, i.UnitPrice, i.TotalPrice)).ToList()
+                i.Quantity, i.UnitPrice, i.TotalPrice)).ToList(),
+            CompanyName:    company?.Name,
+            CompanyCNPJ:    company?.CNPJ,
+            CompanyAddress: company?.Address
         );
 
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));

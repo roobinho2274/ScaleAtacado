@@ -1,0 +1,82 @@
+@page "/admin/empresa"
+@attribute [Authorize(Roles = "Admin")]
+@inject CompanyService CompanyService
+@inject ISnackbar Snackbar
+
+<PageTitle>Empresa — ScaleAtacado</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Dados da Empresa</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Style="max-width:600px">
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_name" Label="Nome / Razão Social"
+                    Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_cnpj" Label="CNPJ"
+                    Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_address" Label="Endereço"
+                    Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_phone" Label="Telefone"
+                    Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" Class="d-flex justify-end">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                    StartIcon="@Icons.Material.Filled.Save"
+                    OnClick="SaveAsync" Disabled="_saving">
+                    Salvar
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private string _name    = "";
+    private string _cnpj    = "";
+    private string? _address;
+    private string? _phone;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resp = await CompanyService.GetAsync();
+        if (resp?.Success == true && resp.Data != null)
+        {
+            _name    = resp.Data.Name;
+            _cnpj    = resp.Data.CNPJ;
+            _address = resp.Data.Address;
+            _phone   = resp.Data.Phone;
+        }
+        else
+        {
+            Snackbar.Add("Erro ao carregar dados da empresa.", Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        var dto  = new UpdateCompanyDto(_name, _cnpj, _address, _phone);
+        var resp = await CompanyService.UpdateAsync(dto);
+        Snackbar.Add(
+            resp?.Success == true
+                ? "Dados da empresa atualizados!"
+                : (resp?.Error ?? "Erro ao salvar."),
+            resp?.Success == true ? Severity.Success : Severity.Error);
+        _saving = false;
+    }
+}

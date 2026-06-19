@@ -72,6 +72,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Repositories
+builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
@@ -81,6 +82,7 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPrintJobRepository, PrintJobRepository>();
 
 // Application Services
+builder.Services.AddScoped<CompanyAppService>();
 builder.Services.AddScoped<AuditLogAppService>();
 builder.Services.AddScoped<ProductAppService>();
 builder.Services.AddScoped<CustomerAppService>();

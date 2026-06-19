@@ -19,5 +19,8 @@ public record OrderResponseDto(
     DeliveryStatus DeliveryStatus,
     FinancialStatus FinancialStatus,
     bool IsLocked,
-    List<OrderItemResponseDto> Items
+    List<OrderItemResponseDto> Items,
+    string? CompanyName    = null,
+    string? CompanyCNPJ   = null,
+    string? CompanyAddress = null
 );

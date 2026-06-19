@@ -1,12 +1,14 @@
 @inherits LayoutComponentBase
 
-<MudThemeProvider />
+<MudThemeProvider Theme="AppTheme.Theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="login-container">
-    <MudPaper Class="pa-8" Elevation="4">
-        @Body
-    </MudPaper>
-</MudContainer>
+<div class="login-page-bg">
+    <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="login-container">
+        <MudPaper Class="pa-8" Elevation="12" Style="border-radius:16px;width:100%">
+            @Body
+        </MudPaper>
+    </MudContainer>
+</div>

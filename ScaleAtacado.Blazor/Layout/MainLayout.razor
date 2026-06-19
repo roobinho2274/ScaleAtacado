@@ -2,25 +2,40 @@
 @inject AuthService AuthService
 @inject NavigationManager NavManager
 
-<MudThemeProvider />
+<MudThemeProvider Theme="AppTheme.Theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary" Dense="true">
+    <MudAppBar Elevation="2" Color="Color.Primary" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
             Edge="Edge.Start" OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ml-2">⚡ ScaleAtacado</MudText>
+
+        <!-- Logo -->
+        <div class="d-flex align-center ml-1 gap-2">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="32" rx="7" fill="#00897B"/>
+                <rect x="5" y="20" width="5" height="8" rx="1.5" fill="white" fill-opacity="0.55"/>
+                <rect x="13.5" y="14" width="5" height="14" rx="1.5" fill="white" fill-opacity="0.78"/>
+                <rect x="22" y="8" width="5" height="20" rx="1.5" fill="white"/>
+                <path d="M24.5 5L27.5 9.5H21.5L24.5 5Z" fill="white"/>
+            </svg>
+            <MudText Typo="Typo.h6" Style="font-weight:800;letter-spacing:-0.5px;color:white;line-height:1">
+                SCALE<span style="font-weight:300;opacity:0.75">atacado</span>
+            </MudText>
+        </div>
+
         <MudSpacer />
+
         <AuthorizeView>
             <Authorized>
-                <MudText Class="mr-2" Typo="Typo.body2">
+                <MudText Class="mr-2 d-none d-sm-flex" Typo="Typo.body2" Style="color:rgba(255,255,255,0.85)">
                     @context.User.FindFirst("fullName")?.Value
                 </MudText>
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="mr-2">
+                <span class="mr-3" style="background:rgba(255,255,255,0.14);color:white;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:3px 9px;border-radius:5px;border:1px solid rgba(255,255,255,0.25)">
                     @context.User.FindFirst("profile")?.Value
-                </MudChip>
+                </span>
                 <MudTooltip Text="Sair">
                     <MudIconButton Icon="@Icons.Material.Filled.Logout"
                         Color="Color.Inherit" OnClick="LogoutAsync" />
@@ -29,10 +44,21 @@
         </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Responsive">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.subtitle1"><b>Menu</b></MudText>
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" Variant="DrawerVariant.Responsive">
+        <MudDrawerHeader Class="d-flex align-center gap-2" Style="padding:14px 16px 12px">
+            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="32" rx="7" fill="#283593"/>
+                <rect x="5" y="20" width="5" height="8" rx="1.5" fill="white" fill-opacity="0.55"/>
+                <rect x="13.5" y="14" width="5" height="14" rx="1.5" fill="white" fill-opacity="0.78"/>
+                <rect x="22" y="8" width="5" height="20" rx="1.5" fill="white"/>
+                <path d="M24.5 5L27.5 9.5H21.5L24.5 5Z" fill="white"/>
+            </svg>
+            <div style="line-height:1.15">
+                <div style="font-weight:800;font-size:0.85rem;color:#1A237E;letter-spacing:-0.3px">SCALE</div>
+                <div style="font-weight:400;font-size:0.7rem;color:#546E7A;letter-spacing:0.12em;text-transform:uppercase">atacado</div>
+            </div>
         </MudDrawerHeader>
+        <MudDivider />
         <NavMenu />
     </MudDrawer>
 

@@ -33,11 +33,11 @@ public class PrintService
                 doc.PrinterSettings.PrinterName = string.Empty;
             }
 
-            doc.DefaultPageSettings.Margins = new Margins(20, 20, 20, 20);
+            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
             doc.PrintPage += (sender, e) =>
             {
-                var font = new Font("Courier New", 9, FontStyle.Regular, GraphicsUnit.Point);
+                var font = new Font("Courier New", 8, FontStyle.Bold, GraphicsUnit.Point);
                 var lineHeight = font.GetHeight(e.Graphics!);
                 var y = (float)e.MarginBounds.Top;
 

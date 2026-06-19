@@ -31,15 +31,6 @@
 
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
-    <script>
-        function printRecibo(html) {
-            var w = window.open('', '_blank', 'width=440,height=700');
-            w.document.write(html);
-            w.document.close();
-            w.focus();
-            setTimeout(function () { w.print(); }, 400);
-        }
-    </script>
 </body>
 
 </html>

@@ -21,7 +21,7 @@ public class PrintApiClient
         try
         {
             var response = await _httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<PendingPrintJobDto>>>(
-                "api/printjob/pendentes");
+                "api/printjob/pending");
             return response?.Data ?? Enumerable.Empty<PendingPrintJobDto>();
         }
         catch (Exception ex)

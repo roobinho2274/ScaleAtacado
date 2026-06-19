@@ -4,44 +4,54 @@ namespace ScaleAtacado.PrintAgent.Services;
 
 public class ReceiptFormatter
 {
-    private const int Width = 42;
+    private const int Width = 40;
 
     public string Format(OrderResponseDto order)
     {
         var lines = new List<string>();
+        var surchargeRate = 1 + order.SurchargePercentage / 100m;
 
         lines.Add(Line('='));
-        lines.Add(Center($"PEDIDO DE COMPRA #{order.OrderNumber:D4}"));
+        lines.Add(Center("ScaleAtacado"));
+        lines.Add(Center("PEDIDO DE COMPRA"));
         lines.Add(Line('='));
-        lines.Add(order.OrderDate.ToLocalTime().ToString("dd/MM/yyyy       HH:mm:ss"));
-        lines.Add(string.Empty);
+        lines.Add($"Pedido: #{order.OrderNumber:D4}");
+        lines.Add($"Data:   {order.OrderDate.ToLocalTime():dd/MM/yyyy HH:mm}");
+        lines.Add(Line('-'));
         lines.Add("CLIENTE:");
         lines.Add(Truncate(order.CustomerName, Width));
-        lines.Add(string.Empty);
+        lines.Add(Line('-'));
+        lines.Add($"Pagamento: {Truncate(order.PaymentMethodName, Width - 11)}");
         lines.Add(Line('='));
         lines.Add(PadBetween("ITEM", "VALOR"));
         lines.Add(Line('-'));
 
+        int num = 1;
         foreach (var item in order.Items)
         {
-            var name = Truncate(item.ProductName, Width - 10);
-            lines.Add(name);
-            var detail = $"  {item.Quantity} x {item.UnitPrice:N2}";
-            var total = item.TotalPrice.ToString("N2");
-            lines.Add(PadBetween(detail, total));
+            var code               = !string.IsNullOrWhiteSpace(item.ProductCode) ? $"[{item.ProductCode}] " : "";
+            var nameRaw            = $"#{num} {code}{item.ProductName}";
+            var unitWithSurcharge  = Math.Round(item.UnitPrice  * surchargeRate, 2);
+            var totalWithSurcharge = Math.Round(item.TotalPrice * surchargeRate, 2);
+            var detail             = $"  {item.Quantity} x {unitWithSurcharge:N2}";
+
+            lines.Add(Truncate(nameRaw, Width));
+            lines.Add(PadBetween(detail, totalWithSurcharge.ToString("N2")));
+            num++;
         }
 
         lines.Add(Line('='));
-        lines.Add(PadBetween("Subtotal:", $"R$ {order.AmountTotal:N2}"));
 
-        if (order.SurchargePercentage > 0)
-            lines.Add(PadBetween($"Acréscimo ({order.SurchargePercentage:N2}%):",
-                $"R$ {order.AmountWithSurchargeTotal - order.AmountTotal:N2}"));
+        var subtotalDisplay = Math.Round(order.AmountTotal * surchargeRate, 2);
+        lines.Add(PadBetween("Subtotal:", $"R$ {subtotalDisplay:N2}"));
+
+        if (order.DiscountAmount > 0)
+            lines.Add(PadBetween("Desconto:", $"- R$ {order.DiscountAmount:N2}"));
 
         lines.Add(PadBetween("TOTAL:", $"R$ {order.AmountWithSurchargeTotal:N2}"));
         lines.Add(Line('='));
-        lines.Add($"Forma: {order.PaymentMethodName}");
-        lines.Add(Line('='));
+        lines.Add(string.Empty);
+        lines.Add(Center("Obrigado pela preferencia!"));
         lines.Add(string.Empty);
         lines.Add(string.Empty);
 

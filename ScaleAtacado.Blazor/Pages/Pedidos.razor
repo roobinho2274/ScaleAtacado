@@ -3,7 +3,6 @@
 @inject OrderService OrderService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-@inject IJSRuntime JS
 @inject CustomerService CustomerService
 @inject PaymentMethodService PaymentMethodService
 
@@ -260,11 +259,34 @@
         @if (_orderDetail != null)
         {
             <MudButton StartIcon="@Icons.Material.Filled.Print" Color="Color.Secondary"
-                OnClick="PrintReceiptAsync">
+                OnClick="OpenPrintPreview">
                 Imprimir Recibo
             </MudButton>
         }
         <MudButton OnClick="@(() => _dialogDetails = false)">Fechar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Prévia de Impressão -->
+<MudDialog @bind-Visible="_printPreviewOpen"
+    Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.Print" Size="Size.Small" />
+            <span>Prévia do Recibo — Pedido #@(_orderDetail?.OrderNumber)</span>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <iframe srcdoc="@_printPreviewHtml"
+            style="width:100%;height:520px;border:none;display:block;background:#fff" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _printPreviewOpen = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Print"
+            OnClick="ConfirmPrintAsync" Disabled="_saving">
+            Confirmar Impressão
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -281,6 +303,8 @@
     private decimal _editDiscount;
     private Guid _editPaymentMethodId;
     private List<PaymentMethodResponseDto> _paymentMethods = new();
+    private bool _printPreviewOpen;
+    private string _printPreviewHtml = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -405,60 +429,71 @@
         _saving = false;
     }
 
-    private async Task PrintReceiptAsync()
+    private void OpenPrintPreview()
     {
         if (_orderDetail == null) return;
+        _printPreviewHtml = BuildReceiptHtml();
+        _printPreviewOpen = true;
+    }
 
+    private async Task ConfirmPrintAsync()
+    {
+        if (_orderDetail == null) return;
+        _saving = true;
+        _printPreviewOpen = false;
+        var resp = await OrderService.CreatePrintJobAsync(_orderDetail.Id);
+        Snackbar.Add(
+            resp?.Success == true
+                ? "Recibo enviado para a impressora!"
+                : (resp?.Error ?? "Erro ao enviar para impressão."),
+            resp?.Success == true ? Severity.Success : Severity.Error);
+        _saving = false;
+    }
+
+    private string BuildReceiptHtml()
+    {
+        var o = _orderDetail!;
         var c = new System.Globalization.CultureInfo("pt-BR");
         string H(string? s) => System.Net.WebUtility.HtmlEncode(s ?? "");
 
-        var customerName    = H(_customerDetail?.LegalName    ?? _orderDetail.CustomerName);
-        var customerTaxId   = H(_customerDetail?.TaxId        ?? "");
-        var customerAddress = H(_customerDetail?.Address      ?? "");
-        var customerPhone   = H(_customerDetail?.Phone        ?? "");
-        var customerLines   =
+        var customerName    = H(_customerDetail?.LegalName ?? o.CustomerName);
+        var customerTaxId   = H(_customerDetail?.TaxId     ?? "");
+        var customerAddress = H(_customerDetail?.Address   ?? "");
+        var customerPhone   = H(_customerDetail?.Phone     ?? "");
+
+        var customerLines =
             $"<p><b>Cliente:</b> {customerName}</p>" +
             (customerTaxId.Length   > 0 ? $"<p><b>CPF/CNPJ:</b> {customerTaxId}</p>"   : "") +
             (customerAddress.Length > 0 ? $"<p><b>Endereço:</b> {customerAddress}</p>" : "") +
             (customerPhone.Length   > 0 ? $"<p><b>Telefone:</b> {customerPhone}</p>"   : "");
 
-        var paymentInfo = H(_orderDetail.PaymentMethodName);
-        var surchargeRate = 1 + _orderDetail.SurchargePercentage / 100m;
-
+        var surchargeRate = 1 + o.SurchargePercentage / 100m;
         var sb = new System.Text.StringBuilder();
         int num = 1;
-        foreach (var item in _orderDetail.Items)
+        foreach (var item in o.Items)
         {
             var code       = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}]&nbsp;" : "";
-            var name       = H(item.ProductName);
             var unitFinal  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalFinal = Math.Round(item.TotalPrice * surchargeRate, 2);
-
-            sb.Append(
-                "<div style='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" +
-                           "padding-top:5px;font-weight:normal'>" +
-                $"<b>#{num}</b>&nbsp;{code}{name}" +
-                "</div>");
-
-            string detail = item.Quantity == 1
+            string detail  = item.Quantity == 1
                 ? $"<b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>"
                 : $"{item.Quantity}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
                   $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
 
             sb.Append(
-                "<div style='text-align:right;font-size:11px;color:#444;padding-bottom:3px'>" +
-                detail +
-                "</div>");
+                "<div style='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-top:5px'>" +
+                $"<b>#{num}</b>&nbsp;{code}{H(item.ProductName)}</div>");
+            sb.Append(
+                $"<div style='text-align:right;font-size:11px;color:#444;padding-bottom:3px'>{detail}</div>");
             num++;
         }
 
-        var subtotalRec   = Math.Round(_orderDetail.AmountTotal * surchargeRate, 2);
-        var discount      = _orderDetail.DiscountAmount;
-        var totalFinalRec = Math.Max(0m, subtotalRec - discount);
+        var subtotalRec   = Math.Round(o.AmountTotal * surchargeRate, 2);
+        var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount);
 
-        var html =
+        return
             "<!DOCTYPE html><html><head><meta charset='utf-8'/>" +
-            $"<title>Pedido #{_orderDetail.OrderNumber}</title>" +
+            $"<title>Pedido #{o.OrderNumber}</title>" +
             "<style>" +
             "body{font-family:'Courier New',monospace;font-size:12px;width:320px;margin:0 auto;padding:12px}" +
             "h2{text-align:center;margin:4px 0;font-size:15px;letter-spacing:1px}" +
@@ -474,26 +509,26 @@
             "<h2>ScaleAtacado</h2>" +
             "<p class='sub'>PEDIDO DE COMPRA</p>" +
             "<hr/>" +
-            $"<p><b>Pedido:</b>&nbsp;#{_orderDetail.OrderNumber}</p>" +
-            $"<p><b>Data:</b>&nbsp;{_orderDetail.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +
+            $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +
+            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +
             "<hr/>" +
             customerLines +
             "<hr/>" +
-            $"<p><b>Pagamento:</b>&nbsp;{paymentInfo}</p>" +
+            $"<p><b>Pagamento:</b>&nbsp;{H(o.PaymentMethodName)}</p>" +
             "<hr/>" +
             "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
             sb.ToString() +
             "<hr/>" +
             "<table class='totais'><tbody>" +
             $"<tr><td>Subtotal</td><td>R$&nbsp;{subtotalRec.ToString("N2", c)}</td></tr>" +
-            $"<tr><td style='color:#777'>Desconto</td><td style='color:#777'>R$&nbsp;{discount.ToString("N2", c)}</td></tr>" +
+            (o.DiscountAmount > 0
+                ? $"<tr><td style='color:#777'>Desconto</td><td style='color:#777'>- R$&nbsp;{o.DiscountAmount.ToString("N2", c)}</td></tr>"
+                : "") +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +
             "</body></html>";
-
-        await JS.InvokeVoidAsync("printRecibo", html);
     }
 
     private string GetRowClass(OrderListItemDto item, int idx) =>

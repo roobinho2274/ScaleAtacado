@@ -128,20 +128,30 @@ public class OrderAppService
             new PagedResult<OrderListItemDto>(dtos, totalCount, page, pageSize));
     }
 
-    public async Task<ApiResponse<Guid>> FinalizeAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> FinalizeAsync(Guid id, Guid companyId)
     {
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
-            return ApiResponse<Guid>.Fail("Pedido não encontrado.");
+            return ApiResponse.Fail("Pedido não encontrado.");
 
         if (order.IsLocked)
-            return ApiResponse<Guid>.Fail("Pedido já está finalizado.");
+            return ApiResponse.Fail("Pedido já está finalizado.");
 
         if (!order.Items.Any())
-            return ApiResponse<Guid>.Fail("Não é possível finalizar um pedido sem itens.");
+            return ApiResponse.Fail("Não é possível finalizar um pedido sem itens.");
 
         order.IsLocked = true;
         await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse<Guid>> CreatePrintJobAsync(Guid orderId, Guid companyId)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId, companyId);
+        if (order == null)
+            return ApiResponse<Guid>.Fail("Pedido não encontrado.");
 
         var printJob = new Domain.Entities.PrintJobs
         {

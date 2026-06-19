@@ -96,24 +96,12 @@ public class Worker : BackgroundService
     {
         _logger.LogInformation("Processando job {JobId}...", printJobId);
 
-        // Busca jobs pendentes para obter o OrderId
-        var pendingJobs = await _apiClient.GetPendingJobsAsync();
-        var job = pendingJobs.FirstOrDefault(j => j.PrintJobId == printJobId);
-        if (job == null)
-        {
-            _logger.LogWarning("Job {JobId} não encontrado na fila de pendentes.", printJobId);
-            return;
-        }
-
-        // Atualiza status para Printing
         await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Printing);
 
-        // Para buscar o pedido precisamos de um token de serviço
-        // Por enquanto, usamos o endpoint de pedido sem autenticação via AgentKey
         var order = await _apiClient.GetOrderForAgentAsync(printJobId);
         if (order == null)
         {
-            _logger.LogError("Pedido {OrderId} não encontrado.", job.OrderId);
+            _logger.LogError("Pedido não encontrado para o job {JobId}.", printJobId);
             await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Canceled, "Pedido não encontrado.");
             return;
         }

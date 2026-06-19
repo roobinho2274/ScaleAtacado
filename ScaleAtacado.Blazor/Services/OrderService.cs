@@ -31,6 +31,9 @@ public class OrderService
     public Task<ApiResponse?> UnlockAsync(Guid id)
         => _api.PostAsync($"api/order/{id}/unlock");
 
+    public Task<ApiResponse?> CreatePrintJobAsync(Guid id)
+        => _api.PostAsync($"api/order/{id}/printjob");
+
     public Task<ApiResponse?> UpdatePaymentMethodAsync(Guid id, Guid paymentMethodId)
         => _api.PatchAsync($"api/order/{id}/payment", new UpdateOrderPaymentMethodDto(paymentMethodId));
 

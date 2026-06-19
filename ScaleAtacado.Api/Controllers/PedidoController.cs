@@ -66,6 +66,15 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> Finalize(Guid id)
     {
         var result = await _service.FinalizeAsync(id, User.GetCompanyId());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("{id:guid}/printjob")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreatePrintJob(Guid id)
+    {
+        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId());
         if (!result.Success) return BadRequest(result);
 
         await _printHub.Clients.Group("PrintAgents")

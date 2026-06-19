@@ -5,6 +5,7 @@
 @inject IDialogService DialogService
 @inject IJSRuntime JS
 @inject CustomerService CustomerService
+@inject PaymentMethodService PaymentMethodService
 
 <PageTitle>Pedidos — ScaleAtacado</PageTitle>
 
@@ -100,6 +101,8 @@
         }
         else
         {
+            var _surchargeRate = 1 + _orderDetail.SurchargePercentage / 100m;
+
             <MudGrid Class="mb-3">
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
@@ -113,13 +116,28 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Subtotal</MudText>
                     <MudText Typo="Typo.body2">R$ @_orderDetail.AmountTotal.ToString("N2")</MudText>
                 </MudItem>
+                @if (_orderDetail.SurchargePercentage > 0)
+                {
+                    var surchargeAmt = _orderDetail.AmountTotal * _orderDetail.SurchargePercentage / 100m;
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Acréscimo (@_orderDetail.SurchargePercentage.ToString("N1")%)</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Warning">+ R$ @surchargeAmt.ToString("N2")</MudText>
+                    </MudItem>
+                }
+                @if (_orderDetail.DiscountAmount > 0)
+                {
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Desconto</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Success">− R$ @_orderDetail.DiscountAmount.ToString("N2")</MudText>
+                    </MudItem>
+                }
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Total Final</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Primary"><b>R$ @_orderDetail.AmountWithSurchargeTotal.ToString("N2")</b></MudText>
                 </MudItem>
             </MudGrid>
 
-            <MudTable Items="_orderDetail.Items" Dense="true" Striped="true" Class="mb-4">
+            <MudTable Items="_orderDetail.Items" Dense="true" Striped="true" Class="mb-2">
                 <HeaderContent>
                     <MudTh>Produto</MudTh>
                     <MudTh Style="text-align:right">Preço Unit.</MudTh>
@@ -128,18 +146,24 @@
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.ProductName</MudTd>
-                    <MudTd Style="text-align:right">R$ @context.UnitPrice.ToString("N2")</MudTd>
+                    <MudTd Style="text-align:right">R$ @((context.UnitPrice * _surchargeRate).ToString("N2"))</MudTd>
                     <MudTd Style="text-align:center">@context.Quantity</MudTd>
-                    <MudTd Style="text-align:right">R$ @context.TotalPrice.ToString("N2")</MudTd>
+                    <MudTd Style="text-align:right">R$ @((context.TotalPrice * _surchargeRate).ToString("N2"))</MudTd>
                 </RowTemplate>
             </MudTable>
+            @if (_orderDetail.SurchargePercentage > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3" Style="display:block">
+                    * Preços exibidos com acréscimo de @_orderDetail.SurchargePercentage.ToString("N1")% (@_orderDetail.PaymentMethodName) já incluído.
+                </MudText>
+            }
 
             <!-- Desconto -->
             <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
-                <MudGrid AlignItems="AlignItems.Center">
+                <MudGrid>
                     <MudItem xs="12" sm="6">
                         <MudNumericField @bind-Value="_editDiscount" Label="Desconto (R$)"
-                            Variant="Variant.Outlined" Dense="true" Min="0m" Format="N2"
+                            Variant="Variant.Outlined" Min="0m" Format="N2"
                             HelperText="Desconto em reais aplicado ao total do pedido" />
                     </MudItem>
                     <MudItem xs="12" sm="6" Class="d-flex align-end">
@@ -170,6 +194,38 @@
                 </MudItem>
                 <AuthorizeView Roles="Admin">
                     <Authorized>
+                        <!-- Alterar Forma de Pagamento -->
+                        <MudItem xs="12">
+                            <MudDivider Class="my-2" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2" Style="display:block">
+                                ADMINISTRAÇÃO
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="8">
+                            <MudSelect T="Guid" Label="Forma de Pagamento" @bind-Value="_editPaymentMethodId"
+                                Variant="Variant.Outlined" Dense="true"
+                                ToStringFunc="@(id => _paymentMethods.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                                @foreach (var pm in _paymentMethods)
+                                {
+                                    <MudSelectItem T="Guid" Value="pm.Id">
+                                        @pm.Name
+                                        @if (pm.SurchargePercentage > 0)
+                                        {
+                                            <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
+                                        }
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="4" Class="d-flex align-end">
+                            <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true"
+                                OnClick="SavePaymentMethodAsync" Disabled="@(_saving || _editPaymentMethodId == _orderDetail.PaymentMethodId)"
+                                StartIcon="@Icons.Material.Filled.SwapHoriz">
+                                Alterar Pagamento
+                            </MudButton>
+                        </MudItem>
+
+                        <!-- Status Financeiro -->
                         <MudItem xs="12" sm="6">
                             <MudSelect T="FinancialStatus" Label="Status Financeiro"
                                 @bind-Value="_editFinancial" Variant="Variant.Outlined" Dense="true">
@@ -223,6 +279,14 @@
     private DeliveryStatus _editDelivery;
     private FinancialStatus _editFinancial;
     private decimal _editDiscount;
+    private Guid _editPaymentMethodId;
+    private List<PaymentMethodResponseDto> _paymentMethods = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var pmResp = await PaymentMethodService.GetAllAsync(onlyActive: true);
+        _paymentMethods = pmResp?.Data?.ToList() ?? new();
+    }
 
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
     {
@@ -244,9 +308,10 @@
         if (resp?.Success == true)
         {
             _orderDetail = resp.Data;
-            _editDelivery  = _orderDetail!.DeliveryStatus;
-            _editFinancial = _orderDetail.FinancialStatus;
-            _editDiscount  = _orderDetail.DiscountAmount;
+            _editDelivery         = _orderDetail!.DeliveryStatus;
+            _editFinancial        = _orderDetail.FinancialStatus;
+            _editDiscount         = _orderDetail.DiscountAmount;
+            _editPaymentMethodId  = _orderDetail.PaymentMethodId;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -256,6 +321,27 @@
             Snackbar.Add("Erro ao carregar pedido.", Severity.Error);
             _dialogDetails = false;
         }
+    }
+
+    private async Task SavePaymentMethodAsync()
+    {
+        if (_orderDetail == null || _editPaymentMethodId == _orderDetail.PaymentMethodId) return;
+        _saving = true;
+        var resp = await OrderService.UpdatePaymentMethodAsync(_orderDetail.Id, _editPaymentMethodId);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Forma de pagamento alterada e valores recalculados!", Severity.Success);
+            var updated = await OrderService.GetByIdAsync(_orderDetail.Id);
+            if (updated?.Success == true)
+            {
+                _orderDetail = updated.Data;
+                _editPaymentMethodId = _orderDetail!.PaymentMethodId;
+                _editDiscount        = _orderDetail.DiscountAmount;
+            }
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao alterar forma de pagamento.", Severity.Error);
+        _saving = false;
     }
 
     private async Task SaveDiscountAsync()

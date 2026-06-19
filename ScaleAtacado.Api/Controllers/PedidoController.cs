@@ -93,6 +93,16 @@ public class OrderController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPatch("{id:guid}/payment")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdatePaymentMethod(Guid id, [FromBody] UpdateOrderPaymentMethodDto dto)
+    {
+        var result = await _service.UpdatePaymentMethodAsync(id, dto.PaymentMethodId, User.GetCompanyId(), User.GetUserId());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPatch("{id:guid}/discount")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]

@@ -219,6 +219,37 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> UpdatePaymentMethodAsync(Guid id, Guid paymentMethodId, Guid companyId, Guid userId)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        var newPaymentMethod = await _paymentMethodRepository.GetByIdAsync(paymentMethodId, companyId);
+        if (newPaymentMethod == null || !newPaymentMethod.IsActive)
+            return ApiResponse.Fail("Forma de pagamento não encontrada ou inativa.");
+
+        var previousName = order.PaymentMethod?.Name ?? order.PaymentMethodId.ToString();
+
+        order.PaymentMethodId = paymentMethodId;
+        var surcharge = order.AmountTotal * (newPaymentMethod.SurchargePercentage / 100m);
+        order.AmountWithSurchargeTotal = order.AmountTotal + surcharge - order.DiscountAmount;
+
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "ChangePaymentMethod",
+            entityName: "Order",
+            entityId: order.Id.ToString(),
+            previousValue: previousName,
+            newValue: newPaymentMethod.Name
+        );
+
+        return ApiResponse.Ok();
+    }
+
     public async Task<ApiResponse> UpdateDiscountAsync(Guid id, decimal discountAmount, Guid companyId)
     {
         var order = await _orderRepository.GetByIdAsync(id, companyId);

@@ -1,12 +1,12 @@
 namespace ScaleAtacado.Application.DTOs;
 
-public record AuditoriaResponseDto(
+public record AuditLogResponseDto(
     Guid Id,
-    Guid UsuarioId,
-    string Operacao,
-    string EntidadeNome,
-    string? EntidadeId,
-    string? ValorAnterior,
-    string? ValorNovo,
-    DateTime DataHora
+    Guid UserId,
+    string Operation,
+    string EntityName,
+    string? EntityId,
+    string? PreviousValue,
+    string? NewValue,
+    DateTime Timestamp
 );

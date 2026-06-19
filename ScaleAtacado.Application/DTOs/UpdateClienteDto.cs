@@ -1,10 +1,10 @@
 namespace ScaleAtacado.Application.DTOs;
 
-public record UpdateClienteDto(
-    string NomeRazaoSocial,
-    string Documento,
-    string Endereco,
-    string Telefone,
-    string? Observacoes,
+public record UpdateCustomerDto(
+    string LegalName,
+    string TaxId,
+    string Address,
+    string Phone,
+    string? Notes,
     bool IsActive
 );

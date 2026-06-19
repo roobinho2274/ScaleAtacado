@@ -13,12 +13,12 @@ namespace ScaleAtacado.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PedidoController : ControllerBase
+public class OrderController : ControllerBase
 {
     private readonly OrderAppService _service;
     private readonly IHubContext<PrintHub> _printHub;
 
-    public PedidoController(OrderAppService service, IHubContext<PrintHub> printHub)
+    public OrderController(OrderAppService service, IHubContext<PrintHub> printHub)
     {
         _service = service;
         _printHub = printHub;
@@ -29,7 +29,7 @@ public class PedidoController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] Guid? clienteId = null,
+        [FromQuery] Guid? customerId = null,
         [FromQuery] DeliveryStatus? deliveryStatus = null,
         [FromQuery] FinancialStatus? financialStatus = null,
         [FromQuery] DateTime? from = null,
@@ -37,7 +37,7 @@ public class PedidoController : ControllerBase
     {
         var result = await _service.GetAllAsync(
             User.GetCompanyId(), page, pageSize,
-            clienteId, deliveryStatus, financialStatus, from, to);
+            customerId, deliveryStatus, financialStatus, from, to);
         return Ok(result);
     }
 
@@ -60,32 +60,31 @@ public class PedidoController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result);
     }
 
-    [HttpPost("{id:guid}/finalizar")]
+    [HttpPost("{id:guid}/finalize")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Finalizar(Guid id)
+    public async Task<IActionResult> Finalize(Guid id)
     {
-        var result = await _service.FinalizarAsync(id, User.GetCompanyId());
+        var result = await _service.FinalizeAsync(id, User.GetCompanyId());
         if (!result.Success) return BadRequest(result);
 
-        // Notifica o PrintAgent em tempo real via SignalR
         await _printHub.Clients.Group("PrintAgents")
             .SendAsync("NewPrintJob", result.Data);
 
         return Ok(ApiResponse.Ok());
     }
 
-    [HttpPost("{id:guid}/desbloquear")]
+    [HttpPost("{id:guid}/unlock")]
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Desbloquear(Guid id)
+    public async Task<IActionResult> Unlock(Guid id)
     {
-        var result = await _service.DesbloquearAsync(id, User.GetCompanyId(), User.GetUserId());
+        var result = await _service.UnlockAsync(id, User.GetCompanyId(), User.GetUserId());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPatch("{id:guid}/entrega")]
+    [HttpPatch("{id:guid}/delivery")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateDeliveryStatus(Guid id, [FromBody] UpdateDeliveryStatusDto dto)
@@ -94,7 +93,7 @@ public class PedidoController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPatch("{id:guid}/desconto")]
+    [HttpPatch("{id:guid}/discount")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountDto dto)
@@ -103,7 +102,7 @@ public class PedidoController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPatch("{id:guid}/financeiro")]
+    [HttpPatch("{id:guid}/financial")]
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]

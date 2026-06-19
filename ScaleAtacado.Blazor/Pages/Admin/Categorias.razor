@@ -8,12 +8,12 @@
 <div class="d-flex align-center justify-space-between mb-4">
     <MudText Typo="Typo.h5">Categorias</MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-        StartIcon="@Icons.Material.Filled.Add" OnClick="AbrirNovo">
+        StartIcon="@Icons.Material.Filled.Add" OnClick="OpenNew">
         Nova Categoria
     </MudButton>
 </div>
 
-<MudTable Items="_categorias" Dense="true" Hover="true" Striped="true" Loading="_carregando">
+<MudTable Items="_categories" Dense="true" Hover="true" Striped="true" Loading="_loading">
     <HeaderContent>
         <MudTh>Nome</MudTh>
         <MudTh>Descrição</MudTh>
@@ -24,129 +24,129 @@
         <MudTd DataLabel="Descrição">@(context.Description ?? "—")</MudTd>
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                OnClick="@(() => AbrirEdicao(context))" />
+                OnClick="@(() => OpenEdit(context))" />
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                Color="Color.Error" OnClick="@(() => ExcluirAsync(context))" />
+                Color="Color.Error" OnClick="@(() => DeleteAsync(context))" />
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhuma categoria cadastrada.</NoRecordsContent>
 </MudTable>
 
 <!-- Dialog -->
-<MudDialog @bind-Visible="_dialogAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent>@(_editando == null ? "Nova Categoria" : "Editar Categoria")</TitleContent>
+<MudDialog @bind-Visible="_dialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>@(_editing == null ? "Nova Categoria" : "Editar Categoria")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
             Placeholder="ex: Bebidas, Laticínios, Hortifruti"
             FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
+            Error="@(_errorName != null)" ErrorText="@_errorName" />
         <MudTextField @bind-Value="_form.Description" Label="Descrição" Variant="Variant.Outlined"
             Placeholder="Breve descrição do que esta categoria engloba (opcional)"
             FullWidth="true" Lines="2"
-            Error="@(_erroDescricao != null)" ErrorText="@_erroDescricao" />
+            Error="@(_errorDescription != null)" ErrorText="@_errorDescription" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogOpen = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Salvar
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
-    private List<CategoryResponseDto> _categorias = new();
-    private bool _carregando;
-    private bool _dialogAberto;
-    private bool _salvando;
-    private CategoryResponseDto? _editando;
+    private List<CategoryResponseDto> _categories = new();
+    private bool _loading;
+    private bool _dialogOpen;
+    private bool _saving;
+    private CategoryResponseDto? _editing;
     private FormVm _form = new();
 
-    private string? _erroNome;
-    private string? _erroDescricao;
+    private string? _errorName;
+    private string? _errorDescription;
 
-    protected override async Task OnInitializedAsync() => await CarregarAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private async Task CarregarAsync()
+    private async Task LoadAsync()
     {
-        _carregando = true;
+        _loading = true;
         var resp = await CategoryService.GetAllAsync();
-        _categorias = resp?.Data?.ToList() ?? new();
-        _carregando = false;
+        _categories = resp?.Data?.ToList() ?? new();
+        _loading = false;
     }
 
-    private void LimparErros() => _erroNome = _erroDescricao = null;
+    private void ClearErrors() => _errorName = _errorDescription = null;
 
-    private void AbrirNovo()
+    private void OpenNew()
     {
-        _editando = null;
+        _editing = null;
         _form = new FormVm();
-        LimparErros();
-        _dialogAberto = true;
+        ClearErrors();
+        _dialogOpen = true;
     }
 
-    private void AbrirEdicao(CategoryResponseDto c)
+    private void OpenEdit(CategoryResponseDto c)
     {
-        _editando = c;
+        _editing = c;
         _form = new FormVm { Name = c.Name, Description = c.Description ?? "" };
-        LimparErros();
-        _dialogAberto = true;
+        ClearErrors();
+        _dialogOpen = true;
     }
 
-    private bool ValidarCategoria()
+    private bool ValidateCategory()
     {
-        LimparErros();
+        ClearErrors();
 
         if (string.IsNullOrWhiteSpace(_form.Name))
-            _erroNome = "Nome é obrigatório.";
+            _errorName = "Nome é obrigatório.";
         else if (_form.Name.Trim().Length > 100)
-            _erroNome = "Nome deve ter no máximo 100 caracteres.";
+            _errorName = "Nome deve ter no máximo 100 caracteres.";
 
         if (!string.IsNullOrEmpty(_form.Description) && _form.Description.Length > 250)
-            _erroDescricao = "Descrição deve ter no máximo 250 caracteres.";
+            _errorDescription = "Descrição deve ter no máximo 250 caracteres.";
 
-        return _erroNome == null && _erroDescricao == null;
+        return _errorName == null && _errorDescription == null;
     }
 
-    private async Task SalvarAsync()
+    private async Task SaveAsync()
     {
-        if (!ValidarCategoria()) return;
-        _salvando = true;
+        if (!ValidateCategory()) return;
+        _saving = true;
 
-        if (_editando == null)
+        if (_editing == null)
         {
             var resp = await CategoryService.CreateAsync(new CreateCategoryDto(_form.Name.Trim(), _form.Description));
             if (resp?.Success == true)
             {
                 Snackbar.Add("Categoria criada!", Severity.Success);
-                _dialogAberto = false;
-                await CarregarAsync();
+                _dialogOpen = false;
+                await LoadAsync();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao criar categoria.", Severity.Error);
         }
         else
         {
-            var resp = await CategoryService.UpdateAsync(_editando.Id, new UpdateCategoryDto(_form.Name.Trim(), _form.Description));
+            var resp = await CategoryService.UpdateAsync(_editing.Id, new UpdateCategoryDto(_form.Name.Trim(), _form.Description));
             if (resp?.Success == true)
             {
                 Snackbar.Add("Categoria atualizada!", Severity.Success);
-                _dialogAberto = false;
-                await CarregarAsync();
+                _dialogOpen = false;
+                await LoadAsync();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao atualizar categoria.", Severity.Error);
         }
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task ExcluirAsync(CategoryResponseDto c)
+    private async Task DeleteAsync(CategoryResponseDto c)
     {
         var resp = await CategoryService.DeleteAsync(c.Id);
         if (resp?.Success == true)
         {
             Snackbar.Add("Categoria excluída.", Severity.Info);
-            await CarregarAsync();
+            await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao excluir.", Severity.Error);
     }

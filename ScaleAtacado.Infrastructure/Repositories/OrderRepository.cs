@@ -18,7 +18,7 @@ public class OrderRepository : IOrderRepository
     public async Task<Order?> GetByIdAsync(Guid id, Guid companyId)
     {
         var query = _context.Orders
-            .Include(o => o.Cliente)
+            .Include(o => o.Customer)
             .Include(o => o.PaymentMethod)
             .Include(o => o.Items).ThenInclude(i => i.Product)
             .Where(o => o.Id == id);
@@ -31,16 +31,16 @@ public class OrderRepository : IOrderRepository
 
     public async Task<(IEnumerable<Order> Items, int TotalCount)> GetAllAsync(
         Guid companyId, int page, int pageSize,
-        Guid? clienteId, DeliveryStatus? deliveryStatus, FinancialStatus? financialStatus,
+        Guid? customerId, DeliveryStatus? deliveryStatus, FinancialStatus? financialStatus,
         DateTime? from, DateTime? to)
     {
         var query = _context.Orders
-            .Include(o => o.Cliente)
+            .Include(o => o.Customer)
             .Include(o => o.PaymentMethod)
             .Where(o => o.CompanyId == companyId);
 
-        if (clienteId.HasValue)
-            query = query.Where(o => o.ClienteId == clienteId.Value);
+        if (customerId.HasValue)
+            query = query.Where(o => o.CustomerId == customerId.Value);
 
         if (deliveryStatus.HasValue)
             query = query.Where(o => o.DeliveryStatus == deliveryStatus.Value);

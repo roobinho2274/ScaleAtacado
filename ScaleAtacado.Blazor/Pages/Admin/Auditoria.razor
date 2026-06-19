@@ -1,6 +1,6 @@
 @page "/admin/auditoria"
 @attribute [Authorize(Roles = "Admin")]
-@inject AuditoriaService AuditoriaService
+@inject AuditLogService AuditLogService
 @inject ISnackbar Snackbar
 
 <PageTitle>Auditoria — ScaleAtacado</PageTitle>
@@ -12,24 +12,24 @@
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudGrid>
         <MudItem xs="12" sm="4">
-            <MudDatePicker @bind-Date="_de" Label="De" Variant="Variant.Outlined"
+            <MudDatePicker @bind-Date="_dateFrom" Label="De" Variant="Variant.Outlined"
                 DateFormat="dd/MM/yyyy" Clearable="true" />
         </MudItem>
         <MudItem xs="12" sm="4">
-            <MudDatePicker @bind-Date="_ate" Label="Até" Variant="Variant.Outlined"
+            <MudDatePicker @bind-Date="_dateTo" Label="Até" Variant="Variant.Outlined"
                 DateFormat="dd/MM/yyyy" Clearable="true" />
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                OnClick="CarregarAsync" StartIcon="@Icons.Material.Filled.Search"
-                Disabled="_carregando">
+                OnClick="LoadAsync" StartIcon="@Icons.Material.Filled.Search"
+                Disabled="_loading">
                 Filtrar
             </MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="_registros" Dense="true" Hover="true" Striped="true" Loading="_carregando"
+<MudTable Items="_records" Dense="true" Hover="true" Striped="true" Loading="_loading"
     FixedHeader="true" Height="600px">
     <HeaderContent>
         <MudTh>Data/Hora</MudTh>
@@ -39,28 +39,28 @@
         <MudTh Style="text-align:center">Detalhes</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Data">@context.DataHora.ToString("dd/MM/yy HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Data">@context.Timestamp.ToString("dd/MM/yy HH:mm:ss")</MudTd>
         <MudTd DataLabel="Operação">
-            <MudChip T="string" Size="Size.Small" Color="@GetOperacaoColor(context.Operacao)">
-                @context.Operacao
+            <MudChip T="string" Size="Size.Small" Color="@GetOperationColor(context.Operation)">
+                @context.Operation
             </MudChip>
         </MudTd>
-        <MudTd DataLabel="Entidade">@context.EntidadeNome</MudTd>
+        <MudTd DataLabel="Entidade">@context.EntityName</MudTd>
         <MudTd DataLabel="ID">
             <MudText Typo="Typo.caption" Style="font-family:monospace">
-                @(context.EntidadeId?.Length > 8 ? context.EntidadeId[..8] + "..." : context.EntidadeId ?? "—")
+                @(context.EntityId?.Length > 8 ? context.EntityId[..8] + "..." : context.EntityId ?? "—")
             </MudText>
         </MudTd>
         <MudTd Style="text-align:center">
-            @if (!string.IsNullOrEmpty(context.ValorAnterior) || !string.IsNullOrEmpty(context.ValorNovo))
+            @if (!string.IsNullOrEmpty(context.PreviousValue) || !string.IsNullOrEmpty(context.NewValue))
             {
                 <MudIconButton Icon="@Icons.Material.Filled.Info" Size="Size.Small"
-                    OnClick="@(() => VerDetalhes(context))" />
+                    OnClick="@(() => ViewDetails(context))" />
             }
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
-        @if (!_buscou)
+        @if (!_searched)
         {
             <MudText>Selecione um período e clique em Filtrar.</MudText>
         }
@@ -73,75 +73,75 @@
 </MudTable>
 
 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-    @_registros.Count registro(s) exibido(s)
+    @_records.Count registro(s) exibido(s)
 </MudText>
 
 <!-- Dialog: Detalhes -->
-<MudDialog @bind-Visible="_dialogDetalhes" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+<MudDialog @bind-Visible="_dialogDetails" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
     <TitleContent>Detalhes da Operação</TitleContent>
     <DialogContent>
-        @if (_selecionado != null)
+        @if (_selected != null)
         {
             <MudGrid Class="mb-3">
                 <MudItem xs="6">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
-                    <MudText>@_selecionado.DataHora.ToString("dd/MM/yyyy HH:mm:ss")</MudText>
+                    <MudText>@_selected.Timestamp.ToString("dd/MM/yyyy HH:mm:ss")</MudText>
                 </MudItem>
                 <MudItem xs="6">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Operação</MudText>
-                    <MudText>@_selecionado.Operacao — @_selecionado.EntidadeNome</MudText>
+                    <MudText>@_selected.Operation — @_selected.EntityName</MudText>
                 </MudItem>
             </MudGrid>
 
-            @if (!string.IsNullOrEmpty(_selecionado.ValorAnterior))
+            @if (!string.IsNullOrEmpty(_selected.PreviousValue))
             {
                 <MudText Typo="Typo.subtitle2" Class="mb-1">Valor Anterior:</MudText>
                 <MudPaper Class="pa-2 mb-3" Style="background:#f5f5f5; overflow:auto; max-height:200px">
-                    <pre style="font-size:12px; white-space:pre-wrap">@_selecionado.ValorAnterior</pre>
+                    <pre style="font-size:12px; white-space:pre-wrap">@_selected.PreviousValue</pre>
                 </MudPaper>
             }
 
-            @if (!string.IsNullOrEmpty(_selecionado.ValorNovo))
+            @if (!string.IsNullOrEmpty(_selected.NewValue))
             {
                 <MudText Typo="Typo.subtitle2" Class="mb-1">Valor Novo:</MudText>
                 <MudPaper Class="pa-2" Style="background:#f5f5f5; overflow:auto; max-height:200px">
-                    <pre style="font-size:12px; white-space:pre-wrap">@_selecionado.ValorNovo</pre>
+                    <pre style="font-size:12px; white-space:pre-wrap">@_selected.NewValue</pre>
                 </MudPaper>
             }
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogDetalhes = false)">Fechar</MudButton>
+        <MudButton OnClick="@(() => _dialogDetails = false)">Fechar</MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
-    private List<AuditoriaResponseDto> _registros = new();
-    private bool _carregando;
-    private bool _buscou;
-    private bool _dialogDetalhes;
-    private AuditoriaResponseDto? _selecionado;
-    private DateTime? _de = DateTime.Today.AddDays(-7);
-    private DateTime? _ate = DateTime.Today;
+    private List<AuditLogResponseDto> _records = new();
+    private bool _loading;
+    private bool _searched;
+    private bool _dialogDetails;
+    private AuditLogResponseDto? _selected;
+    private DateTime? _dateFrom = DateTime.Today.AddDays(-7);
+    private DateTime? _dateTo = DateTime.Today;
 
-    protected override async Task OnInitializedAsync() => await CarregarAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private async Task CarregarAsync()
+    private async Task LoadAsync()
     {
-        _carregando = true;
-        _buscou = true;
-        var resp = await AuditoriaService.GetAllAsync(_de, _ate);
-        _registros = resp?.Data?.OrderByDescending(r => r.DataHora).ToList() ?? new();
-        _carregando = false;
+        _loading = true;
+        _searched = true;
+        var resp = await AuditLogService.GetAllAsync(_dateFrom, _dateTo);
+        _records = resp?.Data?.OrderByDescending(r => r.Timestamp).ToList() ?? new();
+        _loading = false;
     }
 
-    private void VerDetalhes(AuditoriaResponseDto r)
+    private void ViewDetails(AuditLogResponseDto r)
     {
-        _selecionado = r;
-        _dialogDetalhes = true;
+        _selected = r;
+        _dialogDetails = true;
     }
 
-    private static Color GetOperacaoColor(string operacao) => operacao?.ToUpper() switch
+    private static Color GetOperationColor(string operation) => operation?.ToUpper() switch
     {
         "CREATE" or "INSERT" or "CRIAR" => Color.Success,
         "UPDATE" or "ATUALIZAR" or "EDIT" => Color.Info,

@@ -1,9 +1,9 @@
 namespace ScaleAtacado.Application.DTOs;
 
-public record CreateClienteDto(
-    string NomeRazaoSocial,
-    string Documento,
-    string Endereco,
-    string Telefone,
-    string? Observacoes
+public record CreateCustomerDto(
+    string LegalName,
+    string TaxId,
+    string Address,
+    string Phone,
+    string? Notes
 );

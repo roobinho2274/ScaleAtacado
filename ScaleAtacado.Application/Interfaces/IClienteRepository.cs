@@ -2,13 +2,13 @@ using ScaleAtacado.Domain.Entities;
 
 namespace ScaleAtacado.Application.Interfaces;
 
-public interface IClienteRepository
+public interface ICustomerRepository
 {
-    Task<Cliente?> GetByIdAsync(Guid id, Guid companyId);
-    Task<Cliente?> GetByDocumentoAsync(string documento, Guid companyId);
-    Task<IEnumerable<Cliente>> SearchAsync(string term, Guid companyId);
-    Task<IEnumerable<Cliente>> GetAllActiveAsync(Guid companyId);
-    Task AddAsync(Cliente cliente);
-    Task UpdateAsync(Cliente cliente);
+    Task<Customer?> GetByIdAsync(Guid id, Guid companyId);
+    Task<Customer?> GetByTaxIdAsync(string taxId, Guid companyId);
+    Task<IEnumerable<Customer>> SearchAsync(string term, Guid companyId);
+    Task<IEnumerable<Customer>> GetAllActiveAsync(Guid companyId);
+    Task AddAsync(Customer customer);
+    Task UpdateAsync(Customer customer);
     Task<bool> SaveChangesAsync();
 }

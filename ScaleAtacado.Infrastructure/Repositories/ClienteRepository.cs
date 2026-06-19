@@ -5,42 +5,42 @@ using ScaleAtacado.Infrastructure.Persistence;
 
 namespace ScaleAtacado.Infrastructure.Repositories;
 
-public class ClienteRepository : IClienteRepository
+public class CustomerRepository : ICustomerRepository
 {
     private readonly AppDbContext _context;
 
-    public ClienteRepository(AppDbContext context)
+    public CustomerRepository(AppDbContext context)
     {
         _context = context;
     }
 
-    public async Task<Cliente?> GetByIdAsync(Guid id, Guid companyId)
-        => await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id && c.CompanyId == companyId);
+    public async Task<Customer?> GetByIdAsync(Guid id, Guid companyId)
+        => await _context.Customers.FirstOrDefaultAsync(c => c.Id == id && c.CompanyId == companyId);
 
-    public async Task<Cliente?> GetByDocumentoAsync(string documento, Guid companyId)
-        => await _context.Clientes.FirstOrDefaultAsync(c => c.Documento == documento && c.CompanyId == companyId);
+    public async Task<Customer?> GetByTaxIdAsync(string taxId, Guid companyId)
+        => await _context.Customers.FirstOrDefaultAsync(c => c.TaxId == taxId && c.CompanyId == companyId);
 
-    public async Task<IEnumerable<Cliente>> SearchAsync(string term, Guid companyId)
-        => await _context.Clientes
+    public async Task<IEnumerable<Customer>> SearchAsync(string term, Guid companyId)
+        => await _context.Customers
             .Where(c => c.CompanyId == companyId && c.IsActive &&
-                       (c.NomeRazaoSocial.Contains(term) ||
-                        c.Documento.Contains(term) ||
-                        c.Telefone.Contains(term)))
-            .OrderBy(c => c.NomeRazaoSocial)
+                       (c.LegalName.Contains(term) ||
+                        c.TaxId.Contains(term) ||
+                        c.Phone.Contains(term)))
+            .OrderBy(c => c.LegalName)
             .ToListAsync();
 
-    public async Task<IEnumerable<Cliente>> GetAllActiveAsync(Guid companyId)
-        => await _context.Clientes
+    public async Task<IEnumerable<Customer>> GetAllActiveAsync(Guid companyId)
+        => await _context.Customers
             .Where(c => c.CompanyId == companyId && c.IsActive)
-            .OrderBy(c => c.NomeRazaoSocial)
+            .OrderBy(c => c.LegalName)
             .ToListAsync();
 
-    public async Task AddAsync(Cliente cliente)
-        => await _context.Clientes.AddAsync(cliente);
+    public async Task AddAsync(Customer customer)
+        => await _context.Customers.AddAsync(customer);
 
-    public Task UpdateAsync(Cliente cliente)
+    public Task UpdateAsync(Customer customer)
     {
-        _context.Clientes.Update(cliente);
+        _context.Customers.Update(customer);
         return Task.CompletedTask;
     }
 

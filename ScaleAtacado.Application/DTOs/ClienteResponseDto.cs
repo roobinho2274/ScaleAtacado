@@ -1,13 +1,13 @@
 namespace ScaleAtacado.Application.DTOs;
 
-public record ClienteResponseDto(
+public record CustomerResponseDto(
     Guid Id,
     Guid CompanyId,
-    string NomeRazaoSocial,
-    string Documento,
-    string Endereco,
-    string Telefone,
-    string? Observacoes,
+    string LegalName,
+    string TaxId,
+    string Address,
+    string Phone,
+    string? Notes,
     bool IsActive,
     DateTime CreatedAt
 );

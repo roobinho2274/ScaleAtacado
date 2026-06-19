@@ -18,7 +18,7 @@ public class UserService
         => _api.PutAsync<UserResponseDto>($"api/user/{id}", dto);
 
     public Task<ApiResponse?> ChangePasswordAsync(Guid id, string newPassword)
-        => _api.PatchAsync($"api/user/{id}/senha", new ChangePasswordDto(newPassword));
+        => _api.PatchAsync($"api/user/{id}/password", new ChangePasswordDto(newPassword));
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/user/{id}");

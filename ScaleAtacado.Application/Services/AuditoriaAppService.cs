@@ -5,51 +5,51 @@ using ScaleAtacado.Shared.Common;
 
 namespace ScaleAtacado.Application.Services;
 
-public class AuditoriaAppService
+public class AuditLogAppService
 {
-    private readonly IAuditoriaRepository _repository;
+    private readonly IAuditLogRepository _repository;
 
-    public AuditoriaAppService(IAuditoriaRepository repository)
+    public AuditLogAppService(IAuditLogRepository repository)
     {
         _repository = repository;
     }
 
-    public async Task RegistrarAsync(
+    public async Task RecordAsync(
         Guid companyId,
-        Guid usuarioId,
-        string operacao,
-        string entidadeNome,
-        string? entidadeId = null,
-        string? valorAnterior = null,
-        string? valorNovo = null)
+        Guid userId,
+        string operation,
+        string entityName,
+        string? entityId = null,
+        string? previousValue = null,
+        string? newValue = null)
     {
-        var auditoria = new Auditoria
+        var auditLog = new AuditLog
         {
             Id = Guid.NewGuid(),
             CompanyId = companyId,
-            UsuarioId = usuarioId,
-            Operacao = operacao,
-            EntidadeNome = entidadeNome,
-            EntidadeId = entidadeId,
-            ValorAnterior = valorAnterior,
-            ValorNovo = valorNovo,
-            DataHora = DateTime.UtcNow
+            UserId = userId,
+            Operation = operation,
+            EntityName = entityName,
+            EntityId = entityId,
+            PreviousValue = previousValue,
+            NewValue = newValue,
+            Timestamp = DateTime.UtcNow
         };
 
-        await _repository.AddAsync(auditoria);
+        await _repository.AddAsync(auditLog);
         await _repository.SaveChangesAsync();
     }
 
-    public async Task<ApiResponse<IEnumerable<AuditoriaResponseDto>>> GetByCompanyAsync(
+    public async Task<ApiResponse<IEnumerable<AuditLogResponseDto>>> GetByCompanyAsync(
         Guid companyId, DateTime? from = null, DateTime? to = null)
     {
         var records = await _repository.GetByCompanyAsync(companyId, from, to);
 
-        var dtos = records.Select(a => new AuditoriaResponseDto(
-            a.Id, a.UsuarioId, a.Operacao, a.EntidadeNome,
-            a.EntidadeId, a.ValorAnterior, a.ValorNovo, a.DataHora
+        var dtos = records.Select(a => new AuditLogResponseDto(
+            a.Id, a.UserId, a.Operation, a.EntityName,
+            a.EntityId, a.PreviousValue, a.NewValue, a.Timestamp
         ));
 
-        return ApiResponse<IEnumerable<AuditoriaResponseDto>>.Ok(dtos);
+        return ApiResponse<IEnumerable<AuditLogResponseDto>>.Ok(dtos);
     }
 }

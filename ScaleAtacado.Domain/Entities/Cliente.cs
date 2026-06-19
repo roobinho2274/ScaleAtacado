@@ -1,14 +1,14 @@
 namespace ScaleAtacado.Domain.Entities;
 
-public class Cliente
+public class Customer
 {
     public Guid Id { get; set; }
     public Guid CompanyId { get; set; }
-    public string NomeRazaoSocial { get; set; } = string.Empty;
-    public string Documento { get; set; } = string.Empty;
-    public string Endereco { get; set; } = string.Empty;
-    public string Telefone { get; set; } = string.Empty;
-    public string? Observacoes { get; set; }
+    public string LegalName { get; set; } = string.Empty;
+    public string TaxId { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

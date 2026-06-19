@@ -10,17 +10,17 @@ namespace ScaleAtacado.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ClienteController : ControllerBase
+public class CustomerController : ControllerBase
 {
-    private readonly ClienteAppService _service;
+    private readonly CustomerAppService _service;
 
-    public ClienteController(ClienteAppService service)
+    public CustomerController(CustomerAppService service)
     {
         _service = service;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ClienteResponseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<CustomerResponseDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] string? search)
     {
         var result = await _service.SearchAsync(search, User.GetCompanyId());
@@ -28,7 +28,7 @@ public class ClienteController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<CustomerResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -37,9 +37,9 @@ public class ClienteController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<CustomerResponseDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create([FromBody] CreateClienteDto dto)
+    public async Task<IActionResult> Create([FromBody] CreateCustomerDto dto)
     {
         var result = await _service.CreateAsync(dto, User.GetCompanyId());
         if (!result.Success) return BadRequest(result);
@@ -47,9 +47,9 @@ public class ClienteController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<CustomerResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClienteDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerDto dto)
     {
         var result = await _service.UpdateAsync(id, dto, User.GetCompanyId());
         return result.Success ? Ok(result) : BadRequest(result);

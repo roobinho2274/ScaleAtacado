@@ -31,9 +31,8 @@ public class PrintJobController : ControllerBase
         _configuration = configuration;
     }
 
-    // Endpoint consumido pelo PrintAgent para buscar jobs pendentes (fallback)
-    [HttpGet("pendentes")]
-    public async Task<IActionResult> GetPendentes()
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPending()
     {
         if (!IsValidAgent())
             return Unauthorized(ApiResponse.Fail("AgentKey inválida."));
@@ -45,7 +44,6 @@ public class PrintJobController : ControllerBase
         return Ok(ApiResponse<IEnumerable<PendingPrintJobDto>>.Ok(all));
     }
 
-    // Endpoint consumido pelo PrintAgent para atualizar status
     [HttpPatch("{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdatePrintJobStatusDto dto)
     {
@@ -64,14 +62,12 @@ public class PrintJobController : ControllerBase
         await _repository.UpdateAsync(job);
         await _repository.SaveChangesAsync();
 
-        // Notifica clientes Blazor sobre mudança de status
         await _hub.Clients.Group("Clients")
             .SendAsync("PrintJobStatusChanged", new { job.Id, job.OrderId, Status = dto.Status.ToString() });
 
         return Ok(ApiResponse.Ok());
     }
 
-    // Endpoint para o PrintAgent buscar dados do pedido (sem JWT, usa AgentKey)
     [HttpGet("{jobId:guid}/order")]
     public async Task<IActionResult> GetOrderForAgent(Guid jobId)
     {
@@ -88,7 +84,7 @@ public class PrintJobController : ControllerBase
 
         var dto = new OrderResponseDto(
             order.Id, order.OrderNumber, order.CompanyId,
-            order.ClienteId, order.Cliente.NomeRazaoSocial,
+            order.CustomerId, order.Customer.LegalName,
             order.PaymentMethodId, order.PaymentMethod.Name, order.PaymentMethod.SurchargePercentage,
             order.UserId, order.OrderDate,
             order.AmountTotal, order.DiscountAmount, order.AmountWithSurchargeTotal,
@@ -101,7 +97,6 @@ public class PrintJobController : ControllerBase
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));
     }
 
-    // Endpoint para monitoramento (Blazor/Admin)
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> GetAll()

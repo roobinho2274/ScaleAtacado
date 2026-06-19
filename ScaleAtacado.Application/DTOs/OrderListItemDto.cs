@@ -5,7 +5,7 @@ namespace ScaleAtacado.Application.DTOs;
 public record OrderListItemDto(
     Guid Id,
     int OrderNumber,
-    string ClienteNome,
+    string CustomerName,
     string PaymentMethodName,
     DateTime OrderDate,
     decimal AmountTotal,

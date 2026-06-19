@@ -22,11 +22,11 @@ builder.Services.AddAuthorizationCore();
 
 builder.Services.AddScoped<ApiHttpClient>();
 builder.Services.AddScoped<ProductService>();
-builder.Services.AddScoped<ClienteService>();
+builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<PaymentMethodService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<AuditoriaService>();
+builder.Services.AddScoped<AuditLogService>();
 
 await builder.Build().RunAsync();

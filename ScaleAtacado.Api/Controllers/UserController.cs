@@ -55,7 +55,7 @@ public class UserController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPatch("{id:guid}/senha")]
+    [HttpPatch("{id:guid}/password")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ChangePassword(Guid id, [FromBody] ChangePasswordDto dto)

@@ -15,14 +15,14 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     }
 
     public DbSet<Category> Categories { get; set; }
-    public DbSet<Cliente> Clientes { get; set; }
+    public DbSet<Customer> Customers { get; set; }
     public DbSet<Company> Companies { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
     public DbSet<PrintJobs> PrintJobs { get; set; }
     public DbSet<Product> Products { get; set; }
-    public DbSet<Auditoria> Auditorias { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

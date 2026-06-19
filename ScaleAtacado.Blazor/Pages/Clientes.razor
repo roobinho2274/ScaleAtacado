@@ -1,6 +1,6 @@
 @page "/clientes"
 @attribute [Authorize]
-@inject ClienteService ClienteService
+@inject CustomerService CustomerService
 @inject ISnackbar Snackbar
 
 <PageTitle>Clientes — ScaleAtacado</PageTitle>
@@ -8,7 +8,7 @@
 <div class="d-flex align-center justify-space-between mb-4">
     <MudText Typo="Typo.h5">Clientes</MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-        StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AbrirNovo">
+        StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenNew">
         Novo Cliente
     </MudButton>
 </div>
@@ -16,7 +16,7 @@
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudGrid>
         <MudItem xs="12" sm="8">
-            <MudTextField @bind-Value="_busca" Label="Buscar por nome ou documento"
+            <MudTextField @bind-Value="_searchTerm" Label="Buscar por nome ou documento"
                 Placeholder="Nome, CPF/CNPJ ou telefone..."
                 Variant="Variant.Outlined"
                 Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
@@ -24,14 +24,14 @@
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                OnClick="CarregarAsync" StartIcon="@Icons.Material.Filled.Search">
+                OnClick="LoadAsync" StartIcon="@Icons.Material.Filled.Search">
                 Buscar
             </MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="_clientes" Dense="true" Hover="true" Striped="true" Loading="_carregando">
+<MudTable Items="_customers" Dense="true" Hover="true" Striped="true" Loading="_loading">
     <HeaderContent>
         <MudTh>Nome / Razão Social</MudTh>
         <MudTh>Documento</MudTh>
@@ -41,10 +41,10 @@
         <MudTh Style="text-align:center">Ações</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Nome">@context.NomeRazaoSocial</MudTd>
-        <MudTd DataLabel="Documento">@context.Documento</MudTd>
-        <MudTd DataLabel="Telefone">@context.Telefone</MudTd>
-        <MudTd DataLabel="Endereço">@context.Endereco</MudTd>
+        <MudTd DataLabel="Nome">@context.LegalName</MudTd>
+        <MudTd DataLabel="Documento">@context.TaxId</MudTd>
+        <MudTd DataLabel="Telefone">@context.Phone</MudTd>
+        <MudTd DataLabel="Endereço">@context.Address</MudTd>
         <MudTd DataLabel="Status" Style="text-align:center">
             <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
                 @(context.IsActive ? "Ativo" : "Inativo")
@@ -52,11 +52,11 @@
         </MudTd>
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                OnClick="@(() => AbrirEdicao(context))" />
+                OnClick="@(() => OpenEdit(context))" />
             @if (context.IsActive)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
-                    Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
+                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
             }
         </MudTd>
     </RowTemplate>
@@ -64,131 +64,131 @@
 </MudTable>
 
 <!-- Dialog: Criar / Editar -->
-<MudDialog @bind-Visible="_dialogAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent>@(_editando == null ? "Novo Cliente" : "Editar Cliente")</TitleContent>
+<MudDialog @bind-Visible="_dialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>@(_editing == null ? "Novo Cliente" : "Editar Cliente")</TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_form.NomeRazaoSocial" Label="Nome / Razão Social"
+        <MudTextField @bind-Value="_form.LegalName" Label="Nome / Razão Social"
             Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
-        <MudTextField @bind-Value="_form.Documento" Label="CPF / CNPJ"
+        <MudTextField @bind-Value="_form.TaxId" Label="CPF / CNPJ"
             Placeholder="000.000.000-00 ou 00.000.000/0000-00"
             HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-        <MudTextField @bind-Value="_form.Telefone" Label="Telefone"
+        <MudTextField @bind-Value="_form.Phone" Label="Telefone"
             Placeholder="(00) 9 0000-0000"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-        <MudTextField @bind-Value="_form.Endereco" Label="Endereço"
+        <MudTextField @bind-Value="_form.Address" Label="Endereço"
             Placeholder="Rua, número, bairro, cidade — UF"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
-        <MudTextField @bind-Value="_form.Observacoes" Label="Observações"
+        <MudTextField @bind-Value="_form.Notes" Label="Observações"
             Placeholder="Informações adicionais sobre o cliente (opcional)"
             Variant="Variant.Outlined" FullWidth="true" Lines="2" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogOpen = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Salvar
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
-    private List<ClienteResponseDto> _clientes = new();
-    private string _busca = "";
-    private bool _carregando;
-    private bool _dialogAberto;
-    private bool _salvando;
-    private ClienteResponseDto? _editando;
+    private List<CustomerResponseDto> _customers = new();
+    private string _searchTerm = "";
+    private bool _loading;
+    private bool _dialogOpen;
+    private bool _saving;
+    private CustomerResponseDto? _editing;
     private FormVm _form = new();
 
-    protected override async Task OnInitializedAsync() => await CarregarAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") await CarregarAsync();
+        if (e.Key == "Enter") await LoadAsync();
     }
 
-    private async Task CarregarAsync()
+    private async Task LoadAsync()
     {
-        _carregando = true;
-        var resp = await ClienteService.SearchAsync(_busca);
-        _clientes = resp?.Data?.ToList() ?? new();
-        _carregando = false;
+        _loading = true;
+        var resp = await CustomerService.SearchAsync(_searchTerm);
+        _customers = resp?.Data?.ToList() ?? new();
+        _loading = false;
     }
 
-    private void AbrirNovo()
+    private void OpenNew()
     {
-        _editando = null;
+        _editing = null;
         _form = new FormVm();
-        _dialogAberto = true;
+        _dialogOpen = true;
     }
 
-    private void AbrirEdicao(ClienteResponseDto c)
+    private void OpenEdit(CustomerResponseDto c)
     {
-        _editando = c;
+        _editing = c;
         _form = new FormVm
         {
-            NomeRazaoSocial = c.NomeRazaoSocial,
-            Documento = c.Documento,
-            Telefone = c.Telefone,
-            Endereco = c.Endereco,
-            Observacoes = c.Observacoes ?? ""
+            LegalName = c.LegalName,
+            TaxId = c.TaxId,
+            Phone = c.Phone,
+            Address = c.Address,
+            Notes = c.Notes ?? ""
         };
-        _dialogAberto = true;
+        _dialogOpen = true;
     }
 
-    private async Task SalvarAsync()
+    private async Task SaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(_form.NomeRazaoSocial)) return;
-        _salvando = true;
+        if (string.IsNullOrWhiteSpace(_form.LegalName)) return;
+        _saving = true;
 
-        if (_editando == null)
+        if (_editing == null)
         {
-            var dto = new CreateClienteDto(_form.NomeRazaoSocial, _form.Documento, _form.Endereco, _form.Telefone, _form.Observacoes);
-            var resp = await ClienteService.CreateAsync(dto);
+            var dto = new CreateCustomerDto(_form.LegalName, _form.TaxId, _form.Address, _form.Phone, _form.Notes);
+            var resp = await CustomerService.CreateAsync(dto);
             if (resp?.Success == true)
             {
                 Snackbar.Add("Cliente criado com sucesso!", Severity.Success);
-                _dialogAberto = false;
-                await CarregarAsync();
+                _dialogOpen = false;
+                await LoadAsync();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao criar.", Severity.Error);
         }
         else
         {
-            var dto = new UpdateClienteDto(_form.NomeRazaoSocial, _form.Documento, _form.Endereco, _form.Telefone, _form.Observacoes, true);
-            var resp = await ClienteService.UpdateAsync(_editando.Id, dto);
+            var dto = new UpdateCustomerDto(_form.LegalName, _form.TaxId, _form.Address, _form.Phone, _form.Notes, true);
+            var resp = await CustomerService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
                 Snackbar.Add("Cliente atualizado!", Severity.Success);
-                _dialogAberto = false;
-                await CarregarAsync();
+                _dialogOpen = false;
+                await LoadAsync();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
         }
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task DesativarAsync(ClienteResponseDto c)
+    private async Task DeactivateAsync(CustomerResponseDto c)
     {
-        var resp = await ClienteService.DeactivateAsync(c.Id);
+        var resp = await CustomerService.DeactivateAsync(c.Id);
         if (resp?.Success == true)
         {
             Snackbar.Add("Cliente desativado.", Severity.Info);
-            await CarregarAsync();
+            await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }
 
     private class FormVm
     {
-        public string NomeRazaoSocial { get; set; } = "";
-        public string Documento { get; set; } = "";
-        public string Telefone { get; set; } = "";
-        public string Endereco { get; set; } = "";
-        public string? Observacoes { get; set; }
+        public string LegalName { get; set; } = "";
+        public string TaxId { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Address { get; set; } = "";
+        public string? Notes { get; set; }
     }
 }

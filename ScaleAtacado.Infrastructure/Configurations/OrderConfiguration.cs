@@ -15,10 +15,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.AmountWithSurchargeTotal).HasPrecision(18, 2);
         builder.Property(o => o.DeliveryStatus).HasConversion<int>();
         builder.Property(o => o.FinancialStatus).HasConversion<int>();
+        builder.Property(o => o.CustomerId).HasColumnName("ClienteId");
 
-        builder.HasOne(o => o.Cliente)
+        builder.HasOne(o => o.Customer)
                .WithMany(c => c.Orders)
-               .HasForeignKey(o => o.ClienteId)
+               .HasForeignKey(o => o.CustomerId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(o => o.PaymentMethod)

@@ -3,24 +3,24 @@ using ScaleAtacado.Shared.Common;
 
 namespace ScaleAtacado.Blazor.Services;
 
-public class ClienteService
+public class CustomerService
 {
     private readonly ApiHttpClient _api;
-    public ClienteService(ApiHttpClient api) => _api = api;
+    public CustomerService(ApiHttpClient api) => _api = api;
 
-    public Task<ApiResponse<IEnumerable<ClienteResponseDto>>?> SearchAsync(string? term = null)
-        => _api.GetAsync<IEnumerable<ClienteResponseDto>>(
-            string.IsNullOrWhiteSpace(term) ? "api/cliente" : $"api/cliente?search={Uri.EscapeDataString(term)}");
+    public Task<ApiResponse<IEnumerable<CustomerResponseDto>>?> SearchAsync(string? term = null)
+        => _api.GetAsync<IEnumerable<CustomerResponseDto>>(
+            string.IsNullOrWhiteSpace(term) ? "api/customer" : $"api/customer?search={Uri.EscapeDataString(term)}");
 
-    public Task<ApiResponse<ClienteResponseDto>?> GetByIdAsync(Guid id)
-        => _api.GetAsync<ClienteResponseDto>($"api/cliente/{id}");
+    public Task<ApiResponse<CustomerResponseDto>?> GetByIdAsync(Guid id)
+        => _api.GetAsync<CustomerResponseDto>($"api/customer/{id}");
 
-    public Task<ApiResponse<ClienteResponseDto>?> CreateAsync(CreateClienteDto dto)
-        => _api.PostAsync<ClienteResponseDto>("api/cliente", dto);
+    public Task<ApiResponse<CustomerResponseDto>?> CreateAsync(CreateCustomerDto dto)
+        => _api.PostAsync<CustomerResponseDto>("api/customer", dto);
 
-    public Task<ApiResponse<ClienteResponseDto>?> UpdateAsync(Guid id, UpdateClienteDto dto)
-        => _api.PutAsync<ClienteResponseDto>($"api/cliente/{id}", dto);
+    public Task<ApiResponse<CustomerResponseDto>?> UpdateAsync(Guid id, UpdateCustomerDto dto)
+        => _api.PutAsync<CustomerResponseDto>($"api/customer/{id}", dto);
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
-        => _api.DeleteAsync($"api/cliente/{id}");
+        => _api.DeleteAsync($"api/customer/{id}");
 }

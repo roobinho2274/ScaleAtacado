@@ -2,9 +2,9 @@ namespace ScaleAtacado.Domain.Enums;
 
 public enum DeliveryStatus
 {
-    AguardandoSeparacao = 0,
-    EmSeparacao = 1,
-    SaiuParaEntrega = 2,
-    Entregue = 3,
-    Cancelado = 4
+    AwaitingPicking = 0,
+    Picking = 1,
+    OutForDelivery = 2,
+    Delivered = 3,
+    Cancelled = 4
 }

@@ -18,7 +18,7 @@ using ScaleAtacado.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS — permite o Blazor chamar a API
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorPolicy", policy =>
@@ -34,7 +34,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Identity (sem cookie auth — apenas UserManager/RoleManager)
+// Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = true;
@@ -73,17 +73,17 @@ builder.Services.AddAuthorization(options =>
 
 // Repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
-builder.Services.AddScoped<IAuditoriaRepository, AuditoriaRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPrintJobRepository, PrintJobRepository>();
 
 // Application Services
-builder.Services.AddScoped<AuditoriaAppService>();
+builder.Services.AddScoped<AuditLogAppService>();
 builder.Services.AddScoped<ProductAppService>();
-builder.Services.AddScoped<ClienteAppService>();
+builder.Services.AddScoped<CustomerAppService>();
 builder.Services.AddScoped<PaymentMethodAppService>();
 builder.Services.AddScoped<CategoryAppService>();
 builder.Services.AddScoped<OrderAppService>();

@@ -10,17 +10,17 @@ namespace ScaleAtacado.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "AdminOnly")]
-public class AuditoriaController : ControllerBase
+public class AuditLogController : ControllerBase
 {
-    private readonly AuditoriaAppService _service;
+    private readonly AuditLogAppService _service;
 
-    public AuditoriaController(AuditoriaAppService service)
+    public AuditLogController(AuditLogAppService service)
     {
         _service = service;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IEnumerable<AuditoriaResponseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<AuditLogResponseDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)

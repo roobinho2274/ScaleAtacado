@@ -1,6 +1,6 @@
 @page "/pdv"
 @attribute [Authorize]
-@inject ClienteService ClienteService
+@inject CustomerService CustomerService
 @inject ProductService ProductService
 @inject PaymentMethodService PaymentMethodService
 @inject OrderService OrderService
@@ -19,21 +19,21 @@
             <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Cliente</b></MudText>
             <MudGrid>
                 <MudItem xs="12" sm="9">
-                    <MudAutocomplete T="ClienteResponseDto"
+                    <MudAutocomplete T="CustomerResponseDto"
                         Label="Buscar cliente"
-                        @bind-Value="_clienteSelecionado"
-                        SearchFunc="BuscarClientesAsync"
-                        ToStringFunc="@(c => c?.NomeRazaoSocial ?? string.Empty)"
+                        @bind-Value="_selectedCustomer"
+                        SearchFunc="SearchCustomersAsync"
+                        ToStringFunc="@(c => c?.LegalName ?? string.Empty)"
                         Variant="Variant.Outlined"
                         Dense="true"
                         FullWidth="true"
                         Clearable="true"
-                        Disabled="_finalizando" />
+                        Disabled="_finalizing" />
                 </MudItem>
                 <MudItem xs="12" sm="3">
                     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
-                        OnClick="AbrirCadastroCliente" Style="height:56px"
-                        Disabled="_finalizando">
+                        OnClick="OpenNewCustomer" Style="height:56px"
+                        Disabled="_finalizing">
                         + Novo
                     </MudButton>
                 </MudItem>
@@ -47,24 +47,24 @@
                 <MudItem xs="12" sm="6">
                     <MudAutocomplete T="ProductResponseDto"
                         Label="Buscar produto"
-                        @bind-Value="_produtoSelecionado"
-                        SearchFunc="BuscarProdutosAsync"
+                        @bind-Value="_selectedProduct"
+                        SearchFunc="SearchProductsAsync"
                         ToStringFunc="@(p => p != null ? $"{p.Name} — R$ {p.BaseSalePrice:N2}" : string.Empty)"
                         Variant="Variant.Outlined"
                         Dense="true"
                         FullWidth="true"
                         Clearable="true"
-                        Disabled="_finalizando" />
+                        Disabled="_finalizing" />
                 </MudItem>
                 <MudItem xs="6" sm="3">
-                    <MudNumericField @bind-Value="_quantidade" Label="Quantidade"
+                    <MudNumericField @bind-Value="_quantity" Label="Quantidade"
                         Variant="Variant.Outlined" Min="1" Max="9999"
-                        Disabled="_finalizando" />
+                        Disabled="_finalizing" />
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                        OnClick="AdicionarItem" Style="height:40px"
-                        Disabled="@(_finalizando || _produtoSelecionado == null)">
+                        OnClick="AddItem" Style="height:40px"
+                        Disabled="@(_finalizing || _selectedProduct == null)">
                         Adicionar
                     </MudButton>
                 </MudItem>
@@ -73,7 +73,7 @@
 
         <!-- Itens do Pedido -->
         <MudPaper Elevation="2">
-            <MudTable Items="_itens" Dense="true" Hover="true" Striped="true">
+            <MudTable Items="_items" Dense="true" Hover="true" Striped="true">
                 <NoRecordsContent>Nenhum item adicionado.</NoRecordsContent>
                 <HeaderContent>
                     <MudTh>Produto</MudTh>
@@ -83,19 +83,19 @@
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Produto">@context.NomeProduto</MudTd>
+                    <MudTd DataLabel="Produto">@context.ProductName</MudTd>
                     <MudTd DataLabel="Preço Unit." Style="text-align:right">R$ @context.UnitPrice.ToString("N2")</MudTd>
                     <MudTd DataLabel="Qtd" Style="text-align:center">
                         <MudNumericField Value="context.Quantity" Min="1" Max="9999"
                             Variant="Variant.Text" Style="width:70px;text-align:center"
-                            Disabled="_finalizando"
-                            ValueChanged="@(EventCallback.Factory.Create<int>(this, v => AlterarQuantidade(context, v)))" />
+                            Disabled="_finalizing"
+                            ValueChanged="@(EventCallback.Factory.Create<int>(this, v => UpdateQuantity(context, v)))" />
                     </MudTd>
                     <MudTd DataLabel="Total" Style="text-align:right">R$ @context.TotalPrice.ToString("N2")</MudTd>
                     <MudTd Style="text-align:center">
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
-                            Size="Size.Small" OnClick="@(() => RemoverItem(context))"
-                            Disabled="_finalizando" />
+                            Size="Size.Small" OnClick="@(() => RemoveItem(context))"
+                            Disabled="_finalizing" />
                     </MudTd>
                 </RowTemplate>
             </MudTable>
@@ -107,17 +107,17 @@
         <MudPaper Class="pa-4 mb-4" Elevation="2">
             <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Forma de Pagamento</b></MudText>
             <MudSelect T="PaymentMethodResponseDto" Label="Selecionar"
-                @bind-Value="_formaPagamento"
+                @bind-Value="_paymentMethod"
                 ToStringFunc="@(f => f?.Name ?? string.Empty)"
                 Variant="Variant.Outlined" Dense="true" FullWidth="true"
-                Disabled="_finalizando">
-                @foreach (var fp in _formasPagamento)
+                Disabled="_finalizing">
+                @foreach (var pm in _paymentMethods)
                 {
-                    <MudSelectItem T="PaymentMethodResponseDto" Value="fp">
-                        @fp.Name
-                        @if (fp.SurchargePercentage > 0)
+                    <MudSelectItem T="PaymentMethodResponseDto" Value="pm">
+                        @pm.Name
+                        @if (pm.SurchargePercentage > 0)
                         {
-                            <span> (+@fp.SurchargePercentage.ToString("N1")%)</span>
+                            <span> (+@pm.SurchargePercentage.ToString("N1")%)</span>
                         }
                     </MudSelectItem>
                 }
@@ -132,37 +132,37 @@
                 <MudText Typo="Typo.body2">R$ @_subtotal.ToString("N2")</MudText>
             </div>
 
-            @if (_formaPagamento != null && _formaPagamento.SurchargePercentage > 0)
+            @if (_paymentMethod != null && _paymentMethod.SurchargePercentage > 0)
             {
-                var acrescimo = _totalComAcrescimo - _subtotal;
+                var surcharge = _totalWithSurcharge - _subtotal;
                 <div class="d-flex justify-space-between mb-2">
                     <MudText Typo="Typo.body2" Color="Color.Warning">
-                        Acréscimo (@_formaPagamento.SurchargePercentage.ToString("N1")%):
+                        Acréscimo (@_paymentMethod.SurchargePercentage.ToString("N1")%):
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Warning">
-                        R$ @acrescimo.ToString("N2")
+                        R$ @surcharge.ToString("N2")
                     </MudText>
                 </div>
             }
 
             <div class="d-flex align-center justify-space-between mb-2">
                 <MudText Typo="Typo.body2">Desconto:</MudText>
-                <MudNumericField @bind-Value="_desconto" Min="0m" Format="N2"
+                <MudNumericField @bind-Value="_discount" Min="0m" Format="N2"
                     Variant="Variant.Outlined" Margin="Margin.Dense"
                     Style="width:120px" Placeholder="0,00"
-                    Disabled="_finalizando" />
+                    Disabled="_finalizing" />
             </div>
 
             <MudDivider Class="my-2" />
             <div class="d-flex justify-space-between mb-4">
                 <MudText Typo="Typo.h6"><b>Total:</b></MudText>
-                <MudText Typo="Typo.h6" Color="Color.Primary"><b>R$ @_totalFinal.ToString("N2")</b></MudText>
+                <MudText Typo="Typo.h6" Color="Color.Primary"><b>R$ @_finalTotal.ToString("N2")</b></MudText>
             </div>
 
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
-                Size="Size.Large" OnClick="FinalizarPedidoAsync"
-                Disabled="@(_finalizando || _itens.Count == 0 || _clienteSelecionado == null || _formaPagamento == null)">
-                @if (_finalizando)
+                Size="Size.Large" OnClick="FinalizeOrderAsync"
+                Disabled="@(_finalizing || _items.Count == 0 || _selectedCustomer == null || _paymentMethod == null)">
+                @if (_finalizing)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
                 }
@@ -170,7 +170,7 @@
             </MudButton>
 
             <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true"
-                Class="mt-2" OnClick="LimparPedido" Disabled="_finalizando">
+                Class="mt-2" OnClick="ClearOrder" Disabled="_finalizing">
                 Limpar
             </MudButton>
         </MudPaper>
@@ -178,166 +178,166 @@
 </MudGrid>
 
 <!-- Dialog: Novo Cliente -->
-<MudDialog @bind-Visible="_dialogClienteAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+<MudDialog @bind-Visible="_customerDialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>Novo Cliente</TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_novoClienteNome" Label="Nome / Razão Social"
+        <MudTextField @bind-Value="_newCustomerName" Label="Nome / Razão Social"
             Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
-        <MudTextField @bind-Value="_novoClienteDoc" Label="CPF / CNPJ"
+            Error="@(_errorName != null)" ErrorText="@_errorName" />
+        <MudTextField @bind-Value="_newCustomerTaxId" Label="CPF / CNPJ"
             Placeholder="000.000.000-00 ou 00.000.000/0000-00"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
             HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
-            Error="@(_erroDoc != null)" ErrorText="@_erroDoc" />
-        <MudTextField @bind-Value="_novoClienteTel" Label="Telefone"
+            Error="@(_errorTaxId != null)" ErrorText="@_errorTaxId" />
+        <MudTextField @bind-Value="_newCustomerPhone" Label="Telefone"
             Placeholder="(00) 9 0000-0000"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
-            Error="@(_erroTel != null)" ErrorText="@_erroTel" />
-        <MudTextField @bind-Value="_novoClienteEnd" Label="Endereço"
+            Error="@(_errorPhone != null)" ErrorText="@_errorPhone" />
+        <MudTextField @bind-Value="_newCustomerAddress" Label="Endereço"
             Placeholder="Rua, número, bairro, cidade — UF"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
-            Error="@(_erroEnd != null)" ErrorText="@_erroEnd" />
-        <MudTextField @bind-Value="_novoClienteObs" Label="Observações"
+            Error="@(_errorAddress != null)" ErrorText="@_errorAddress" />
+        <MudTextField @bind-Value="_newCustomerNotes" Label="Observações"
             Placeholder="Informações adicionais sobre o cliente (opcional)"
             Variant="Variant.Outlined" FullWidth="true" Lines="2"
-            Error="@(_erroObs != null)" ErrorText="@_erroObs" />
+            Error="@(_errorNotes != null)" ErrorText="@_errorNotes" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogClienteAberto = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _customerDialogOpen = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarNovoClienteAsync" Disabled="_salvandoCliente">
-            @if (_salvandoCliente) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveNewCustomerAsync" Disabled="_savingCustomer">
+            @if (_savingCustomer) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Salvar
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
-    private ClienteResponseDto? _clienteSelecionado;
-    private ProductResponseDto? _produtoSelecionado;
-    private PaymentMethodResponseDto? _formaPagamento;
-    private int _quantidade = 1;
-    private decimal _desconto = 0m;
-    private bool _finalizando;
-    private bool _dialogClienteAberto;
-    private bool _salvandoCliente;
+    private CustomerResponseDto? _selectedCustomer;
+    private ProductResponseDto? _selectedProduct;
+    private PaymentMethodResponseDto? _paymentMethod;
+    private int _quantity = 1;
+    private decimal _discount = 0m;
+    private bool _finalizing;
+    private bool _customerDialogOpen;
+    private bool _savingCustomer;
 
-    private string _novoClienteNome = "";
-    private string _novoClienteDoc  = "";
-    private string _novoClienteTel  = "";
-    private string _novoClienteEnd  = "";
-    private string _novoClienteObs  = "";
+    private string _newCustomerName    = "";
+    private string _newCustomerTaxId   = "";
+    private string _newCustomerPhone   = "";
+    private string _newCustomerAddress = "";
+    private string _newCustomerNotes   = "";
 
-    private string? _erroNome;
-    private string? _erroDoc;
-    private string? _erroTel;
-    private string? _erroEnd;
-    private string? _erroObs;
+    private string? _errorName;
+    private string? _errorTaxId;
+    private string? _errorPhone;
+    private string? _errorAddress;
+    private string? _errorNotes;
 
-    private List<ItemPedidoVm> _itens = new();
-    private List<ProductResponseDto> _produtos = new();
-    private List<PaymentMethodResponseDto> _formasPagamento = new();
+    private List<OrderItemVm> _items = new();
+    private List<ProductResponseDto> _products = new();
+    private List<PaymentMethodResponseDto> _paymentMethods = new();
 
-    private decimal _subtotal => _itens.Sum(i => i.TotalPrice);
-    private decimal _totalComAcrescimo => _formaPagamento != null
-        ? _subtotal * (1 + _formaPagamento.SurchargePercentage / 100m)
+    private decimal _subtotal => _items.Sum(i => i.TotalPrice);
+    private decimal _totalWithSurcharge => _paymentMethod != null
+        ? _subtotal * (1 + _paymentMethod.SurchargePercentage / 100m)
         : _subtotal;
-    private decimal _totalFinal => Math.Max(0m, _totalComAcrescimo - _desconto);
+    private decimal _finalTotal => Math.Max(0m, _totalWithSurcharge - _discount);
 
     protected override async Task OnInitializedAsync()
     {
         var prodResp = await ProductService.GetAllActiveAsync();
         if (prodResp?.Success == true && prodResp.Data != null)
-            _produtos = prodResp.Data.ToList();
+            _products = prodResp.Data.ToList();
 
-        var fpResp = await PaymentMethodService.GetAllAsync(onlyActive: true);
-        if (fpResp?.Success == true && fpResp.Data != null)
-            _formasPagamento = fpResp.Data.ToList();
+        var pmResp = await PaymentMethodService.GetAllAsync(onlyActive: true);
+        if (pmResp?.Success == true && pmResp.Data != null)
+            _paymentMethods = pmResp.Data.ToList();
     }
 
-    private async Task<IEnumerable<ClienteResponseDto>> BuscarClientesAsync(string valor, CancellationToken ct)
+    private async Task<IEnumerable<CustomerResponseDto>> SearchCustomersAsync(string term, CancellationToken ct)
     {
-        var resp = await ClienteService.SearchAsync(valor);
-        return resp?.Data ?? Enumerable.Empty<ClienteResponseDto>();
+        var resp = await CustomerService.SearchAsync(term);
+        return resp?.Data ?? Enumerable.Empty<CustomerResponseDto>();
     }
 
-    private Task<IEnumerable<ProductResponseDto>> BuscarProdutosAsync(string valor, CancellationToken ct)
+    private Task<IEnumerable<ProductResponseDto>> SearchProductsAsync(string term, CancellationToken ct)
     {
-        var result = string.IsNullOrWhiteSpace(valor)
-            ? _produtos
-            : _produtos.Where(p =>
-                p.Name.Contains(valor, StringComparison.OrdinalIgnoreCase) ||
-                (p.Code?.Contains(valor, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+        var result = string.IsNullOrWhiteSpace(term)
+            ? _products
+            : _products.Where(p =>
+                p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
         return Task.FromResult<IEnumerable<ProductResponseDto>>(result);
     }
 
-    private void AdicionarItem()
+    private void AddItem()
     {
-        if (_produtoSelecionado == null) return;
+        if (_selectedProduct == null) return;
 
-        var existente = _itens.FirstOrDefault(i => i.ProductId == _produtoSelecionado.Id);
-        if (existente != null)
+        var existing = _items.FirstOrDefault(i => i.ProductId == _selectedProduct.Id);
+        if (existing != null)
         {
-            existente.Quantity += _quantidade;
+            existing.Quantity += _quantity;
         }
         else
         {
-            _itens.Add(new ItemPedidoVm
+            _items.Add(new OrderItemVm
             {
-                ProductId = _produtoSelecionado.Id,
-                NomeProduto = _produtoSelecionado.Name,
-                UnitPrice = _produtoSelecionado.BaseSalePrice,
-                Quantity = _quantidade
+                ProductId   = _selectedProduct.Id,
+                ProductName = _selectedProduct.Name,
+                UnitPrice   = _selectedProduct.BaseSalePrice,
+                Quantity    = _quantity
             });
         }
 
-        _produtoSelecionado = null;
-        _quantidade = 1;
+        _selectedProduct = null;
+        _quantity = 1;
     }
 
-    private void AlterarQuantidade(ItemPedidoVm item, int novaQuantidade)
+    private void UpdateQuantity(OrderItemVm item, int newQuantity)
     {
-        item.Quantity = novaQuantidade;
+        item.Quantity = newQuantity;
         StateHasChanged();
     }
 
-    private void RemoverItem(ItemPedidoVm item) => _itens.Remove(item);
+    private void RemoveItem(OrderItemVm item) => _items.Remove(item);
 
-    private void LimparPedido()
+    private void ClearOrder()
     {
-        _itens.Clear();
-        _clienteSelecionado = null;
-        _formaPagamento = null;
-        _quantidade = 1;
-        _desconto = 0m;
+        _items.Clear();
+        _selectedCustomer = null;
+        _paymentMethod = null;
+        _quantity = 1;
+        _discount = 0m;
     }
 
-    private async Task FinalizarPedidoAsync()
+    private async Task FinalizeOrderAsync()
     {
-        if (_clienteSelecionado == null || _formaPagamento == null || _itens.Count == 0) return;
+        if (_selectedCustomer == null || _paymentMethod == null || _items.Count == 0) return;
 
-        _finalizando = true;
+        _finalizing = true;
 
         var dto = new CreateOrderDto(
-            _clienteSelecionado.Id,
-            _formaPagamento.Id,
-            _itens.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList(),
-            _desconto
+            _selectedCustomer.Id,
+            _paymentMethod.Id,
+            _items.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList(),
+            _discount
         );
 
         var resp = await OrderService.CreateAsync(dto);
         if (resp?.Success == true && resp.Data != null)
         {
-            var finalizar = await OrderService.FinalizarAsync(resp.Data.Id);
-            if (finalizar?.Success == true)
+            var finalize = await OrderService.FinalizeAsync(resp.Data.Id);
+            if (finalize?.Success == true)
             {
                 Snackbar.Add($"Pedido #{resp.Data.OrderNumber} criado com sucesso!", Severity.Success);
-                LimparPedido();
+                ClearOrder();
             }
             else
             {
-                Snackbar.Add(finalizar?.Error ?? "Erro ao finalizar pedido.", Severity.Error);
+                Snackbar.Add(finalize?.Error ?? "Erro ao finalizar pedido.", Severity.Error);
             }
         }
         else
@@ -345,96 +345,95 @@
             Snackbar.Add(resp?.Error ?? "Erro ao criar pedido.", Severity.Error);
         }
 
-        _finalizando = false;
+        _finalizing = false;
     }
 
-    private void AbrirCadastroCliente()
+    private void OpenNewCustomer()
     {
-        _novoClienteNome = "";
-        _novoClienteDoc  = "";
-        _novoClienteTel  = "";
-        _novoClienteEnd  = "";
-        _novoClienteObs  = "";
-        _erroNome = _erroDoc = _erroTel = _erroEnd = _erroObs = null;
-        _dialogClienteAberto = true;
+        _newCustomerName    = "";
+        _newCustomerTaxId   = "";
+        _newCustomerPhone   = "";
+        _newCustomerAddress = "";
+        _newCustomerNotes   = "";
+        _errorName = _errorTaxId = _errorPhone = _errorAddress = _errorNotes = null;
+        _customerDialogOpen = true;
     }
 
-    private bool ValidarNovoCliente()
+    private bool ValidateNewCustomer()
     {
-        _erroNome = _erroDoc = _erroTel = _erroEnd = _erroObs = null;
+        _errorName = _errorTaxId = _errorPhone = _errorAddress = _errorNotes = null;
 
-        if (string.IsNullOrWhiteSpace(_novoClienteNome))
-            _erroNome = "Nome/Razão Social é obrigatório.";
-        else if (_novoClienteNome.Trim().Length > 200)
-            _erroNome = "Nome deve ter no máximo 200 caracteres.";
+        if (string.IsNullOrWhiteSpace(_newCustomerName))
+            _errorName = "Nome/Razão Social é obrigatório.";
+        else if (_newCustomerName.Trim().Length > 200)
+            _errorName = "Nome deve ter no máximo 200 caracteres.";
 
-        if (string.IsNullOrWhiteSpace(_novoClienteDoc))
+        if (string.IsNullOrWhiteSpace(_newCustomerTaxId))
         {
-            _erroDoc = "CPF/CNPJ é obrigatório.";
+            _errorTaxId = "CPF/CNPJ é obrigatório.";
         }
         else
         {
-            var digitos = new string(_novoClienteDoc.Where(char.IsDigit).ToArray());
-            if (digitos.Length == 0)
-                _erroDoc = "Informe apenas os números do CPF (11 dígitos) ou CNPJ (14 dígitos).";
-            else if (digitos.Length != 11 && digitos.Length != 14)
-                _erroDoc = $"Documento inválido: {digitos.Length} dígito(s) informado(s). CPF precisa de 11, CNPJ de 14.";
+            var digits = new string(_newCustomerTaxId.Where(char.IsDigit).ToArray());
+            if (digits.Length == 0)
+                _errorTaxId = "Informe apenas os números do CPF (11 dígitos) ou CNPJ (14 dígitos).";
+            else if (digits.Length != 11 && digits.Length != 14)
+                _errorTaxId = $"Documento inválido: {digits.Length} dígito(s) informado(s). CPF precisa de 11, CNPJ de 14.";
         }
 
-        if (string.IsNullOrWhiteSpace(_novoClienteTel))
-            _erroTel = "Telefone é obrigatório.";
-        else if (_novoClienteTel.Trim().Length > 20)
-            _erroTel = "Telefone deve ter no máximo 20 caracteres.";
+        if (string.IsNullOrWhiteSpace(_newCustomerPhone))
+            _errorPhone = "Telefone é obrigatório.";
+        else if (_newCustomerPhone.Trim().Length > 20)
+            _errorPhone = "Telefone deve ter no máximo 20 caracteres.";
 
-        if (string.IsNullOrWhiteSpace(_novoClienteEnd))
-            _erroEnd = "Endereço é obrigatório.";
-        else if (_novoClienteEnd.Trim().Length > 300)
-            _erroEnd = "Endereço deve ter no máximo 300 caracteres.";
+        if (string.IsNullOrWhiteSpace(_newCustomerAddress))
+            _errorAddress = "Endereço é obrigatório.";
+        else if (_newCustomerAddress.Trim().Length > 300)
+            _errorAddress = "Endereço deve ter no máximo 300 caracteres.";
 
-        if (!string.IsNullOrEmpty(_novoClienteObs) && _novoClienteObs.Length > 500)
-            _erroObs = "Observações deve ter no máximo 500 caracteres.";
+        if (!string.IsNullOrEmpty(_newCustomerNotes) && _newCustomerNotes.Length > 500)
+            _errorNotes = "Observações deve ter no máximo 500 caracteres.";
 
-        return _erroNome == null && _erroDoc == null && _erroTel == null
-            && _erroEnd == null && _erroObs == null;
+        return _errorName == null && _errorTaxId == null && _errorPhone == null
+            && _errorAddress == null && _errorNotes == null;
     }
 
-    private async Task SalvarNovoClienteAsync()
+    private async Task SaveNewCustomerAsync()
     {
-        if (!ValidarNovoCliente()) return;
+        if (!ValidateNewCustomer()) return;
 
-        _salvandoCliente = true;
+        _savingCustomer = true;
 
-        var dto = new CreateClienteDto(
-            _novoClienteNome.Trim(),
-            _novoClienteDoc.Trim(),
-            _novoClienteEnd.Trim(),
-            _novoClienteTel.Trim(),
-            string.IsNullOrWhiteSpace(_novoClienteObs) ? null : _novoClienteObs.Trim());
+        var dto = new CreateCustomerDto(
+            _newCustomerName.Trim(),
+            _newCustomerTaxId.Trim(),
+            _newCustomerAddress.Trim(),
+            _newCustomerPhone.Trim(),
+            string.IsNullOrWhiteSpace(_newCustomerNotes) ? null : _newCustomerNotes.Trim());
 
-        var resp = await ClienteService.CreateAsync(dto);
+        var resp = await CustomerService.CreateAsync(dto);
         if (resp?.Success == true && resp.Data != null)
         {
-            _clienteSelecionado = resp.Data;
-            _dialogClienteAberto = false;
+            _selectedCustomer = resp.Data;
+            _customerDialogOpen = false;
             Snackbar.Add("Cliente cadastrado!", Severity.Success);
         }
         else
         {
             var msg = resp?.Error ?? "Erro ao cadastrar cliente. Verifique os dados e tente novamente.";
-            // duplicata de documento → exibir no campo em vez de snackbar
             if (msg.Contains("CPF/CNPJ", StringComparison.OrdinalIgnoreCase))
-                _erroDoc = msg;
+                _errorTaxId = msg;
             else
                 Snackbar.Add(msg, Severity.Error);
         }
 
-        _salvandoCliente = false;
+        _savingCustomer = false;
     }
 
-    private class ItemPedidoVm
+    private class OrderItemVm
     {
         public Guid ProductId { get; set; }
-        public string NomeProduto { get; set; } = "";
+        public string ProductName { get; set; } = "";
         public decimal UnitPrice { get; set; }
         public int Quantity { get; set; } = 1;
         public decimal TotalPrice => UnitPrice * Quantity;

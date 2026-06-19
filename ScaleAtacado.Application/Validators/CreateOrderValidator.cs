@@ -7,7 +7,7 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderDto>
 {
     public CreateOrderValidator()
     {
-        RuleFor(x => x.ClienteId)
+        RuleFor(x => x.CustomerId)
             .NotEmpty().WithMessage("Cliente é obrigatório.");
 
         RuleFor(x => x.PaymentMethodId)

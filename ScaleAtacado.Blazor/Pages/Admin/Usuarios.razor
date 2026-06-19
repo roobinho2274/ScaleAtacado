@@ -8,12 +8,12 @@
 <div class="d-flex align-center justify-space-between mb-4">
     <MudText Typo="Typo.h5">Usuários</MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-        StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AbrirNovo">
+        StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenNew">
         Novo Usuário
     </MudButton>
 </div>
 
-<MudTable Items="_usuarios" Dense="true" Hover="true" Striped="true" Loading="_carregando">
+<MudTable Items="_users" Dense="true" Hover="true" Striped="true" Loading="_loading">
     <HeaderContent>
         <MudTh>Nome</MudTh>
         <MudTh>E-mail</MudTh>
@@ -40,16 +40,16 @@
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                 title="Editar dados"
-                OnClick="@(() => AbrirEdicao(context))" />
+                OnClick="@(() => OpenEdit(context))" />
             <MudIconButton Icon="@Icons.Material.Filled.Lock" Size="Size.Small"
                 title="Alterar senha"
                 Color="Color.Warning"
-                OnClick="@(() => AbrirAlterarSenha(context))" />
+                OnClick="@(() => OpenChangePassword(context))" />
             @if (context.IsActive)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
                     title="Desativar usuário"
-                    Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
+                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
             }
         </MudTd>
     </RowTemplate>
@@ -57,84 +57,84 @@
 </MudTable>
 
 <!-- Dialog: Criar -->
-<MudDialog @bind-Visible="_dialogNovo" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+<MudDialog @bind-Visible="_dialogNew" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>Novo Usuário</TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_formNovo.FullName" Label="Nome Completo"
+        <MudTextField @bind-Value="_newForm.FullName" Label="Nome Completo"
             Placeholder="ex: Carlos Oliveira"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroNomeNovo != null)" ErrorText="@_erroNomeNovo" />
-        <MudTextField @bind-Value="_formNovo.Email" Label="E-mail" InputType="InputType.Email"
+            Error="@(_errorNameNew != null)" ErrorText="@_errorNameNew" />
+        <MudTextField @bind-Value="_newForm.Email" Label="E-mail" InputType="InputType.Email"
             Placeholder="usuario@empresa.com"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroEmail != null)" ErrorText="@_erroEmail" />
-        <MudTextField @bind-Value="_formNovo.Password" Label="Senha" InputType="InputType.Password"
+            Error="@(_errorEmail != null)" ErrorText="@_errorEmail" />
+        <MudTextField @bind-Value="_newForm.Password" Label="Senha" InputType="InputType.Password"
             Placeholder="Crie uma senha segura"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
-            Error="@(_erroSenha != null)" ErrorText="@_erroSenha" />
+            Error="@(_errorPassword != null)" ErrorText="@_errorPassword" />
         <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
             <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
             <MudText Typo="Typo.caption" Style="display:block">• Mínimo de 6 caracteres</MudText>
             <MudText Typo="Typo.caption" Style="display:block">• Pelo menos uma letra minúscula (a-z)</MudText>
             <MudText Typo="Typo.caption" Style="display:block">• Pelo menos um número (0-9)</MudText>
         </MudPaper>
-        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formNovo.Profile"
+        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_newForm.Profile"
             Variant="Variant.Outlined" FullWidth="true">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
             <MudSelectItem T="UserProfile" Value="UserProfile.Admin">Administrador</MudSelectItem>
         </MudSelect>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogNovo = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogNew = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarNovoAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveNewAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Criar
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 <!-- Dialog: Editar -->
-<MudDialog @bind-Visible="_dialogEditar" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+<MudDialog @bind-Visible="_dialogEdit" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>Editar Usuário</TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_formEditar.FullName" Label="Nome Completo"
+        <MudTextField @bind-Value="_editForm.FullName" Label="Nome Completo"
             Placeholder="ex: Carlos Oliveira"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroNomeEditar != null)" ErrorText="@_erroNomeEditar" />
-        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_formEditar.Profile"
+            Error="@(_errorNameEdit != null)" ErrorText="@_errorNameEdit" />
+        <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_editForm.Profile"
             Variant="Variant.Outlined" FullWidth="true">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
             <MudSelectItem T="UserProfile" Value="UserProfile.Admin">Administrador</MudSelectItem>
         </MudSelect>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogEditar = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogEdit = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarEdicaoAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveEditAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Salvar
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 <!-- Dialog: Alterar Senha -->
-<MudDialog @bind-Visible="_dialogSenha" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+<MudDialog @bind-Visible="_dialogPassword" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>
-        Alterar Senha — @_alterandoSenha?.FullName
+        Alterar Senha — @_changingPassword?.FullName
     </TitleContent>
     <DialogContent>
         <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
             A senha é armazenada criptografada. Nem administradores conseguem ver a senha atual.
         </MudAlert>
-        <MudTextField @bind-Value="_formSenha.NewPassword" Label="Nova Senha" InputType="InputType.Password"
+        <MudTextField @bind-Value="_passwordForm.NewPassword" Label="Nova Senha" InputType="InputType.Password"
             Placeholder="Crie uma senha segura"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
-            Error="@(_erroNovaSenha != null)" ErrorText="@_erroNovaSenha" />
-        <MudTextField @bind-Value="_formSenha.Confirm" Label="Confirmar Nova Senha" InputType="InputType.Password"
+            Error="@(_errorNewPassword != null)" ErrorText="@_errorNewPassword" />
+        <MudTextField @bind-Value="_passwordForm.Confirm" Label="Confirmar Nova Senha" InputType="InputType.Password"
             Placeholder="Repita a senha"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroConfirmar != null)" ErrorText="@_erroConfirmar" />
+            Error="@(_errorConfirm != null)" ErrorText="@_errorConfirm" />
         <MudPaper Class="pa-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
             <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
             <MudText Typo="Typo.caption" Style="display:block">• Mínimo de 6 caracteres</MudText>
@@ -143,145 +143,145 @@
         </MudPaper>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogSenha = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogPassword = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Warning"
-            OnClick="SalvarSenhaAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SavePasswordAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Alterar Senha
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
-    private List<UserResponseDto> _usuarios = new();
-    private bool _carregando;
-    private bool _dialogNovo;
-    private bool _dialogEditar;
-    private bool _dialogSenha;
-    private bool _salvando;
-    private UserResponseDto? _editando;
-    private UserResponseDto? _alterandoSenha;
+    private List<UserResponseDto> _users = new();
+    private bool _loading;
+    private bool _dialogNew;
+    private bool _dialogEdit;
+    private bool _dialogPassword;
+    private bool _saving;
+    private UserResponseDto? _editing;
+    private UserResponseDto? _changingPassword;
 
-    private NovoVm _formNovo = new();
-    private EditarVm _formEditar = new();
-    private SenhaVm _formSenha = new();
+    private NewVm _newForm = new();
+    private EditVm _editForm = new();
+    private PasswordVm _passwordForm = new();
 
-    private string? _erroNomeNovo;
-    private string? _erroEmail;
-    private string? _erroSenha;
-    private string? _erroNomeEditar;
-    private string? _erroNovaSenha;
-    private string? _erroConfirmar;
+    private string? _errorNameNew;
+    private string? _errorEmail;
+    private string? _errorPassword;
+    private string? _errorNameEdit;
+    private string? _errorNewPassword;
+    private string? _errorConfirm;
 
-    protected override async Task OnInitializedAsync() => await CarregarAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private async Task CarregarAsync()
+    private async Task LoadAsync()
     {
-        _carregando = true;
+        _loading = true;
         var resp = await UserService.GetAllAsync();
-        _usuarios = resp?.Data?.ToList() ?? new();
-        _carregando = false;
+        _users = resp?.Data?.ToList() ?? new();
+        _loading = false;
     }
 
-    private void AbrirNovo()
+    private void OpenNew()
     {
-        _formNovo = new NovoVm();
-        _erroNomeNovo = _erroEmail = _erroSenha = null;
-        _dialogNovo = true;
+        _newForm = new NewVm();
+        _errorNameNew = _errorEmail = _errorPassword = null;
+        _dialogNew = true;
     }
 
-    private void AbrirEdicao(UserResponseDto u)
+    private void OpenEdit(UserResponseDto u)
     {
-        _editando = u;
-        _formEditar = new EditarVm { FullName = u.FullName, Profile = u.Profile };
-        _erroNomeEditar = null;
-        _dialogEditar = true;
+        _editing = u;
+        _editForm = new EditVm { FullName = u.FullName, Profile = u.Profile };
+        _errorNameEdit = null;
+        _dialogEdit = true;
     }
 
-    private void AbrirAlterarSenha(UserResponseDto u)
+    private void OpenChangePassword(UserResponseDto u)
     {
-        _alterandoSenha = u;
-        _formSenha = new SenhaVm();
-        _erroNovaSenha = _erroConfirmar = null;
-        _dialogSenha = true;
+        _changingPassword = u;
+        _passwordForm = new PasswordVm();
+        _errorNewPassword = _errorConfirm = null;
+        _dialogPassword = true;
     }
 
-    private bool ValidarNovo()
+    private bool ValidateNew()
     {
-        _erroNomeNovo = _erroEmail = _erroSenha = null;
+        _errorNameNew = _errorEmail = _errorPassword = null;
 
-        if (string.IsNullOrWhiteSpace(_formNovo.FullName))
-            _erroNomeNovo = "Nome completo é obrigatório.";
-        else if (_formNovo.FullName.Trim().Length > 200)
-            _erroNomeNovo = "Nome deve ter no máximo 200 caracteres.";
+        if (string.IsNullOrWhiteSpace(_newForm.FullName))
+            _errorNameNew = "Nome completo é obrigatório.";
+        else if (_newForm.FullName.Trim().Length > 200)
+            _errorNameNew = "Nome deve ter no máximo 200 caracteres.";
 
-        if (string.IsNullOrWhiteSpace(_formNovo.Email))
-            _erroEmail = "E-mail é obrigatório.";
-        else if (!EmailValido(_formNovo.Email))
-            _erroEmail = "E-mail inválido.";
+        if (string.IsNullOrWhiteSpace(_newForm.Email))
+            _errorEmail = "E-mail é obrigatório.";
+        else if (!IsValidEmail(_newForm.Email))
+            _errorEmail = "E-mail inválido.";
 
-        _erroSenha = ValidarSenha(_formNovo.Password);
+        _errorPassword = ValidatePassword(_newForm.Password);
 
-        return _erroNomeNovo == null && _erroEmail == null && _erroSenha == null;
+        return _errorNameNew == null && _errorEmail == null && _errorPassword == null;
     }
 
-    private bool ValidarEditar()
+    private bool ValidateEdit()
     {
-        _erroNomeEditar = null;
+        _errorNameEdit = null;
 
-        if (string.IsNullOrWhiteSpace(_formEditar.FullName))
-            _erroNomeEditar = "Nome completo é obrigatório.";
-        else if (_formEditar.FullName.Trim().Length > 200)
-            _erroNomeEditar = "Nome deve ter no máximo 200 caracteres.";
+        if (string.IsNullOrWhiteSpace(_editForm.FullName))
+            _errorNameEdit = "Nome completo é obrigatório.";
+        else if (_editForm.FullName.Trim().Length > 200)
+            _errorNameEdit = "Nome deve ter no máximo 200 caracteres.";
 
-        return _erroNomeEditar == null;
+        return _errorNameEdit == null;
     }
 
-    private bool ValidarAlterarSenha()
+    private bool ValidatePasswordChange()
     {
-        _erroNovaSenha = _erroConfirmar = null;
+        _errorNewPassword = _errorConfirm = null;
 
-        _erroNovaSenha = ValidarSenha(_formSenha.NewPassword);
+        _errorNewPassword = ValidatePassword(_passwordForm.NewPassword);
 
-        if (string.IsNullOrWhiteSpace(_formSenha.Confirm))
-            _erroConfirmar = "Confirmação de senha é obrigatória.";
-        else if (_formSenha.NewPassword != _formSenha.Confirm)
-            _erroConfirmar = "As senhas não coincidem.";
+        if (string.IsNullOrWhiteSpace(_passwordForm.Confirm))
+            _errorConfirm = "Confirmação de senha é obrigatória.";
+        else if (_passwordForm.NewPassword != _passwordForm.Confirm)
+            _errorConfirm = "As senhas não coincidem.";
 
-        return _erroNovaSenha == null && _erroConfirmar == null;
+        return _errorNewPassword == null && _errorConfirm == null;
     }
 
-    private static string? ValidarSenha(string senha)
+    private static string? ValidatePassword(string password)
     {
-        if (string.IsNullOrWhiteSpace(senha))
+        if (string.IsNullOrWhiteSpace(password))
             return "Senha é obrigatória.";
-        if (senha.Length < 6)
+        if (password.Length < 6)
             return "Senha deve ter no mínimo 6 caracteres.";
-        if (!senha.Any(char.IsLower))
+        if (!password.Any(char.IsLower))
             return "Senha deve conter pelo menos uma letra minúscula (a-z).";
-        if (!senha.Any(char.IsDigit))
+        if (!password.Any(char.IsDigit))
             return "Senha deve conter pelo menos um número (0-9).";
         return null;
     }
 
-    private static bool EmailValido(string email)
+    private static bool IsValidEmail(string email)
     {
         try { _ = new System.Net.Mail.MailAddress(email); return true; }
         catch { return false; }
     }
 
-    private async Task SalvarNovoAsync()
+    private async Task SaveNewAsync()
     {
-        if (!ValidarNovo()) return;
-        _salvando = true;
+        if (!ValidateNew()) return;
+        _saving = true;
 
-        var dto = new CreateUserDto(_formNovo.FullName.Trim(), _formNovo.Email.Trim(), _formNovo.Password, _formNovo.Profile);
+        var dto = new CreateUserDto(_newForm.FullName.Trim(), _newForm.Email.Trim(), _newForm.Password, _newForm.Profile);
         var resp = await UserService.CreateAsync(dto);
         if (resp?.Success == true)
         {
             Snackbar.Add("Usuário criado com sucesso!", Severity.Success);
-            _dialogNovo = false;
-            await CarregarAsync();
+            _dialogNew = false;
+            await LoadAsync();
         }
         else
         {
@@ -289,60 +289,60 @@
             if (msg.Contains("e-mail", StringComparison.OrdinalIgnoreCase) ||
                 msg.Contains("email", StringComparison.OrdinalIgnoreCase) ||
                 msg.Contains("DuplicateUserName", StringComparison.OrdinalIgnoreCase))
-                _erroEmail = "Este e-mail já está em uso.";
+                _errorEmail = "Este e-mail já está em uso.";
             else
                 Snackbar.Add(msg, Severity.Error);
         }
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task SalvarEdicaoAsync()
+    private async Task SaveEditAsync()
     {
-        if (!ValidarEditar()) return;
-        _salvando = true;
+        if (!ValidateEdit()) return;
+        _saving = true;
 
-        var dto = new UpdateUserDto(_formEditar.FullName.Trim(), _formEditar.Profile, true);
-        var resp = await UserService.UpdateAsync(_editando!.Id, dto);
+        var dto = new UpdateUserDto(_editForm.FullName.Trim(), _editForm.Profile, true);
+        var resp = await UserService.UpdateAsync(_editing!.Id, dto);
         if (resp?.Success == true)
         {
             Snackbar.Add("Usuário atualizado!", Severity.Success);
-            _dialogEditar = false;
-            await CarregarAsync();
+            _dialogEdit = false;
+            await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao atualizar usuário.", Severity.Error);
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task SalvarSenhaAsync()
+    private async Task SavePasswordAsync()
     {
-        if (!ValidarAlterarSenha()) return;
-        _salvando = true;
+        if (!ValidatePasswordChange()) return;
+        _saving = true;
 
-        var resp = await UserService.ChangePasswordAsync(_alterandoSenha!.Id, _formSenha.NewPassword);
+        var resp = await UserService.ChangePasswordAsync(_changingPassword!.Id, _passwordForm.NewPassword);
         if (resp?.Success == true)
         {
-            Snackbar.Add($"Senha de {_alterandoSenha.FullName} alterada com sucesso!", Severity.Success);
-            _dialogSenha = false;
+            Snackbar.Add($"Senha de {_changingPassword.FullName} alterada com sucesso!", Severity.Success);
+            _dialogPassword = false;
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao alterar senha.", Severity.Error);
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task DesativarAsync(UserResponseDto u)
+    private async Task DeactivateAsync(UserResponseDto u)
     {
         var resp = await UserService.DeactivateAsync(u.Id);
         if (resp?.Success == true)
         {
             Snackbar.Add("Usuário desativado.", Severity.Info);
-            await CarregarAsync();
+            await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }
 
-    private class NovoVm
+    private class NewVm
     {
         public string FullName { get; set; } = "";
         public string Email { get; set; } = "";
@@ -350,13 +350,13 @@
         public UserProfile Profile { get; set; } = UserProfile.Attendant;
     }
 
-    private class EditarVm
+    private class EditVm
     {
         public string FullName { get; set; } = "";
         public UserProfile Profile { get; set; } = UserProfile.Attendant;
     }
 
-    private class SenhaVm
+    private class PasswordVm
     {
         public string NewPassword { get; set; } = "";
         public string Confirm { get; set; } = "";

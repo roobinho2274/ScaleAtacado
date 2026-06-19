@@ -8,12 +8,12 @@ namespace ScaleAtacado.Application.Services;
 public class ProductAppService
 {
     private readonly IProductRepository _repository;
-    private readonly AuditoriaAppService _auditoria;
+    private readonly AuditLogAppService _auditLog;
 
-    public ProductAppService(IProductRepository repository, AuditoriaAppService auditoria)
+    public ProductAppService(IProductRepository repository, AuditLogAppService auditLog)
     {
         _repository = repository;
-        _auditoria = auditoria;
+        _auditLog = auditLog;
     }
 
     public async Task<ApiResponse<ProductResponseDto>> CreateAsync(CreateProductDto dto, Guid companyId)
@@ -74,13 +74,13 @@ public class ProductAppService
 
         if (precoAlterado)
         {
-            await _auditoria.RegistrarAsync(
+            await _auditLog.RecordAsync(
                 companyId, userId,
-                operacao: "AlterarPreco",
-                entidadeNome: "Produto",
-                entidadeId: product.Id.ToString(),
-                valorAnterior: $"R$ {precoAnterior:N2}",
-                valorNovo: $"R$ {novoPreco:N2}"
+                operation: "AlterarPreco",
+                entityName: "Produto",
+                entityId: product.Id.ToString(),
+                previousValue: $"R$ {precoAnterior:N2}",
+                newValue: $"R$ {novoPreco:N2}"
             );
         }
 
@@ -115,12 +115,12 @@ public class ProductAppService
         await _repository.UpdateAsync(product);
         await _repository.SaveChangeAsync();
 
-        await _auditoria.RegistrarAsync(
+        await _auditLog.RecordAsync(
             companyId, userId,
-            operacao: "InativarProduto",
-            entidadeNome: "Produto",
-            entidadeId: product.Id.ToString(),
-            valorAnterior: product.Name
+            operation: "InativarProduto",
+            entityName: "Produto",
+            entityId: product.Id.ToString(),
+            previousValue: product.Name
         );
 
         return ApiResponse.Ok();

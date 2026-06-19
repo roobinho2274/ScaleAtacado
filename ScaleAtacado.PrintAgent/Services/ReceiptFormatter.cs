@@ -16,7 +16,7 @@ public class ReceiptFormatter
         lines.Add(order.OrderDate.ToLocalTime().ToString("dd/MM/yyyy       HH:mm:ss"));
         lines.Add(string.Empty);
         lines.Add("CLIENTE:");
-        lines.Add(Truncate(order.ClienteNome, Width));
+        lines.Add(Truncate(order.CustomerName, Width));
         lines.Add(string.Empty);
         lines.Add(Line('='));
         lines.Add(PadBetween("ITEM", "VALOR"));

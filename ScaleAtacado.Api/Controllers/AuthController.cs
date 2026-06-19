@@ -19,18 +19,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly JwtService _jwtService;
     private readonly AppDbContext _context;
-    private readonly AuditoriaAppService _auditoria;
+    private readonly AuditLogAppService _auditLog;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         JwtService jwtService,
         AppDbContext context,
-        AuditoriaAppService auditoria)
+        AuditLogAppService auditLog)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
-        _auditoria = auditoria;
+        _auditLog = auditLog;
     }
 
     [HttpPost("login")]
@@ -48,12 +48,12 @@ public class AuthController : ControllerBase
 
         var (token, expiresAt) = _jwtService.GenerateToken(user);
 
-        await _auditoria.RegistrarAsync(
+        await _auditLog.RecordAsync(
             user.CompanyId, user.Id,
-            operacao: "Login",
-            entidadeNome: "Usuario",
-            entidadeId: user.Id.ToString(),
-            valorNovo: $"{user.FullName} — {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} UTC"
+            operation: "Login",
+            entityName: "Usuario",
+            entityId: user.Id.ToString(),
+            newValue: $"{user.FullName} — {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} UTC"
         );
 
         var response = new AuthTokenDto(

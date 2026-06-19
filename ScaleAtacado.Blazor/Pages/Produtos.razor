@@ -11,7 +11,7 @@
     <AuthorizeView Roles="Admin" Context="authBtn">
         <Authorized>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                StartIcon="@Icons.Material.Filled.AddBox" OnClick="AbrirNovo">
+                StartIcon="@Icons.Material.Filled.AddBox" OnClick="OpenNew">
                 Novo Produto
             </MudButton>
         </Authorized>
@@ -21,17 +21,17 @@
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudGrid>
         <MudItem xs="12" sm="5">
-            <MudTextField @bind-Value="_busca" Label="Buscar por nome ou código"
+            <MudTextField @bind-Value="_searchTerm" Label="Buscar por nome ou código"
                 Placeholder="ex: Coca-Cola ou 7891234567890"
                 Variant="Variant.Outlined"
                 Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
                 OnKeyUp="OnKeyUp" />
         </MudItem>
         <MudItem xs="12" sm="4">
-            <MudSelect T="Guid?" Label="Categoria" @bind-Value="_filtroCategoria"
+            <MudSelect T="Guid?" Label="Categoria" @bind-Value="_filterCategory"
                 Variant="Variant.Outlined" Dense="true" Clearable="true">
                 <MudSelectItem T="Guid?" Value="null">Todas</MudSelectItem>
-                @foreach (var cat in _categorias)
+                @foreach (var cat in _categories)
                 {
                     <MudSelectItem T="Guid?" Value="cat.Id">@cat.Name</MudSelectItem>
                 }
@@ -77,11 +77,11 @@
             <Authorized>
                 <MudTd Style="text-align:center">
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                        OnClick="@(() => AbrirEdicao(context))" />
+                        OnClick="@(() => OpenEdit(context))" />
                     @if (context.IsActive)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.ToggleOff" Size="Size.Small"
-                            Color="Color.Error" OnClick="@(() => DesativarAsync(context))" />
+                            Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
                     }
                 </MudTd>
             </Authorized>
@@ -95,22 +95,22 @@
 </MudTable>
 
 <!-- Dialog: Criar / Editar -->
-<MudDialog @bind-Visible="_dialogAberto" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent>@(_editando == null ? "Novo Produto" : "Editar Produto")</TitleContent>
+<MudDialog @bind-Visible="_dialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>@(_editing == null ? "Novo Produto" : "Editar Produto")</TitleContent>
     <DialogContent>
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
             Placeholder="ex: Coca-Cola 2L, Arroz Tipo 1 5kg"
             FullWidth="true" Class="mb-3" Required="true"
-            Error="@(_erroNome != null)" ErrorText="@_erroNome" />
+            Error="@(_errorName != null)" ErrorText="@_errorName" />
         <MudTextField @bind-Value="_form.Code" Label="Código (SKU)" Variant="Variant.Outlined"
             Placeholder="ex: 7891234567890"
             FullWidth="true" Class="mb-3" HelperText="Opcional — código de barras ou código interno"
-            Error="@(_erroCode != null)" ErrorText="@_erroCode" />
+            Error="@(_errorCode != null)" ErrorText="@_errorCode" />
         <MudSelect T="Guid?" Label="Categoria" @bind-Value="_form.CategoryId"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Placeholder="Selecione uma categoria"
-            Error="@(_erroCategoria != null)" ErrorText="@_erroCategoria">
-            @foreach (var cat in _categorias)
+            Error="@(_errorCategory != null)" ErrorText="@_errorCategory">
+            @foreach (var cat in _categories)
             {
                 <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
             }
@@ -119,12 +119,12 @@
             <MudItem xs="6">
                 <MudNumericField @bind-Value="_form.CostPrice" Label="Custo (R$)"
                     Variant="Variant.Outlined" Min="0m" Format="N2"
-                    Error="@(_erroPreco != null)" ErrorText="@_erroPreco" />
+                    Error="@(_errorPrice != null)" ErrorText="@_errorPrice" />
             </MudItem>
             <MudItem xs="6">
                 <MudNumericField @bind-Value="_form.ProfitMargin" Label="Margem (%)"
                     Variant="Variant.Outlined" Min="0m" Max="1000m" Format="N2"
-                    Error="@(_erroMargem != null)" ErrorText="@_erroMargem" />
+                    Error="@(_errorMargin != null)" ErrorText="@_errorMargin" />
             </MudItem>
         </MudGrid>
         @if (_form.CostPrice > 0 || _form.ProfitMargin > 0)
@@ -136,10 +136,10 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => _dialogAberto = false)">Cancelar</MudButton>
+        <MudButton OnClick="@(() => _dialogOpen = false)">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
-            OnClick="SalvarAsync" Disabled="_salvando">
-            @if (_salvando) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            OnClick="SaveAsync" Disabled="_saving">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
             Salvar
         </MudButton>
     </DialogActions>
@@ -147,34 +147,34 @@
 
 @code {
     private MudTable<ProductResponseDto>? _table;
-    private List<CategoryResponseDto> _categorias = new();
-    private string _busca = "";
-    private Guid? _filtroCategoria;
-    private bool _dialogAberto;
-    private bool _salvando;
-    private ProductResponseDto? _editando;
+    private List<CategoryResponseDto> _categories = new();
+    private string _searchTerm = "";
+    private Guid? _filterCategory;
+    private bool _dialogOpen;
+    private bool _saving;
+    private ProductResponseDto? _editing;
     private FormVm _form = new();
 
-    private string? _erroNome;
-    private string? _erroCode;
-    private string? _erroCategoria;
-    private string? _erroPreco;
-    private string? _erroMargem;
+    private string? _errorName;
+    private string? _errorCode;
+    private string? _errorCategory;
+    private string? _errorPrice;
+    private string? _errorMargin;
 
     protected override async Task OnInitializedAsync()
     {
         var catResp = await CategoryService.GetAllAsync();
-        _categorias = catResp?.Data?.ToList() ?? new();
+        _categories = catResp?.Data?.ToList() ?? new();
     }
 
     private async Task<TableData<ProductResponseDto>> ServerData(TableState state, CancellationToken ct)
     {
-        var resp = await ProductService.GetAllAsync(state.Page + 1, state.PageSize, _busca);
+        var resp = await ProductService.GetAllAsync(state.Page + 1, state.PageSize, _searchTerm);
         if (resp?.Success == true && resp.Data != null)
         {
             var items = resp.Data.Items.AsEnumerable();
-            if (_filtroCategoria.HasValue)
-                items = items.Where(p => p.CategoryId == _filtroCategoria.Value);
+            if (_filterCategory.HasValue)
+                items = items.Where(p => p.CategoryId == _filterCategory.Value);
             return new TableData<ProductResponseDto> { Items = items, TotalItems = resp.Data.TotalCount };
         }
         return new TableData<ProductResponseDto> { Items = [], TotalItems = 0 };
@@ -185,20 +185,20 @@
         if (e.Key == "Enter") await _table!.ReloadServerData();
     }
 
-    private void LimparErrosProduto() =>
-        _erroNome = _erroCode = _erroCategoria = _erroPreco = _erroMargem = null;
+    private void ClearErrors() =>
+        _errorName = _errorCode = _errorCategory = _errorPrice = _errorMargin = null;
 
-    private void AbrirNovo()
+    private void OpenNew()
     {
-        _editando = null;
+        _editing = null;
         _form = new FormVm();
-        LimparErrosProduto();
-        _dialogAberto = true;
+        ClearErrors();
+        _dialogOpen = true;
     }
 
-    private void AbrirEdicao(ProductResponseDto p)
+    private void OpenEdit(ProductResponseDto p)
     {
-        _editando = p;
+        _editing = p;
         _form = new FormVm
         {
             Name = p.Name,
@@ -207,50 +207,50 @@
             CostPrice = p.CostPrice,
             ProfitMargin = p.ProfitMargin
         };
-        LimparErrosProduto();
-        _dialogAberto = true;
+        ClearErrors();
+        _dialogOpen = true;
     }
 
-    private bool ValidarProduto()
+    private bool ValidateProduct()
     {
-        LimparErrosProduto();
+        ClearErrors();
 
         if (string.IsNullOrWhiteSpace(_form.Name))
-            _erroNome = "Nome é obrigatório.";
+            _errorName = "Nome é obrigatório.";
         else if (_form.Name.Trim().Length > 100)
-            _erroNome = "Nome deve ter no máximo 100 caracteres.";
+            _errorName = "Nome deve ter no máximo 100 caracteres.";
 
         if (!string.IsNullOrEmpty(_form.Code) && _form.Code.Length > 50)
-            _erroCode = "Código deve ter no máximo 50 caracteres.";
+            _errorCode = "Código deve ter no máximo 50 caracteres.";
 
         if (!_form.CategoryId.HasValue)
-            _erroCategoria = "Selecione uma categoria.";
+            _errorCategory = "Selecione uma categoria.";
 
         if (_form.CostPrice <= 0)
-            _erroPreco = "Preço de custo deve ser maior que zero.";
+            _errorPrice = "Preço de custo deve ser maior que zero.";
 
         if (_form.ProfitMargin < 0)
-            _erroMargem = "Margem de lucro não pode ser negativa.";
+            _errorMargin = "Margem de lucro não pode ser negativa.";
         else if (_form.ProfitMargin > 1000)
-            _erroMargem = "Margem de lucro não pode exceder 1000%.";
+            _errorMargin = "Margem de lucro não pode exceder 1000%.";
 
-        return _erroNome == null && _erroCode == null && _erroCategoria == null
-            && _erroPreco == null && _erroMargem == null;
+        return _errorName == null && _errorCode == null && _errorCategory == null
+            && _errorPrice == null && _errorMargin == null;
     }
 
-    private async Task SalvarAsync()
+    private async Task SaveAsync()
     {
-        if (!ValidarProduto()) return;
-        _salvando = true;
+        if (!ValidateProduct()) return;
+        _saving = true;
 
-        if (_editando == null)
+        if (_editing == null)
         {
             var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value);
             var resp = await ProductService.CreateAsync(dto);
             if (resp?.Success == true)
             {
                 Snackbar.Add("Produto criado!", Severity.Success);
-                _dialogAberto = false;
+                _dialogOpen = false;
                 await _table!.ReloadServerData();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao criar produto.", Severity.Error);
@@ -258,20 +258,20 @@
         else
         {
             var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value, true);
-            var resp = await ProductService.UpdateAsync(_editando.Id, dto);
+            var resp = await ProductService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
                 Snackbar.Add("Produto atualizado!", Severity.Success);
-                _dialogAberto = false;
+                _dialogOpen = false;
                 await _table!.ReloadServerData();
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao atualizar produto.", Severity.Error);
         }
 
-        _salvando = false;
+        _saving = false;
     }
 
-    private async Task DesativarAsync(ProductResponseDto p)
+    private async Task DeactivateAsync(ProductResponseDto p)
     {
         var resp = await ProductService.DeactivateAsync(p.Id);
         if (resp?.Success == true)

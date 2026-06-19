@@ -10,7 +10,7 @@ STACK
 - Banco    : PostgreSQL 15 (Docker, container: scale_atacado_db, porta 5432)
 - ORM      : Entity Framework Core
 - Auth     : JWT (Bearer) — token em sessionStorage (expira ao fechar o browser/aba)
-- Impressão: SignalR PrintHub + PrintJobController (API pronta; PrintAgent Windows pendente)
+- Impressão: SignalR PrintHub + PrintAgent Windows (EPSON TM-T20X) — fluxo completo implementado
 
 CONVENÇÃO DE CÓDIGO (aplicada em todo o projeto)
 -------------------------------------------------
@@ -27,7 +27,7 @@ ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService, Migrati
 ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares
 ScaleAtacado.Blazor          — frontend WASM
 ScaleAtacado.Shared          — ApiResponse<T>, PagedResult<T>
-ScaleAtacado.PrintAgent      — Worker Service Windows (impressão física — parcialmente implementado)
+ScaleAtacado.PrintAgent      — Worker Service Windows (impressão física — implementado)
 
 CONFIGURAÇÕES CRÍTICAS
 ----------------------

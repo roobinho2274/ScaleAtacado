@@ -368,6 +368,9 @@ FodyWeavers.xsd
 # Segredos de aplicação — os valores reais ficam aqui, fora do git
 appsettings.Development.json
 
+# Variáveis de ambiente Docker — contém senhas e chaves
+.env
+
 # Documentos Word (binários, sem diff útil no git)
 *.docx
 

@@ -1,16 +1,57 @@
 services:
+
+  # ── Banco de dados ───────────────────────────────────────────────
   postgres-db:
     image: postgres:15-alpine
     container_name: scale_atacado_db
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: Scale@123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: scale_atacado
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
+    # Porta exposta apenas para acesso externo em desenvolvimento.
+    # Em produção comente a linha abaixo para não expor o banco na rede.
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d scale_atacado"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API ASP.NET Core ─────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: ScaleAtacado.Api/Dockerfile
+    container_name: scale_atacado_api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: "Host=postgres-db;Port=5432;Database=scale_atacado;Username=admin;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ScaleAtacado
+      Jwt__Audience: ScaleAtacadoUsers
+      PrintAgent__AgentKey: ${AGENT_KEY}
+      Cors__AllowedOrigins: ${CORS_ORIGINS}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Blazor WASM (nginx) ──────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: ScaleAtacado.Blazor/Dockerfile
+    container_name: scale_atacado_web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:

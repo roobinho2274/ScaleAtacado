@@ -18,12 +18,17 @@ using ScaleAtacado.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS
+// CORS — origens configuráveis via env var Cors__AllowedOrigins (separadas por vírgula)
+var allowedOriginsRaw = builder.Configuration["Cors:AllowedOrigins"];
+var corsOrigins = string.IsNullOrWhiteSpace(allowedOriginsRaw)
+    ? new[] { "http://localhost:5197", "https://localhost:7252" }
+    : allowedOriginsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5197", "https://localhost:7252")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -129,6 +134,13 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// Aplica migrations automaticamente ao iniciar (produção Docker)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 

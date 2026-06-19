@@ -10,8 +10,11 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-var apiUrl = builder.Configuration["ApiUrl"] ?? builder.HostEnvironment.BaseAddress;
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiUrl) });
+var apiUrl = builder.Configuration.GetValue<string>("ApiUrl");
+var baseUri = string.IsNullOrWhiteSpace(apiUrl)
+    ? new Uri(builder.HostEnvironment.BaseAddress)  // produção: usa URL do nginx
+    : new Uri(apiUrl);                               // desenvolvimento: usa appsettings.json
+builder.Services.AddScoped(_ => new HttpClient { BaseAddress = baseUri });
 
 builder.Services.AddMudServices();
 

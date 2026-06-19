@@ -545,8 +545,15 @@
             "</body></html>";
     }
 
-    private string GetRowClass(OrderListItemDto item, int idx) =>
-        item.IsLocked ? "mud-theme-warning" : "";
+    private string GetRowClass(OrderListItemDto item, int idx)
+    {
+        if (!item.IsLocked) return "";
+        var complete  = item.DeliveryStatus  == DeliveryStatus.Delivered
+                     && item.FinancialStatus == FinancialStatus.Paid;
+        var cancelled = item.DeliveryStatus  == DeliveryStatus.Cancelled
+                     || item.FinancialStatus == FinancialStatus.Cancelled;
+        return (!complete && !cancelled) ? "mud-theme-warning" : "";
+    }
 
     private static Color GetDeliveryColor(DeliveryStatus s) => s switch
     {

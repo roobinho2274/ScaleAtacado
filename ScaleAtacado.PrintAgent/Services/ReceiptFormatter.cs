@@ -4,7 +4,7 @@ namespace ScaleAtacado.PrintAgent.Services;
 
 public class ReceiptFormatter
 {
-    private const int Width = 40;
+    private const int Width = 60;
 
     public string Format(OrderResponseDto order)
     {
@@ -16,7 +16,7 @@ public class ReceiptFormatter
         if (!string.IsNullOrWhiteSpace(order.CompanyCNPJ))
             lines.Add(Center($"CNPJ: {order.CompanyCNPJ}"));
         if (!string.IsNullOrWhiteSpace(order.CompanyAddress))
-            lines.Add(Center(Truncate(order.CompanyAddress, Width)));
+            lines.Add(Center(order.CompanyAddress));
         lines.Add(Center("PEDIDO DE COMPRA"));
         lines.Add(Line('='));
         lines.Add($"Pedido: #{order.OrderNumber:D4}");
@@ -66,9 +66,6 @@ public class ReceiptFormatter
     private static string Center(string text) => text.PadLeft((Width + text.Length) / 2).PadRight(Width);
     private static string Truncate(string text, int max) => text.Length > max ? text[..max] : text;
 
-    private static string PadBetween(string left, string right)
-    {
-        var space = Width - left.Length - right.Length;
-        return space > 0 ? left + new string(' ', space) + right : left[..(Width - right.Length)] + right;
-    }
+    // \t como separador — PrintService posiciona cada lado por pixels, não por espaços
+    private static string PadBetween(string left, string right) => $"{left}\t{right}";
 }

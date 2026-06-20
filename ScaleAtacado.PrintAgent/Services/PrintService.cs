@@ -37,7 +37,7 @@ public class PrintService
 
             doc.PrintPage += (sender, e) =>
             {
-                var font = new Font("Courier New", 8, FontStyle.Bold, GraphicsUnit.Point);
+                var font = new Font("Arial Narrow", 9, FontStyle.Regular, GraphicsUnit.Point);
                 var lineHeight = font.GetHeight(e.Graphics!);
                 var y = (float)e.MarginBounds.Top;
 

@@ -11,6 +11,7 @@ public class Worker : BackgroundService
     private readonly PrintApiClient _apiClient;
     private readonly PrintService _printService;
     private readonly ReceiptFormatter _formatter;
+    private readonly AgentStatus _status;
 
     private HubConnection? _hubConnection;
 
@@ -19,13 +20,15 @@ public class Worker : BackgroundService
         IConfiguration configuration,
         PrintApiClient apiClient,
         PrintService printService,
-        ReceiptFormatter formatter)
+        ReceiptFormatter formatter,
+        AgentStatus status)
     {
         _logger = logger;
         _configuration = configuration;
         _apiClient = apiClient;
         _printService = printService;
         _formatter = formatter;
+        _status = status;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,15 +39,46 @@ public class Worker : BackgroundService
         var fallbackInterval = TimeSpan.FromMinutes(
             _configuration.GetValue("PrintAgent:FallbackIntervalMinutes", 5));
 
+        var reconnectTask = ReconnectLoopAsync(stoppingToken);
+        var fallbackTask  = FallbackLoopAsync(fallbackInterval, stoppingToken);
+
+        await Task.WhenAll(reconnectTask, fallbackTask);
+    }
+
+    private async Task ReconnectLoopAsync(CancellationToken stoppingToken)
+    {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(fallbackInterval, stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-            if (!stoppingToken.IsCancellationRequested)
+            if (stoppingToken.IsCancellationRequested) break;
+            if (_status.IsHubConnected) continue;
+            if (_hubConnection?.State != HubConnectionState.Disconnected) continue;
+
+            _logger.LogInformation("Tentando reconectar ao PrintHub...");
+            try
             {
-                _logger.LogInformation("Verificando jobs pendentes (fallback)...");
-                await RunFallbackAsync(stoppingToken);
+                await _hubConnection.StartAsync(stoppingToken);
+                _status.IsHubConnected = true;
+                _logger.LogInformation("Reconectado ao PrintHub com sucesso.");
             }
+            catch
+            {
+                _logger.LogDebug("Falha ao reconectar. Nova tentativa em 30s.");
+            }
+        }
+    }
+
+    private async Task FallbackLoopAsync(TimeSpan interval, CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await Task.Delay(interval, stoppingToken);
+
+            if (stoppingToken.IsCancellationRequested) break;
+
+            _logger.LogInformation("Verificando jobs pendentes (fallback)...");
+            await RunFallbackAsync(stoppingToken);
         }
     }
 
@@ -67,17 +101,32 @@ public class Worker : BackgroundService
 
         _hubConnection.Reconnected += connectionId =>
         {
+            _status.IsHubConnected = true;
             _logger.LogInformation("Reconectado ao hub. ConnectionId: {Id}", connectionId);
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Reconnecting += _ =>
+        {
+            _status.IsHubConnected = false;
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Closed += _ =>
+        {
+            _status.IsHubConnected = false;
             return Task.CompletedTask;
         };
 
         try
         {
             await _hubConnection.StartAsync(stoppingToken);
+            _status.IsHubConnected = true;
             _logger.LogInformation("Conectado ao PrintHub com sucesso.");
         }
         catch (Exception ex)
         {
+            _status.IsHubConnected = false;
             _logger.LogWarning(ex, "Não foi possível conectar ao PrintHub. Operando apenas no modo fallback.");
         }
     }
@@ -103,12 +152,17 @@ public class Worker : BackgroundService
         {
             _logger.LogError("Pedido não encontrado para o job {JobId}.", printJobId);
             await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Canceled, "Pedido não encontrado.");
+            _status.LastJobAt = DateTime.Now;
+            _status.LastJobSuccess = false;
             return;
         }
 
         var receipt = _formatter.Format(order);
         var printerName = _configuration["PrintAgent:PrinterName"];
         var success = _printService.Print(receipt, printerName);
+
+        _status.LastJobAt = DateTime.Now;
+        _status.LastJobSuccess = success;
 
         if (success)
         {

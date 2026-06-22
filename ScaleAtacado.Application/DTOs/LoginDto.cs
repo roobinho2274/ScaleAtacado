@@ -1,3 +1,3 @@
 namespace ScaleAtacado.Application.DTOs;
 
-public record LoginDto(string Email, string Password);
+public record LoginDto(string Login, string Password);

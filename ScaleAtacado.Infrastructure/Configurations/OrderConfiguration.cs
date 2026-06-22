@@ -13,6 +13,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.AmountTotal).HasPrecision(18, 2);
         builder.Property(o => o.DiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
         builder.Property(o => o.AmountWithSurchargeTotal).HasPrecision(18, 2);
+        builder.Property(o => o.SurchargePercentage).HasPrecision(5, 2).HasDefaultValue(0m);
         builder.Property(o => o.DeliveryStatus).HasConversion<int>();
         builder.Property(o => o.FinancialStatus).HasConversion<int>();
         builder.Property(o => o.CustomerId).HasColumnName("ClienteId");
@@ -20,11 +21,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasOne(o => o.Customer)
                .WithMany(c => c.Orders)
                .HasForeignKey(o => o.CustomerId)
-               .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(o => o.PaymentMethod)
-               .WithMany(p => p.Orders)
-               .HasForeignKey(o => o.PaymentMethodId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(o => new { o.CompanyId, o.OrderNumber }).IsUnique();

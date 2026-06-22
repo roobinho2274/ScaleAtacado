@@ -2,6 +2,6 @@ namespace ScaleAtacado.Application.DTOs;
 
 public record CreatePaymentMethodDto(
     string Name,
-    int DeadlineDays,
+    bool IsInstallment,
     decimal SurchargePercentage
 );

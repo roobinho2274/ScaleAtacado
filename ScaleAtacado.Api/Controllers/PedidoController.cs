@@ -55,7 +55,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
     {
-        var result = await _service.CreateAsync(dto, User.GetCompanyId(), User.GetUserId());
+        var result = await _service.CreateAsync(dto, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         if (!result.Success) return BadRequest(result);
         return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result);
     }
@@ -65,7 +65,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Finalize(Guid id)
     {
-        var result = await _service.FinalizeAsync(id, User.GetCompanyId());
+        var result = await _service.FinalizeAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -74,7 +74,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePrintJob(Guid id)
     {
-        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId());
+        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         if (!result.Success) return BadRequest(result);
 
         await _printHub.Clients.Group("PrintAgents")
@@ -89,7 +89,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Unlock(Guid id)
     {
-        var result = await _service.UnlockAsync(id, User.GetCompanyId(), User.GetUserId());
+        var result = await _service.UnlockAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -98,7 +98,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateDeliveryStatus(Guid id, [FromBody] UpdateDeliveryStatusDto dto)
     {
-        var result = await _service.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, User.GetCompanyId());
+        var result = await _service.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -108,7 +108,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdatePaymentMethod(Guid id, [FromBody] UpdateOrderPaymentMethodDto dto)
     {
-        var result = await _service.UpdatePaymentMethodAsync(id, dto.PaymentMethodId, User.GetCompanyId(), User.GetUserId());
+        var result = await _service.UpdatePaymentMethodAsync(id, dto, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -117,7 +117,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountDto dto)
     {
-        var result = await _service.UpdateDiscountAsync(id, dto.DiscountAmount, User.GetCompanyId());
+        var result = await _service.UpdateDiscountAsync(id, dto.DiscountAmount, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -127,7 +127,7 @@ public class OrderController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateFinancialStatus(Guid id, [FromBody] UpdateFinancialStatusDto dto)
     {
-        var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId(), User.GetUserId());
+        var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 }

@@ -10,7 +10,8 @@ public class Order
     public DateTime OrderDate { get; set; }
     public Guid UserId { get; set; }
     public Guid CustomerId { get; set; }
-    public Guid PaymentMethodId { get; set; }
+    public bool IsInstallment { get; set; }            // false = À Vista | true = A Prazo
+    public decimal SurchargePercentage { get; set; }   // snapshot no momento da criação
     public decimal AmountTotal { get; set; } = 0;
     public decimal DiscountAmount { get; set; } = 0;
     public decimal AmountWithSurchargeTotal { get; set; }
@@ -20,6 +21,6 @@ public class Order
     public bool IsLocked { get; set; }
 
     public virtual Customer Customer { get; set; } = null!;
-    public virtual PaymentMethod PaymentMethod { get; set; } = null!;
+    public virtual ICollection<OrderPaymentMethod> PaymentMethods { get; set; } = new List<OrderPaymentMethod>();
     public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
 }

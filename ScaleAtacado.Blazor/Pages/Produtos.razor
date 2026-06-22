@@ -51,8 +51,12 @@
         <MudTh>Código</MudTh>
         <MudTh>Nome</MudTh>
         <MudTh>Categoria</MudTh>
-        <MudTh Style="text-align:right">Custo</MudTh>
-        <MudTh Style="text-align:right">Margem</MudTh>
+        <AuthorizeView Roles="Admin" Context="authCostHeader">
+            <Authorized>
+                <MudTh Style="text-align:right">Custo</MudTh>
+                <MudTh Style="text-align:right">Margem</MudTh>
+            </Authorized>
+        </AuthorizeView>
         <MudTh Style="text-align:right">Preço Venda</MudTh>
         <MudTh Style="text-align:center">Status</MudTh>
         <AuthorizeView Roles="Admin" Context="authHeader">
@@ -65,8 +69,12 @@
         <MudTd DataLabel="Código">@(context.Code ?? "—")</MudTd>
         <MudTd DataLabel="Nome">@context.Name</MudTd>
         <MudTd DataLabel="Categoria">@context.CategoryName</MudTd>
-        <MudTd DataLabel="Custo" Style="text-align:right">R$ @context.CostPrice.ToString("N2")</MudTd>
-        <MudTd DataLabel="Margem" Style="text-align:right">@context.ProfitMargin.ToString("N1")%</MudTd>
+        <AuthorizeView Roles="Admin" Context="authCostRow">
+            <Authorized>
+                <MudTd DataLabel="Custo" Style="text-align:right">R$ @context.CostPrice.ToString("N2")</MudTd>
+                <MudTd DataLabel="Margem" Style="text-align:right">@context.ProfitMargin.ToString("N1")%</MudTd>
+            </Authorized>
+        </AuthorizeView>
         <MudTd DataLabel="Preço" Style="text-align:right"><b>R$ @context.BaseSalePrice.ToString("N2")</b></MudTd>
         <MudTd DataLabel="Status" Style="text-align:center">
             <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">

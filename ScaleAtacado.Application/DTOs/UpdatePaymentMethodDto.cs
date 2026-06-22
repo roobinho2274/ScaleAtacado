@@ -2,7 +2,7 @@ namespace ScaleAtacado.Application.DTOs;
 
 public record UpdatePaymentMethodDto(
     string Name,
-    int DeadlineDays,
+    bool IsInstallment,
     decimal SurchargePercentage,
     bool IsActive
 );

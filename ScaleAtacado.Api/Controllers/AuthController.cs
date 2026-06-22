@@ -20,17 +20,20 @@ public class AuthController : ControllerBase
     private readonly JwtService _jwtService;
     private readonly AppDbContext _context;
     private readonly AuditLogAppService _auditLog;
+    private readonly UserAppService _userAppService;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         JwtService jwtService,
         AppDbContext context,
-        AuditLogAppService auditLog)
+        AuditLogAppService auditLog,
+        UserAppService userAppService)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
         _auditLog = auditLog;
+        _userAppService = userAppService;
     }
 
     [HttpPost("login")]
@@ -38,10 +41,20 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        var user = await _userManager.FindByEmailAsync(dto.Email);
+        ApplicationUser? user;
+
+        if (dto.Login.Length == 4 && dto.Login.All(char.IsAsciiDigit))
+        {
+            var code = int.Parse(dto.Login);
+            user = _userManager.Users.FirstOrDefault(u => u.UserCode == code);
+        }
+        else
+        {
+            user = await _userManager.FindByEmailAsync(dto.Login);
+        }
 
         if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
-            return Unauthorized(ApiResponse.Fail("E-mail ou senha inválidos."));
+            return Unauthorized(ApiResponse.Fail("E-mail, código ou senha inválidos."));
 
         if (!user.IsActive)
             return Unauthorized(ApiResponse.Fail("Usuário inativo. Entre em contato com o administrador."));
@@ -53,6 +66,7 @@ public class AuthController : ControllerBase
             operation: "Login",
             entityName: "Usuario",
             entityId: user.Id.ToString(),
+            userName: user.FullName,
             newValue: $"{user.FullName} — {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} UTC"
         );
 
@@ -67,10 +81,6 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<AuthTokenDto>.Ok(response));
     }
 
-    /// <summary>
-    /// Configura o primeiro acesso: cria a empresa e o usuário administrador inicial.
-    /// Só funciona quando não existe nenhuma empresa cadastrada no sistema.
-    /// </summary>
     [HttpPost("setup")]
     [ProducesResponseType(typeof(ApiResponse<AuthTokenDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -80,7 +90,6 @@ public class AuthController : ControllerBase
         if (jaConfigurado)
             return BadRequest(ApiResponse.Fail("O sistema já foi configurado. Use o endpoint de login."));
 
-        // Criar empresa
         var company = new Company
         {
             Id      = Guid.NewGuid(),
@@ -94,7 +103,8 @@ public class AuthController : ControllerBase
         await _context.Companies.AddAsync(company);
         await _context.SaveChangesAsync();
 
-        // Criar usuário admin
+        var adminCode = await _userAppService.GenerateUniqueCodeAsync();
+
         var admin = new ApplicationUser
         {
             Id = Guid.NewGuid(),
@@ -104,6 +114,7 @@ public class AuthController : ControllerBase
             CompanyId = company.Id,
             Profile = UserProfile.Admin,
             IsActive = true,
+            UserCode = adminCode,
             CreatedAt = DateTime.UtcNow
         };
 

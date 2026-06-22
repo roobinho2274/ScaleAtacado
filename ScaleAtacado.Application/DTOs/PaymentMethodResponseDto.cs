@@ -4,7 +4,7 @@ public record PaymentMethodResponseDto(
     Guid Id,
     Guid CompanyId,
     string Name,
-    int DeadlineDays,
+    bool IsInstallment,
     decimal SurchargePercentage,
     bool IsActive
 );

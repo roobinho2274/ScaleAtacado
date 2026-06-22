@@ -17,6 +17,7 @@
     <HeaderContent>
         <MudTh>Nome</MudTh>
         <MudTh>E-mail</MudTh>
+        <MudTh Style="text-align:center">Código</MudTh>
         <MudTh Style="text-align:center">Perfil</MudTh>
         <MudTh Style="text-align:center">Status</MudTh>
         <MudTh Style="text-align:center">Cadastro</MudTh>
@@ -25,6 +26,23 @@
     <RowTemplate>
         <MudTd DataLabel="Nome"><b>@context.FullName</b></MudTd>
         <MudTd DataLabel="E-mail">@context.Email</MudTd>
+        <MudTd DataLabel="Código" Style="text-align:center">
+            @if (context.UserCode > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                    Style="font-family:monospace;font-weight:bold;letter-spacing:2px">
+                    @context.UserCode.ToString("D4")
+                </MudChip>
+            }
+            else
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
+                    StartIcon="@Icons.Material.Filled.Tag"
+                    OnClick="@(() => GenerateCodeAsync(context))">
+                    Gerar
+                </MudButton>
+            }
+        </MudTd>
         <MudTd DataLabel="Perfil" Style="text-align:center">
             <MudChip T="string" Size="Size.Small"
                 Color="@(context.Profile == UserProfile.Admin ? Color.Error : Color.Info)">
@@ -45,6 +63,13 @@
                 title="Alterar senha"
                 Color="Color.Warning"
                 OnClick="@(() => OpenChangePassword(context))" />
+            @if (context.UserCode > 0)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                    title="Gerar novo código"
+                    Color="Color.Secondary"
+                    OnClick="@(() => GenerateCodeAsync(context))" />
+            }
             @if (context.IsActive)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
@@ -279,7 +304,9 @@
         var resp = await UserService.CreateAsync(dto);
         if (resp?.Success == true)
         {
-            Snackbar.Add("Usuário criado com sucesso!", Severity.Success);
+            var code = resp.Data?.UserCode ?? 0;
+            var codeMsg = code > 0 ? $" Código de acesso: {code:D4}" : "";
+            Snackbar.Add($"Usuário criado com sucesso!{codeMsg}", Severity.Success, cfg => cfg.VisibleStateDuration = 8000);
             _dialogNew = false;
             await LoadAsync();
         }
@@ -329,6 +356,17 @@
         else Snackbar.Add(resp?.Error ?? "Erro ao alterar senha.", Severity.Error);
 
         _saving = false;
+    }
+
+    private async Task GenerateCodeAsync(UserResponseDto u)
+    {
+        var resp = await UserService.RegenerateCodeAsync(u.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add($"Novo código de {u.FullName}: {resp.Data:D4}", Severity.Success, cfg => cfg.VisibleStateDuration = 8000);
+            await LoadAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao gerar código.", Severity.Error);
     }
 
     private async Task DeactivateAsync(UserResponseDto u)

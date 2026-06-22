@@ -78,6 +78,17 @@ public class ApiHttpClient
         catch { return null; }
     }
 
+    public async Task<ApiResponse<T>?> PatchAsync<T>(string url, object? body = null)
+    {
+        try
+        {
+            await SetAuthHeaderAsync();
+            var r = await _http.PatchAsJsonAsync(url, body ?? new { });
+            return await r.Content.ReadFromJsonAsync<ApiResponse<T>>();
+        }
+        catch { return null; }
+    }
+
     public async Task<ApiResponse?> PatchAsync(string url, object body)
     {
         try

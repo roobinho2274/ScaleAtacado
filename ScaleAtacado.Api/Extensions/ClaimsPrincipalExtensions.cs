@@ -13,4 +13,7 @@ public static class ClaimsPrincipalExtensions
 
     public static string GetProfile(this ClaimsPrincipal user)
         => user.FindFirstValue("profile") ?? string.Empty;
+
+    public static string GetFullName(this ClaimsPrincipal user)
+        => user.FindFirstValue("fullName") ?? user.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
 }

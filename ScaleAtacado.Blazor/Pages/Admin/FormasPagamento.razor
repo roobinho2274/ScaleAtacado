@@ -16,14 +16,18 @@
 <MudTable Items="_paymentMethods" Dense="true" Hover="true" Striped="true" Loading="_loading">
     <HeaderContent>
         <MudTh>Nome</MudTh>
-        <MudTh Style="text-align:center">Prazo (dias)</MudTh>
+        <MudTh Style="text-align:center">Modalidade</MudTh>
         <MudTh Style="text-align:right">Acréscimo (%)</MudTh>
         <MudTh Style="text-align:center">Status</MudTh>
         <MudTh Style="text-align:center">Ações</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Nome"><b>@context.Name</b></MudTd>
-        <MudTd DataLabel="Prazo" Style="text-align:center">@context.DeadlineDays</MudTd>
+        <MudTd DataLabel="Modalidade" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@(context.IsInstallment ? Color.Info : Color.Success)">
+                @(context.IsInstallment ? "A Prazo" : "À Vista")
+            </MudChip>
+        </MudTd>
         <MudTd DataLabel="Acréscimo" Style="text-align:right">
             @if (context.SurchargePercentage > 0)
             {
@@ -59,9 +63,13 @@
         <MudTextField @bind-Value="_form.Name" Label="Nome" Variant="Variant.Outlined"
             Placeholder="ex: Dinheiro, PIX, Cartão de Crédito"
             FullWidth="true" Class="mb-3" Required="true" />
-        <MudNumericField @bind-Value="_form.DeadlineDays" Label="Prazo (dias)"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="0"
-            HelperText="0 = pagamento à vista" />
+        <div class="mb-3 d-flex align-center gap-4">
+            <MudText Typo="Typo.body2">Modalidade:</MudText>
+            <MudToggleGroup T="bool" @bind-Value="_form.IsInstallment" Color="Color.Primary" Outlined="true">
+                <MudToggleItem T="bool" Value="false" Text="À Vista" />
+                <MudToggleItem T="bool" Value="true" Text="A Prazo" />
+            </MudToggleGroup>
+        </div>
         <MudNumericField @bind-Value="_form.SurchargePercentage" Label="Acréscimo (%)"
             Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
             HelperText="0 = sem acréscimo (ex: 2,50 para 2,5%)" />
@@ -107,7 +115,7 @@
         _form = new FormVm
         {
             Name = f.Name,
-            DeadlineDays = f.DeadlineDays,
+            IsInstallment = f.IsInstallment,
             SurchargePercentage = f.SurchargePercentage
         };
         _dialogOpen = true;
@@ -120,7 +128,7 @@
 
         if (_editing == null)
         {
-            var dto = new CreatePaymentMethodDto(_form.Name, _form.DeadlineDays, _form.SurchargePercentage);
+            var dto = new CreatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage);
             var resp = await PaymentMethodService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -132,7 +140,7 @@
         }
         else
         {
-            var dto = new UpdatePaymentMethodDto(_form.Name, _form.DeadlineDays, _form.SurchargePercentage, true);
+            var dto = new UpdatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, true);
             var resp = await PaymentMethodService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
@@ -160,7 +168,7 @@
     private class FormVm
     {
         public string Name { get; set; } = "";
-        public int DeadlineDays { get; set; }
+        public bool IsInstallment { get; set; }
         public decimal SurchargePercentage { get; set; }
     }
 }

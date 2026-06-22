@@ -19,6 +19,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     public DbSet<Company> Companies { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<OrderPaymentMethod> OrderPaymentMethods { get; set; }
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
     public DbSet<PrintJobs> PrintJobs { get; set; }
     public DbSet<Product> Products { get; set; }

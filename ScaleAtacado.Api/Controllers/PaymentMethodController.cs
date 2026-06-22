@@ -42,7 +42,7 @@ public class PaymentMethodController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreatePaymentMethodDto dto)
     {
-        var result = await _service.CreateAsync(dto, User.GetCompanyId());
+        var result = await _service.CreateAsync(dto, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         if (!result.Success) return BadRequest(result);
         return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result);
     }
@@ -53,7 +53,7 @@ public class PaymentMethodController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePaymentMethodDto dto)
     {
-        var result = await _service.UpdateAsync(id, dto, User.GetCompanyId());
+        var result = await _service.UpdateAsync(id, dto, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -63,7 +63,7 @@ public class PaymentMethodController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Deactivate(Guid id)
     {
-        var result = await _service.DeactivateAsync(id, User.GetCompanyId());
+        var result = await _service.DeactivateAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : NotFound(result);
     }
 }

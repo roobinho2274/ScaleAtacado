@@ -14,11 +14,25 @@ public class UserAppService
         _userManager = userManager;
     }
 
+    public async Task<int> GenerateUniqueCodeAsync()
+    {
+        var rng = Random.Shared;
+        for (int attempt = 0; attempt < 500; attempt++)
+        {
+            var code = rng.Next(1000, 10000);
+            if (!_userManager.Users.Any(u => u.UserCode == code))
+                return code;
+        }
+        throw new InvalidOperationException("Não há códigos de 4 dígitos disponíveis.");
+    }
+
     public async Task<ApiResponse<UserResponseDto>> CreateAsync(CreateUserDto dto, Guid companyId)
     {
         var existing = await _userManager.FindByEmailAsync(dto.Email);
         if (existing != null)
             return ApiResponse<UserResponseDto>.Fail("Já existe um usuário com este e-mail.");
+
+        var code = await GenerateUniqueCodeAsync();
 
         var user = new ApplicationUser
         {
@@ -29,6 +43,7 @@ public class UserAppService
             CompanyId = companyId,
             Profile = dto.Profile,
             IsActive = true,
+            UserCode = code,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -87,7 +102,6 @@ public class UserAppService
         if (user == null || user.CompanyId != companyId)
             return ApiResponse.Fail("Usuário não encontrado.");
 
-        // Gera token interno para reset sem exigir a senha atual (fluxo de admin)
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
         var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
 
@@ -98,6 +112,25 @@ public class UserAppService
         }
 
         return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse<int>> RegenerateCodeAsync(Guid id, Guid companyId)
+    {
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null || user.CompanyId != companyId)
+            return ApiResponse<int>.Fail("Usuário não encontrado.");
+
+        var newCode = await GenerateUniqueCodeAsync();
+        user.UserCode = newCode;
+
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            return ApiResponse<int>.Fail(errors);
+        }
+
+        return ApiResponse<int>.Ok(newCode);
     }
 
     public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
@@ -113,6 +146,6 @@ public class UserAppService
     }
 
     private static UserResponseDto ToDto(ApplicationUser u) => new(
-        u.Id, u.CompanyId, u.FullName, u.Email!, u.Profile, u.IsActive, u.CreatedAt
+        u.Id, u.CompanyId, u.FullName, u.Email!, u.Profile, u.IsActive, u.CreatedAt, u.UserCode
     );
 }

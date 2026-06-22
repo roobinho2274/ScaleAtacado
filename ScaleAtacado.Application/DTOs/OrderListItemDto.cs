@@ -6,7 +6,8 @@ public record OrderListItemDto(
     Guid Id,
     int OrderNumber,
     string CustomerName,
-    string PaymentMethodName,
+    bool IsInstallment,
+    string PaymentMethodName,   // nomes unidos por " + " (ex: "Dinheiro + PIX")
     DateTime OrderDate,
     decimal AmountTotal,
     decimal AmountWithSurchargeTotal,

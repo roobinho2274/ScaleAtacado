@@ -105,23 +105,102 @@
     <!-- Coluna direita: Forma de Pagamento + Resumo -->
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-4 mb-4" Elevation="2">
-            <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Forma de Pagamento</b></MudText>
-            <MudSelect T="PaymentMethodResponseDto" Label="Selecionar"
-                @bind-Value="_paymentMethod"
-                ToStringFunc="@(f => f?.Name ?? string.Empty)"
-                Variant="Variant.Outlined" Dense="true" FullWidth="true"
-                Disabled="_finalizing">
-                @foreach (var pm in _paymentMethods)
+            <MudText Typo="Typo.subtitle1" Class="mb-2"><b>Modalidade de Pagamento</b></MudText>
+
+            <!-- Seletor de modalidade -->
+            <MudButtonGroup Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                <MudButton Color="@(!_isInstallment ? Color.Primary : Color.Default)"
+                    Variant="@(!_isInstallment ? Variant.Filled : Variant.Outlined)"
+                    OnClick="@(() => OnModalityChanged(false))"
+                    Disabled="_finalizing" Style="flex:1">
+                    À Vista
+                </MudButton>
+                <MudButton Color="@(_isInstallment ? Color.Primary : Color.Default)"
+                    Variant="@(_isInstallment ? Variant.Filled : Variant.Outlined)"
+                    OnClick="@(() => OnModalityChanged(true))"
+                    Disabled="_finalizing" Style="flex:1">
+                    A Prazo
+                </MudButton>
+            </MudButtonGroup>
+
+            @if (!_isInstallment)
+            {
+                <MudSelect T="PaymentMethodResponseDto"
+                    Label="Formas de Pagamento"
+                    MultiSelection="true"
+                    SelectedValues="_selectedPMs"
+                    SelectedValuesChanged="@((IReadOnlyCollection<PaymentMethodResponseDto> vals) => OnPMsChanged(vals))"
+                    ToStringFunc="@(f => f?.Name ?? string.Empty)"
+                    Variant="Variant.Outlined" Dense="true" FullWidth="true"
+                    Disabled="_finalizing">
+                    @foreach (var pm in _filteredPaymentMethods)
+                    {
+                        <MudSelectItem T="PaymentMethodResponseDto" Value="pm">
+                            @pm.Name
+                            @if (pm.SurchargePercentage > 0)
+                            {
+                                <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
+                            }
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                @if (_selectedPMs.Count > 1)
                 {
-                    <MudSelectItem T="PaymentMethodResponseDto" Value="pm">
-                        @pm.Name
-                        @if (pm.SurchargePercentage > 0)
-                        {
-                            <span> (+@pm.SurchargePercentage.ToString("N1")%)</span>
-                        }
-                    </MudSelectItem>
+                    <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1 mb-2" Style="display:block">
+                        Pagamento dividido entre @_selectedPMs.Count forma(s). Sem acréscimo.
+                    </MudText>
+                    @foreach (var pm in _selectedPMs)
+                    {
+                        <div class="d-flex align-center gap-2 mb-2">
+                            <MudText Typo="Typo.body2" Style="min-width:80px">@pm.Name:</MudText>
+                            <MudNumericField T="decimal"
+                                Value="_pmAmounts.GetValueOrDefault(pm.Id)"
+                                ValueChanged="@(v => { _pmAmounts[pm.Id] = v; StateHasChanged(); })"
+                                Min="0m" Format="N2"
+                                Variant="Variant.Outlined" Margin="Margin.Dense"
+                                Style="flex:1" Disabled="_finalizing" />
+                        </div>
+                    }
+                    <div class="d-flex justify-space-between mt-1">
+                        <MudText Typo="Typo.caption">Restante:</MudText>
+                        <MudText Typo="Typo.caption" Color="@(Math.Abs(_finalTotal - _pmAmounts.Values.Sum()) < 0.01m ? Color.Success : Color.Error)">
+                            R$ @((_finalTotal - _pmAmounts.Values.Sum()).ToString("N2"))
+                        </MudText>
+                    </div>
                 }
-            </MudSelect>
+                @if (!_filteredPaymentMethods.Any())
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1" Style="display:block">
+                        Nenhuma forma de pagamento à vista cadastrada.
+                    </MudText>
+                }
+            }
+            else
+            {
+                <MudSelect T="PaymentMethodResponseDto"
+                    Label="Forma de Pagamento (A Prazo)"
+                    @bind-Value="_paymentMethodAPrazo"
+                    ToStringFunc="@(f => f?.Name ?? string.Empty)"
+                    Variant="Variant.Outlined" Dense="true" FullWidth="true"
+                    Disabled="_finalizing">
+                    @foreach (var pm in _filteredPaymentMethods)
+                    {
+                        <MudSelectItem T="PaymentMethodResponseDto" Value="pm">
+                            @pm.Name
+                            @if (pm.SurchargePercentage > 0)
+                            {
+                                <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
+                            }
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                @if (!_filteredPaymentMethods.Any())
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1" Style="display:block">
+                        Nenhuma forma de pagamento a prazo cadastrada.
+                    </MudText>
+                }
+            }
         </MudPaper>
 
         <MudPaper Class="pa-4" Elevation="3">
@@ -132,15 +211,15 @@
                 <MudText Typo="Typo.body2">R$ @_subtotal.ToString("N2")</MudText>
             </div>
 
-            @if (_paymentMethod != null && _paymentMethod.SurchargePercentage > 0)
+            @if (_effectiveSurcharge > 0)
             {
-                var surcharge = _totalWithSurcharge - _subtotal;
+                var surchargeAmt = _totalWithSurcharge - _subtotal;
                 <div class="d-flex justify-space-between mb-2">
                     <MudText Typo="Typo.body2" Color="Color.Warning">
-                        Acréscimo (@_paymentMethod.SurchargePercentage.ToString("N1")%):
+                        Acréscimo (@_effectiveSurcharge.ToString("N1")%):
                     </MudText>
                     <MudText Typo="Typo.body2" Color="Color.Warning">
-                        R$ @surcharge.ToString("N2")
+                        R$ @surchargeAmt.ToString("N2")
                     </MudText>
                 </div>
             }
@@ -161,7 +240,7 @@
 
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
                 Size="Size.Large" OnClick="FinalizeOrderAsync"
-                Disabled="@(_finalizing || _items.Count == 0 || _selectedCustomer == null || _paymentMethod == null)">
+                Disabled="@(_finalizing || _items.Count == 0 || _selectedCustomer == null || !_hasPaymentSelected)">
                 @if (_finalizing)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -216,7 +295,10 @@
 @code {
     private CustomerResponseDto? _selectedCustomer;
     private ProductResponseDto? _selectedProduct;
-    private PaymentMethodResponseDto? _paymentMethod;
+    private bool _isInstallment = false;
+    private IReadOnlyCollection<PaymentMethodResponseDto> _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
+    private PaymentMethodResponseDto? _paymentMethodAPrazo;
+    private Dictionary<Guid, decimal> _pmAmounts = new();
     private int _quantity = 1;
     private decimal _discount = 0m;
     private bool _finalizing;
@@ -239,10 +321,27 @@
     private List<ProductResponseDto> _products = new();
     private List<PaymentMethodResponseDto> _paymentMethods = new();
 
+    private IEnumerable<PaymentMethodResponseDto> _filteredPaymentMethods =>
+        _paymentMethods.Where(p => p.IsInstallment == _isInstallment);
+
+    private decimal _effectiveSurcharge
+    {
+        get
+        {
+            if (_isInstallment)
+                return _paymentMethodAPrazo?.SurchargePercentage ?? 0m;
+            if (_selectedPMs.Count == 1)
+                return _selectedPMs.First().SurchargePercentage;
+            return 0m;
+        }
+    }
+
+    private bool _hasPaymentSelected => _isInstallment
+        ? _paymentMethodAPrazo != null
+        : _selectedPMs.Count > 0;
+
     private decimal _subtotal => _items.Sum(i => i.TotalPrice);
-    private decimal _totalWithSurcharge => _paymentMethod != null
-        ? _subtotal * (1 + _paymentMethod.SurchargePercentage / 100m)
-        : _subtotal;
+    private decimal _totalWithSurcharge => _subtotal * (1 + _effectiveSurcharge / 100m);
     private decimal _finalTotal => Math.Max(0m, _totalWithSurcharge - _discount);
 
     protected override async Task OnInitializedAsync()
@@ -270,6 +369,25 @@
                 p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                 (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
         return Task.FromResult<IEnumerable<ProductResponseDto>>(result);
+    }
+
+    private void OnModalityChanged(bool installment)
+    {
+        _isInstallment = installment;
+        _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
+        _paymentMethodAPrazo = null;
+        _pmAmounts.Clear();
+    }
+
+    private void OnPMsChanged(IReadOnlyCollection<PaymentMethodResponseDto> vals)
+    {
+        _selectedPMs = vals;
+        var idSet = vals.Select(p => p.Id).ToHashSet();
+        foreach (var id in _pmAmounts.Keys.ToList())
+            if (!idSet.Contains(id)) _pmAmounts.Remove(id);
+        foreach (var pm in vals)
+            if (!_pmAmounts.ContainsKey(pm.Id)) _pmAmounts[pm.Id] = 0m;
+        StateHasChanged();
     }
 
     private void AddItem()
@@ -308,20 +426,45 @@
     {
         _items.Clear();
         _selectedCustomer = null;
-        _paymentMethod = null;
+        _paymentMethodAPrazo = null;
+        _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
+        _pmAmounts.Clear();
+        _isInstallment = false;
         _quantity = 1;
         _discount = 0m;
     }
 
     private async Task FinalizeOrderAsync()
     {
-        if (_selectedCustomer == null || _paymentMethod == null || _items.Count == 0) return;
+        if (_selectedCustomer == null || !_hasPaymentSelected || _items.Count == 0) return;
 
         _finalizing = true;
 
+        List<OrderPaymentInputDto> payments;
+        if (_isInstallment)
+        {
+            payments = new List<OrderPaymentInputDto> { new(_paymentMethodAPrazo!.Id, _finalTotal) };
+        }
+        else if (_selectedPMs.Count == 1)
+        {
+            payments = new List<OrderPaymentInputDto> { new(_selectedPMs.First().Id, _finalTotal) };
+        }
+        else
+        {
+            var remaining = _finalTotal - _pmAmounts.Values.Sum();
+            if (Math.Abs(remaining) > 0.01m)
+            {
+                Snackbar.Add($"Ajuste os valores: falta R$ {remaining:N2} para completar o total.", Severity.Warning);
+                _finalizing = false;
+                return;
+            }
+            payments = _selectedPMs.Select(pm => new OrderPaymentInputDto(pm.Id, _pmAmounts.GetValueOrDefault(pm.Id, 0m))).ToList();
+        }
+
         var dto = new CreateOrderDto(
             _selectedCustomer.Id,
-            _paymentMethod.Id,
+            _isInstallment,
+            payments,
             _items.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList(),
             _discount
         );

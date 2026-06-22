@@ -8,13 +8,16 @@ namespace ScaleAtacado.Application.Services;
 public class PaymentMethodAppService
 {
     private readonly IPaymentMethodRepository _repository;
+    private readonly AuditLogAppService _auditLog;
 
-    public PaymentMethodAppService(IPaymentMethodRepository repository)
+    public PaymentMethodAppService(IPaymentMethodRepository repository, AuditLogAppService auditLog)
     {
         _repository = repository;
+        _auditLog = auditLog;
     }
 
-    public async Task<ApiResponse<PaymentMethodResponseDto>> CreateAsync(CreatePaymentMethodDto dto, Guid companyId)
+    public async Task<ApiResponse<PaymentMethodResponseDto>> CreateAsync(
+        CreatePaymentMethodDto dto, Guid companyId, Guid userId, string userName)
     {
         var existing = await _repository.GetByNameAsync(dto.Name, companyId);
         if (existing != null)
@@ -25,7 +28,7 @@ public class PaymentMethodAppService
             Id = Guid.NewGuid(),
             CompanyId = companyId,
             Name = dto.Name,
-            DeadlineDays = dto.DeadlineDays,
+            IsInstallment = dto.IsInstallment,
             SurchargePercentage = dto.SurchargePercentage,
             IsActive = true
         };
@@ -33,10 +36,20 @@ public class PaymentMethodAppService
         await _repository.AddAsync(paymentMethod);
         await _repository.SaveChangesAsync();
 
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "CriarFormaPagamento",
+            entityName: "FormaPagamento",
+            entityId: paymentMethod.Id.ToString(),
+            userName: userName,
+            description: $"Forma de pagamento '{paymentMethod.Name}' criada ({(paymentMethod.IsInstallment ? "A Prazo" : "À Vista")})"
+        );
+
         return ApiResponse<PaymentMethodResponseDto>.Ok(ToDto(paymentMethod));
     }
 
-    public async Task<ApiResponse<PaymentMethodResponseDto>> UpdateAsync(Guid id, UpdatePaymentMethodDto dto, Guid companyId)
+    public async Task<ApiResponse<PaymentMethodResponseDto>> UpdateAsync(
+        Guid id, UpdatePaymentMethodDto dto, Guid companyId, Guid userId, string userName)
     {
         var paymentMethod = await _repository.GetByIdAsync(id, companyId);
         if (paymentMethod == null)
@@ -47,12 +60,21 @@ public class PaymentMethodAppService
             return ApiResponse<PaymentMethodResponseDto>.Fail("Já existe outra forma de pagamento com este nome.");
 
         paymentMethod.Name = dto.Name;
-        paymentMethod.DeadlineDays = dto.DeadlineDays;
+        paymentMethod.IsInstallment = dto.IsInstallment;
         paymentMethod.SurchargePercentage = dto.SurchargePercentage;
         paymentMethod.IsActive = dto.IsActive;
 
         await _repository.UpdateAsync(paymentMethod);
         await _repository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "EditarFormaPagamento",
+            entityName: "FormaPagamento",
+            entityId: paymentMethod.Id.ToString(),
+            userName: userName,
+            description: $"Forma de pagamento '{paymentMethod.Name}' editada"
+        );
 
         return ApiResponse<PaymentMethodResponseDto>.Ok(ToDto(paymentMethod));
     }
@@ -75,7 +97,7 @@ public class PaymentMethodAppService
         return ApiResponse<IEnumerable<PaymentMethodResponseDto>>.Ok(list.Select(ToDto));
     }
 
-    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid userId, string userName)
     {
         var paymentMethod = await _repository.GetByIdAsync(id, companyId);
         if (paymentMethod == null)
@@ -85,10 +107,19 @@ public class PaymentMethodAppService
         await _repository.UpdateAsync(paymentMethod);
         await _repository.SaveChangesAsync();
 
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "DesativarFormaPagamento",
+            entityName: "FormaPagamento",
+            entityId: paymentMethod.Id.ToString(),
+            userName: userName,
+            description: $"Forma de pagamento '{paymentMethod.Name}' desativada"
+        );
+
         return ApiResponse.Ok();
     }
 
     private static PaymentMethodResponseDto ToDto(PaymentMethod p) => new(
-        p.Id, p.CompanyId, p.Name, p.DeadlineDays, p.SurchargePercentage, p.IsActive
+        p.Id, p.CompanyId, p.Name, p.IsInstallment, p.SurchargePercentage, p.IsActive
     );
 }

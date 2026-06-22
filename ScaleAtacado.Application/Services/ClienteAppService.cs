@@ -8,13 +8,16 @@ namespace ScaleAtacado.Application.Services;
 public class CustomerAppService
 {
     private readonly ICustomerRepository _repository;
+    private readonly AuditLogAppService _auditLog;
 
-    public CustomerAppService(ICustomerRepository repository)
+    public CustomerAppService(ICustomerRepository repository, AuditLogAppService auditLog)
     {
         _repository = repository;
+        _auditLog = auditLog;
     }
 
-    public async Task<ApiResponse<CustomerResponseDto>> CreateAsync(CreateCustomerDto dto, Guid companyId)
+    public async Task<ApiResponse<CustomerResponseDto>> CreateAsync(
+        CreateCustomerDto dto, Guid companyId, Guid userId, string userName)
     {
         var existing = await _repository.GetByTaxIdAsync(dto.TaxId, companyId);
         if (existing != null)
@@ -36,10 +39,20 @@ public class CustomerAppService
         await _repository.AddAsync(customer);
         await _repository.SaveChangesAsync();
 
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "CriarCliente",
+            entityName: "Cliente",
+            entityId: customer.Id.ToString(),
+            userName: userName,
+            description: $"Cliente '{customer.LegalName}' cadastrado"
+        );
+
         return ApiResponse<CustomerResponseDto>.Ok(ToDto(customer));
     }
 
-    public async Task<ApiResponse<CustomerResponseDto>> UpdateAsync(Guid id, UpdateCustomerDto dto, Guid companyId)
+    public async Task<ApiResponse<CustomerResponseDto>> UpdateAsync(
+        Guid id, UpdateCustomerDto dto, Guid companyId, Guid userId, string userName)
     {
         var customer = await _repository.GetByIdAsync(id, companyId);
         if (customer == null)
@@ -58,6 +71,15 @@ public class CustomerAppService
 
         await _repository.UpdateAsync(customer);
         await _repository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "EditarCliente",
+            entityName: "Cliente",
+            entityId: customer.Id.ToString(),
+            userName: userName,
+            description: $"Cliente '{customer.LegalName}' editado"
+        );
 
         return ApiResponse<CustomerResponseDto>.Ok(ToDto(customer));
     }
@@ -80,7 +102,7 @@ public class CustomerAppService
         return ApiResponse<IEnumerable<CustomerResponseDto>>.Ok(customers.Select(ToDto));
     }
 
-    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid userId, string userName)
     {
         var customer = await _repository.GetByIdAsync(id, companyId);
         if (customer == null)
@@ -89,6 +111,15 @@ public class CustomerAppService
         customer.IsActive = false;
         await _repository.UpdateAsync(customer);
         await _repository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "DesativarCliente",
+            entityName: "Cliente",
+            entityId: customer.Id.ToString(),
+            userName: userName,
+            description: $"Cliente '{customer.LegalName}' desativado"
+        );
 
         return ApiResponse.Ok();
     }

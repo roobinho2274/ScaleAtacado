@@ -16,7 +16,8 @@ public class ProductAppService
         _auditLog = auditLog;
     }
 
-    public async Task<ApiResponse<ProductResponseDto>> CreateAsync(CreateProductDto dto, Guid companyId)
+    public async Task<ApiResponse<ProductResponseDto>> CreateAsync(
+        CreateProductDto dto, Guid companyId, Guid userId, string userName)
     {
         if (!string.IsNullOrWhiteSpace(dto.Code))
         {
@@ -41,10 +42,20 @@ public class ProductAppService
         await _repository.AddAsync(product);
         await _repository.SaveChangeAsync();
 
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "CriarProduto",
+            entityName: "Produto",
+            entityId: product.Id.ToString(),
+            userName: userName,
+            description: $"Produto '{product.Name}' criado — R$ {product.BaseSalePrice:N2}"
+        );
+
         return ApiResponse<ProductResponseDto>.Ok(ToDto(product, string.Empty));
     }
 
-    public async Task<ApiResponse<ProductResponseDto>> UpdateAsync(Guid id, UpdateProductDto dto, Guid companyId, Guid userId)
+    public async Task<ApiResponse<ProductResponseDto>> UpdateAsync(
+        Guid id, UpdateProductDto dto, Guid companyId, Guid userId, string userName)
     {
         var product = await _repository.GetProductByIdAsync(id, companyId);
         if (product == null)
@@ -79,8 +90,21 @@ public class ProductAppService
                 operation: "AlterarPreco",
                 entityName: "Produto",
                 entityId: product.Id.ToString(),
+                userName: userName,
                 previousValue: $"R$ {precoAnterior:N2}",
-                newValue: $"R$ {novoPreco:N2}"
+                newValue: $"R$ {novoPreco:N2}",
+                description: $"Produto '{product.Name}': preço R$ {precoAnterior:N2} → R$ {novoPreco:N2}"
+            );
+        }
+        else
+        {
+            await _auditLog.RecordAsync(
+                companyId, userId,
+                operation: "EditarProduto",
+                entityName: "Produto",
+                entityId: product.Id.ToString(),
+                userName: userName,
+                description: $"Produto '{product.Name}' editado"
             );
         }
 
@@ -105,7 +129,14 @@ public class ProductAppService
         return ApiResponse<PagedResult<ProductResponseDto>>.Ok(result);
     }
 
-    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid userId)
+    public async Task<ApiResponse<IEnumerable<ProductResponseDto>>> GetAllActiveAsync(Guid companyId)
+    {
+        var (items, _) = await _repository.GetAllAsync(companyId, 1, 10000, null, true);
+        return ApiResponse<IEnumerable<ProductResponseDto>>.Ok(
+            items.Select(p => ToDto(p, p.Category?.Name ?? string.Empty)));
+    }
+
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid userId, string userName)
     {
         var product = await _repository.GetProductByIdAsync(id, companyId);
         if (product == null)
@@ -120,7 +151,8 @@ public class ProductAppService
             operation: "InativarProduto",
             entityName: "Produto",
             entityId: product.Id.ToString(),
-            previousValue: product.Name
+            userName: userName,
+            description: $"Produto '{product.Name}' desativado"
         );
 
         return ApiResponse.Ok();

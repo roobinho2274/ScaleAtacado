@@ -25,13 +25,13 @@ public class PaymentMethodRepository : IPaymentMethodRepository
     public async Task<IEnumerable<PaymentMethod>> GetAllActiveAsync(Guid companyId)
         => await _context.PaymentMethods
             .Where(p => p.CompanyId == companyId && p.IsActive)
-            .OrderBy(p => p.DeadlineDays)
+            .OrderBy(p => p.Name)
             .ToListAsync();
 
     public async Task<IEnumerable<PaymentMethod>> GetAllAsync(Guid companyId)
         => await _context.PaymentMethods
             .Where(p => p.CompanyId == companyId)
-            .OrderBy(p => p.DeadlineDays)
+            .OrderBy(p => p.Name)
             .ToListAsync();
 
     public async Task AddAsync(PaymentMethod paymentMethod)

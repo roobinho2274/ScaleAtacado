@@ -20,6 +20,9 @@ public class UserService
     public Task<ApiResponse?> ChangePasswordAsync(Guid id, string newPassword)
         => _api.PatchAsync($"api/user/{id}/password", new ChangePasswordDto(newPassword));
 
+    public Task<ApiResponse<int>?> RegenerateCodeAsync(Guid id)
+        => _api.PatchAsync<int>($"api/user/{id}/code");
+
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/user/{id}");
 }

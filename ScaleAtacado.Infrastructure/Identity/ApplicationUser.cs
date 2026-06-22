@@ -10,4 +10,5 @@ public class ApplicationUser : IdentityUser<Guid>
     public UserProfile Profile { get; set; } = UserProfile.Attendant;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int UserCode { get; set; }
 }

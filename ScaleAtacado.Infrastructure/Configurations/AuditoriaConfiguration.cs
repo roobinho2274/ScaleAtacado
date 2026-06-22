@@ -16,6 +16,8 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.Property(a => a.EntityId).HasColumnName("EntidadeId").HasMaxLength(36);
         builder.Property(a => a.PreviousValue).HasColumnName("ValorAnterior").HasColumnType("text");
         builder.Property(a => a.NewValue).HasColumnName("ValorNovo").HasColumnType("text");
+        builder.Property(a => a.UserName).HasColumnName("NomeUsuario").HasMaxLength(200);
+        builder.Property(a => a.Description).HasColumnName("Descricao").HasMaxLength(500);
         builder.Property(a => a.Timestamp).HasColumnName("DataHora");
         builder.HasIndex(a => new { a.CompanyId, a.Timestamp })
                .HasDatabaseName("IX_Auditorias_CompanyId_DataHora");

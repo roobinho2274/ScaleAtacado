@@ -9,5 +9,6 @@ public record UserResponseDto(
     string Email,
     UserProfile Profile,
     bool IsActive,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int UserCode
 );

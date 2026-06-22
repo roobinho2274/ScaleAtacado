@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Atualizado em: 19/06/2026
+  Atualizado em: 22/06/2026
 ================================================================================
 
 STACK
@@ -24,7 +24,7 @@ ESTRUTURA DE PROJETOS
 ScaleAtacado.Domain          — entidades, enums
 ScaleAtacado.Application     — DTOs, services, validators (FluentValidation), interfaces
 ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService, Migrations
-ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares
+ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares, extensions
 ScaleAtacado.Blazor          — frontend WASM
 ScaleAtacado.Shared          — ApiResponse<T>, PagedResult<T>
 ScaleAtacado.PrintAgent      — Worker Service Windows (impressão física — implementado)
@@ -45,42 +45,62 @@ BANCO DE DADOS
 - Conexão: Host=localhost;Port=5432;Database=scale_atacado;Username=admin;Password=Scale@123
   (apenas em appsettings.Development.json — fora do git)
 - Acesso direto: docker exec -it scale_atacado_db psql -U admin -d scale_atacado
+- psql local: "C:\Program Files\pgAdmin 4\runtime\psql.exe" -h localhost -U admin -d scale_atacado
 - Primeiro uso: POST /api/auth/setup { "adminName","adminEmail","adminPassword","companyName","companyCNPJ" }
 - Usuários: AspNetUsers (ASP.NET Identity) | Perfis: Admin=0, Attendant=1
 
-MIGRATIONS EF CORE
-------------------
+MIGRATIONS EF CORE (ordem cronológica)
+-----------------------------------------
 - InitialCreate
 - Phase1_DomainRefactor
-- AddDiscountToOrder          (coluna DiscountAmount na tabela Orders)
+- AddDiscountToOrder              (coluna DiscountAmount na tabela Orders)
+- PaymentMethodRefactor           (IsInstallment bool; tabela OrderPaymentMethods; remove DeadlineDays/PaymentMethodId de Order)
+- AuditLogUserAndDescription      (colunas NomeUsuario + Descricao na tabela Auditorias)
+- AddUserCode                     (coluna UserCode int DEFAULT 0 na tabela AspNetUsers)
+- AddPaymentAmountToOrderPaymentMethod  (coluna Amount numeric(18,2) DEFAULT 0 em OrderPaymentMethods)
 
 Para aplicar:
-  docker compose up -d
+  docker compose up -d postgres-db
   dotnet ef database update --project ScaleAtacado.Infrastructure --startup-project ScaleAtacado.Api
-
-IMPORTANTE — renomear propriedades C# NÃO gera migration:
-  HasColumnName() preserva nomes das colunas; HasDatabaseName() preserva nomes dos índices;
-  HasConversion<int>() nos enums armazena inteiros, então renomear os membros também é seguro.
 
 ENTIDADES (Domain/Entities)
 ----------------------------
 Customer        (tabela: Clientes)
   Id, CompanyId, LegalName [NomeRazaoSocial], TaxId [Documento],
-  Address [Endereco], Phone [Telefone], Notes [Observacoes], IsActive
+  Address [Endereco], Phone [Telefone], Notes [Observacoes], IsActive, CreatedAt
   Nav: ICollection<Order> Orders
 
 Order           (tabela: Orders)
   Id, CompanyId, OrderNumber, OrderDate, CustomerId [ClienteId],
-  PaymentMethodId, AmountTotal, SurchargePercentage, DiscountAmount,
-  AmountWithSurchargeTotal, IsLocked, DeliveryStatus, FinancialStatus
-  Nav: Customer Customer, PaymentMethod, ICollection<OrderItem> Items, ICollection<PrintJob> PrintJobs
+  IsInstallment (bool — modalidade: false=ÀVista / true=APrazo),
+  SurchargePercentage (snapshot do acréscimo na hora do pedido),
+  AmountTotal, DiscountAmount, AmountWithSurchargeTotal,
+  IsLocked, DeliveryStatus, FinancialStatus, UserId
+  Nav: Customer, ICollection<OrderPaymentMethod> PaymentMethods,
+       ICollection<OrderItem> Items, ICollection<PrintJob> PrintJobs
+
+OrderPaymentMethod (tabela: OrderPaymentMethods) — join table multi-pagamento
+  Id, OrderId, PaymentMethodId, Amount (decimal — valor pago com esta forma)
+  Nav: Order, PaymentMethod
+  REGRA: para pedido com 1 forma, Amount = AmountWithSurchargeTotal (auto pelo servidor)
+         para pedido com 2+ formas, Amount vem do cliente; servidor valida soma == total
+
+ApplicationUser   (tabela: AspNetUsers) — ASP.NET Identity
+  + UserCode int (1000–9999, globalmente único; 0 = não gerado ainda)
+
+PaymentMethod   (tabela: FormasPagamento)
+  Id, CompanyId, Name [Nome], IsInstallment [APrazo] (bool),
+  SurchargePercentage [PercAcrescimo], IsActive [Ativo]
+  REGRA: À Vista (IsInstallment=false) suporta múltiplos métodos por pedido;
+         A Prazo (IsInstallment=true) permite apenas 1 método por pedido.
 
 AuditLog        (tabela: Auditorias)
-  Id, CompanyId, UserId [UsuarioId], Operation [Operacao],
-  EntityName [EntidadeNome], EntityId [EntidadeId],
-  PreviousValue [ValorAnterior], NewValue [ValorNovo], Timestamp [DataHora]
+  Id, CompanyId, UserId [UsuarioId], UserName [NomeUsuario],
+  Operation [Operacao], EntityName [EntidadeNome], EntityId [EntidadeId],
+  Description [Descricao], PreviousValue [ValorAnterior], NewValue [ValorNovo],
+  Timestamp [DataHora]
 
-Product, Category, PaymentMethod, PrintJob, Company — nomes já em inglês
+Product, Category, PrintJob, Company — nomes já em inglês
 
 ENUMS
 -----
@@ -91,98 +111,154 @@ UserProfile     : Admin=0, Attendant=1
 
 INTERFACES (Application/Interfaces)
 -------------------------------------
-ICompanyRepository    : GetByIdAsync, UpdateAsync, SaveChangesAsync
-ICustomerRepository   : GetByTaxIdAsync, SearchAsync, GetByIdAsync, AddAsync, UpdateAsync, SaveChangesAsync
-IAuditLogRepository   : AddAsync, GetByCompanyAsync, SaveChangesAsync
-IOrderRepository      : GetByIdAsync, GetAllAsync(customerId,...), GetNextOrderNumberAsync, AddAsync, UpdateAsync, SaveChangesAsync
-IProductRepository, ICategoryRepository, IPaymentMethodRepository — nomes já em inglês
+ICompanyRepository      : GetByIdAsync, UpdateAsync, SaveChangesAsync
+ICustomerRepository     : GetByTaxIdAsync, SearchAsync, GetAllActiveAsync, GetByIdAsync,
+                          AddAsync, UpdateAsync, SaveChangesAsync
+IAuditLogRepository     : AddAsync, GetByCompanyAsync, SaveChangesAsync
+IOrderRepository        : GetByIdAsync, GetAllAsync(customerId,...), GetNextOrderNumberAsync,
+                          AddAsync, UpdateAsync, SaveChangesAsync
+IProductRepository      : GetProductByIdAsync, GetProductByCodeAsync, GetAllAsync, AddAsync,
+                          UpdateAsync, SaveChangeAsync
+IPaymentMethodRepository: GetByIdAsync, GetByNameAsync, GetAllAsync, GetAllActiveAsync,
+                          AddAsync, UpdateAsync, SaveChangesAsync
+ICategoryRepository, IPrintJobRepository — nomes já em inglês
 
 DTOs (Application/DTOs)
 ------------------------
-CompanyResponseDto(Id, Name, CNPJ, Address?, Phone?, IsActive)
-UpdateCompanyDto(Name, CNPJ, Address?, Phone?)
-CustomerResponseDto(Id, CompanyId, LegalName, TaxId, Address, Phone, Notes, IsActive)
-CreateCustomerDto(LegalName, TaxId, Address, Phone, Notes)
-UpdateCustomerDto(LegalName, TaxId, Address, Phone, Notes, IsActive)
-AuditLogResponseDto(Id, CompanyId, UserId, Operation, EntityName, EntityId, PreviousValue, NewValue, Timestamp)
-OrderResponseDto        — inclui CustomerId, CustomerName, PaymentMethodId, PaymentMethodName,
-                          SurchargePercentage (lido direto do PaymentMethod, não armazenado no Order);
-                          campos opcionais: CompanyName?, CompanyCNPJ?, CompanyAddress?
-                          (preenchidos apenas pela rota do PrintAgent: GET /api/printjob/{id}/order)
-OrderListItemDto        — inclui CustomerName (renomeado de ClienteNome)
-CreateOrderDto          — inclui CustomerId (renomeado de ClienteId)
-UpdateOrderPaymentMethodDto(PaymentMethodId) — para PATCH /api/order/{id}/payment
+PaymentMethodResponseDto(Id, CompanyId, Name, IsInstallment, SurchargePercentage, IsActive)
+CreatePaymentMethodDto(Name, IsInstallment, SurchargePercentage)
+UpdatePaymentMethodDto(Name, IsInstallment, SurchargePercentage, IsActive)
 
-SERVICES (Application/Services)
----------------------------------
+OrderPaymentInputDto(PaymentMethodId, Amount)     — DTO de ENTRADA (criar/alterar pedido)
+OrderPaymentMethodDto(PaymentMethodId, Name, Amount)  — DTO embutido no OrderResponseDto
+OrderResponseDto — inclui:
+  CustomerId, CustomerName, IsInstallment, SurchargePercentage,
+  List<OrderPaymentMethodDto> PaymentMethods,
+  campos opcionais: CompanyName?, CompanyCNPJ?, CompanyAddress? (só via /api/printjob/{id}/order)
+OrderListItemDto — inclui CustomerName, IsInstallment, PaymentMethodNames (string concatenada " + ")
+CreateOrderDto(CustomerId, IsInstallment, List<OrderPaymentInputDto> Payments, List<CreateOrderItemDto> Items, DiscountAmount)
+UpdateOrderPaymentMethodDto(IsInstallment, List<OrderPaymentInputDto> Payments)
+
+LoginDto(string Login, string Password)  — campo "Login" aceita e-mail OU código de 4 dígitos
+
+UserResponseDto(Id, CompanyId, FullName, Email, Profile, IsActive, CreatedAt, UserCode)
+
+AuditLogResponseDto(Id, UserId, UserName, Operation, EntityName, EntityId,
+                    Description, PreviousValue, NewValue, Timestamp)
+
+CustomerResponseDto, CreateCustomerDto, UpdateCustomerDto — sem mudanças
+ProductResponseDto, CreateProductDto, UpdateProductDto — sem mudanças
+
+SERVICES (Application/Services) — assinaturas atuais
+------------------------------------------------------
+AuditLogAppService
+  RecordAsync(companyId, userId, operation, entityName,
+              entityId?=null, previousValue?=null, newValue?=null,
+              userName=""*, description=""*)   (* parâmetros opcionais ao final — não-breaking)
+  GetByCompanyAsync(companyId, from?, to?)
+
+PaymentMethodAppService
+  CreateAsync(dto, companyId, userId, userName)
+  UpdateAsync(id, dto, companyId, userId, userName)
+  GetByIdAsync(id, companyId)
+  GetAllAsync(companyId, onlyActive=false)
+  DeactivateAsync(id, companyId, userId, userName)
+
+CustomerAppService
+  CreateAsync(dto, companyId, userId, userName)
+  UpdateAsync(id, dto, companyId, userId, userName)
+  GetByIdAsync(id, companyId)
+  SearchAsync(term?, companyId)
+  DeactivateAsync(id, companyId, userId, userName)
+
+ProductAppService
+  CreateAsync(dto, companyId, userId, userName)   — inclui audit "CriarProduto"
+  UpdateAsync(id, dto, companyId, userId, userName) — audit "AlterarPreco" se preço mudou, senão "EditarProduto"
+  GetByIdAsync(id, companyId)
+  GetAllAsync(companyId, page, pageSize, search?, isActive?)
+  GetAllActiveAsync(companyId)
+  DeactivateAsync(id, companyId, userId, userName) — audit "InativarProduto"
+
+OrderAppService — todos os métodos mutantes têm (…, userId, userName)
+  CreateAsync(dto, companyId, userId, userName)    — audit "CriarPedido"
+    VALIDAÇÃO MULTI-PAGAMENTO: se dto.Payments.Count > 1, valida soma(Payments[].Amount) == totalFinal ±0.01
+    GRAVAÇÃO: 1 forma → Amount = totalFinal (auto); 2+ formas → Amount = valor informado no DTO
+  GetAllAsync(companyId, page, pageSize, customerId?, deliveryStatus?, financialStatus?, from?, to?)
+  GetByIdAsync(id, companyId)
+  FinalizeAsync(id, companyId, userId, userName)   — audit "FinalizarPedido"
+  CreatePrintJobAsync(orderId, companyId, userId, userName) → ApiResponse<Guid>  — audit "ImprimirPedido"
+  UnlockAsync(id, companyId, userId, userName)     — audit "DesbloquearPedido"
+  UpdateDeliveryStatusAsync(id, status, companyId, userId, userName) — audit "AlterarEntrega"
+  UpdateFinancialStatusAsync(id, status, companyId, userId, userName) — audit "CancelarPedido"/"AlterarFinanceiro"
+  UpdatePaymentMethodAsync(id, dto, companyId, userId, userName)  — audit "AlterarPagamento"
+    MESMA VALIDAÇÃO DE SOMA para multi-pagamento
+  UpdateDiscountAsync(id, discountAmount, companyId, userId, userName) — audit "AplicarDesconto"
+
+UserAppService (Infrastructure/Services)
+  CreateAsync(dto, companyId)        — gera UserCode único automaticamente
+  RegenerateCodeAsync(id, companyId) → ApiResponse<int>  — gera novo código único
+  GenerateUniqueCodeAsync()          — interno: sorteia 1000–9999 verificando unicidade global
+
 CompanyAppService   — GetAsync(companyId), UpdateAsync(companyId, dto)
-CustomerAppService  — CreateAsync, UpdateAsync, GetByIdAsync, GetAllAsync, DeactivateAsync
-AuditLogAppService  — RecordAsync(companyId, userId, operation, entityName, entityId?, previousValue?, newValue?)
-                      GetByCompanyAsync(companyId, from?, to?)
-OrderAppService     — CreateAsync, GetAllAsync, GetByIdAsync, FinalizeAsync (não cria PrintJob),
-                      UnlockAsync, CreatePrintJobAsync(orderId, companyId) → ApiResponse<Guid>,
-                      UpdatePaymentMethodAsync, UpdateDiscountAsync,
-                      UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync
-ProductAppService   — CreateAsync, UpdateAsync, GetByIdAsync, GetAllAsync, DeactivateAsync
-UserAppService, CategoryAppService, PaymentMethodAppService — nomes já em inglês
+CategoryAppService — sem mudanças recentes
 
-VALIDATORS (Application/Validators)
---------------------------------------
-CreateCustomerValidator, UpdateCustomerValidator — validam LegalName, TaxId (11/14 dígitos), Address, Phone, Notes
-CreateOrderValidator  — valida CustomerId, PaymentMethodId, Items[].ProductId, Items[].Quantity
-WithMessage() strings em PORTUGUÊS
+EXTENSIONS (Api/Extensions/ClaimsPrincipalExtensions.cs)
+----------------------------------------------------------
+User.GetCompanyId()  → claim "companyId"
+User.GetUserId()     → claim "sub"
+User.GetFullName()   → claim "fullName" (ou ClaimTypes.Name como fallback)
 
-REPOSITORIES (Infrastructure/Repositories)
---------------------------------------------
-CustomerRepository   (_context.Customers, busca por LegalName/TaxId/Phone)
-AuditLogRepository   (_context.AuditLogs, filtra por Timestamp)
-OrderRepository      (_context.Orders, .Include(o => o.Customer), filtra por CustomerId)
-ProductRepository, CategoryRepository, PaymentMethodRepository — nomes já em inglês
-
-DBCONTEXT (Infrastructure/Persistence/AppDbContext.cs)
---------------------------------------------------------
-DbSet<Customer>    Customers
-DbSet<AuditLog>    AuditLogs
-DbSet<Order>       Orders
-DbSet<Product>     Products
-DbSet<Category>    Categories
-DbSet<PaymentMethod> PaymentMethods
-DbSet<PrintJob>    PrintJobs
-DbSet<Company>     Companies
+CONTROLLERS — assinaturas dos métodos
+-----------------------------------------------------------------------------------
+PaymentMethodController: Create, Update, Deactivate → passam (userId, fullName)
+CustomerController:      Create, Update, Deactivate → passam (userId, fullName)
+ProductController:       Create, Update, Deactivate → passam (userId, fullName)
+PedidoController:        Create, Finalize, PrintJob, Unlock, UpdateDelivery, UpdatePayment,
+                         UpdateDiscount, UpdateFinancial → todos passam (userId, fullName)
+AuthController:          Login — testa 4 dígitos numéricos → busca por UserCode; senão email
+UserController:          PATCH /{id}/code → RegenerateCode (gera novo UserCode)
 
 API ROUTES
 ----------
-POST   /api/auth/login
-POST   /api/auth/setup             { adminName, adminEmail, adminPassword, companyName, companyCNPJ,
-                                     companyAddress?, companyPhone? }
-GET    /api/company                (JWT — todos os usuários autenticados)
-PUT    /api/company                { Name, CNPJ, Address?, Phone? }   (AdminOnly)
-GET    /api/customer
+POST   /api/auth/login               { Login, Password }  — aceita e-mail ou código 4 dígitos
+POST   /api/auth/setup
+GET    /api/company
+PUT    /api/company                                    (AdminOnly)
+GET    /api/customer?search=
 GET    /api/customer/{id}
 POST   /api/customer
 PUT    /api/customer/{id}
 DELETE /api/customer/{id}
-GET    /api/auditlog?from=&to=
-GET    /api/order?page=&pageSize=&deliveryStatus=&financialStatus=
+GET    /api/auditlog?from=&to=                         (AdminOnly)
+GET    /api/order?page=&pageSize=&deliveryStatus=&financialStatus=&customerId=&from=&to=
 GET    /api/order/{id}
-POST   /api/order
+POST   /api/order                    { CustomerId, IsInstallment, Payments[{PaymentMethodId,Amount}], Items[], DiscountAmount }
 POST   /api/order/{id}/finalize
-POST   /api/order/{id}/unlock
-POST   /api/order/{id}/printjob    — cria PrintJob e dispara SignalR "NewPrintJob" ao grupo PrintAgents
-PATCH  /api/order/{id}/payment     { PaymentMethodId }      (AdminOnly — recalcula totais)
-PATCH  /api/order/{id}/discount    { DiscountAmount }
-PATCH  /api/order/{id}/delivery    { Status }
-PATCH  /api/order/{id}/financial   { Status }              (AdminOnly para Cancelled)
-GET    /api/product, POST, PUT, DELETE, GET /api/product/active
+POST   /api/order/{id}/unlock                         (AdminOnly)
+POST   /api/order/{id}/printjob
+PATCH  /api/order/{id}/payment       { IsInstallment, Payments[{PaymentMethodId,Amount}] }  (AdminOnly)
+PATCH  /api/order/{id}/discount      { DiscountAmount }
+PATCH  /api/order/{id}/delivery      { DeliveryStatus }
+PATCH  /api/order/{id}/financial     { FinancialStatus }                    (AdminOnly)
+GET    /api/product?page=&pageSize=&search=&isActive=
+GET    /api/product/{id}
+POST   /api/product                                   (AdminOnly)
+PUT    /api/product/{id}                              (AdminOnly)
+DELETE /api/product/{id}                              (AdminOnly)
 GET    /api/category, POST, PUT, DELETE
-GET    /api/paymentmethod, POST, PUT, DELETE
+GET    /api/paymentmethod?onlyActive=
+GET    /api/paymentmethod/{id}
+POST   /api/paymentmethod                             (AdminOnly)
+PUT    /api/paymentmethod/{id}                        (AdminOnly)
+DELETE /api/paymentmethod/{id}                        (AdminOnly)
 GET    /api/user, POST /api/user, PUT /api/user/{id}
-PATCH  /api/user/{id}/password     { NewPassword }
+PATCH  /api/user/{id}/password       { NewPassword }
+PATCH  /api/user/{id}/code                            (Admin — gera novo UserCode único)
 DELETE /api/user/{id}
-GET    /api/printjob/pending       (X-Agent-Key)
-PATCH  /api/printjob/{id}/status   (X-Agent-Key)
-GET    /api/printjob/{id}/order    (X-Agent-Key) — retorna OrderResponseDto com CompanyName/CNPJ/Address
-GET    /api/printjob               (JWT Admin)
+GET    /api/printjob/pending         (X-Agent-Key)
+PATCH  /api/printjob/{id}/status     (X-Agent-Key)
+GET    /api/printjob/{id}/order      (X-Agent-Key)
+GET    /api/printjob                 (JWT Admin)
 
 JWT CLAIMS
 ----------
@@ -190,44 +266,68 @@ sub, email, companyId, fullName, profile (ex: "Admin"), role (ClaimTypes.Role), 
 
 PÁGINAS BLAZOR IMPLEMENTADAS
 -----------------------------
-/login                  — autenticação JWT
-/pdv                    — Ponto de Venda: autocomplete cliente/produto, qtd, forma de pagamento,
-                          desconto (R$), total em tempo real, dialog "Novo Cliente" inline
+/login                  — campo "E-mail ou Código (4 dígitos)" (InputType.Text);
+                          login aceita e-mail completo OU código numérico de 4 dígitos
+
+/pdv                    — Ponto de Venda:
+                          • Seletor de modalidade: À Vista / A Prazo (MudButtonGroup)
+                          • À Vista: MudSelect MultiSelection para múltiplas formas de pagamento;
+                            se 1 selecionada aplica acréscimo dela, se 2+ sem acréscimo automático
+                            NOVIDADE: quando 2+ formas selecionadas, exibe campo de valor por forma;
+                            mostra "Restante: R$ X" (verde=ok, vermelho=diferença); FINALIZAR bloqueado
+                            até soma bater com total
+                          • A Prazo: MudSelect single select (apenas formas IsInstallment=true)
+                          • Autocomplete cliente/produto, qtd, desconto (R$), total em tempo real
+                          • Dialog "Novo Cliente" inline; finaliza pedido com CreateOrderDto
+
 /pedidos                — lista paginada + filtros (DeliveryStatus/FinancialStatus);
-                          dialog de detalhes: itens com preço COM acréscimo,
-                          resumo (Subtotal + Acréscimo + Desconto + Total Final),
-                          nota de rodapé quando há acréscimo,
-                          desconto, status entrega/financeiro,
-                          seção Admin: alterar forma de pagamento (recalcula totais),
-                          desbloquear pedido, botão "Imprimir Recibo";
-                          ao clicar em "Imprimir Recibo": abre MudDialog com <iframe srcdoc="...">
-                          mostrando prévia HTML do recibo (nome/CNPJ/endereço da empresa dinâmicos);
-                          botão "Confirmar Impressão" chama POST /api/order/{id}/printjob
-                          e dispara SignalR para o PrintAgent físico;
-                          Injeta PaymentMethodService e CompanyService
+                          dialog de detalhes: itens com preço COM acréscimo;
+                          Pagamento: se 1 forma → exibe nome; se 2+ formas → exibe "Nome: R$ X" por linha;
+                          seção Admin: alterar forma de pagamento (modal/filtro + multi/single select),
+                          quando multi-seleção: campos de valor por forma + indicador de restante,
+                          validação no salvamento;
+                          desbloquear, desconto, status entrega/financeiro;
+                          botão "Imprimir Recibo" → dialog HTML + "Confirmar Impressão"
+
 /clientes               — CRUD com busca por nome/CPF-CNPJ/telefone
-/produtos               — CRUD paginado com filtro categoria; edição restrita a Admin
-/admin/formas-pagamento — CRUD: nome, prazo (dias), acréscimo (%)
+
+/produtos               — CRUD paginado; colunas Custo e Margem ocultas para Attendant
+                          (visíveis apenas para Admin via <AuthorizeView Roles="Admin">)
+
+/admin/formas-pagamento — CRUD: nome, modalidade (À Vista / A Prazo via MudToggleGroup), acréscimo (%)
+
 /admin/categorias       — CRUD simples
+
 /admin/usuarios         — CRUD + dialog separado "Alterar Senha"; perfis Admin/Atendente
-/admin/empresa          — Edição de dados da empresa: Nome, CNPJ, Endereço, Telefone;
-                          GET /api/company ao carregar, PUT /api/company ao salvar (AdminOnly)
-/admin/auditoria        — log com filtro por período; dialog de detalhes c/ valor anterior/novo
+                          NOVIDADE: coluna "Código" mostra UserCode formatado (D4, ex: 1001);
+                          botão "Gerar" para usuários com código 0; ícone refresh para regenerar;
+                          snackbar exibe o código por 8 segundos após criação
+
+/admin/empresa          — edição: Nome, CNPJ, Endereço, Telefone
+
+/admin/auditoria        — log com filtro por período;
+                          colunas: Data/Hora | Usuário | Operação (chip colorido) | Descrição | Entidade | Detalhes
+                          dialog de detalhes: mostra Valor Anterior + Novo quando presentes
+                          cores das operações:
+                            Success  = Criar* (CriarPedido, CriarCliente, CriarFormaPagamento, CriarProduto)
+                            Info     = Editar* (EditarCliente, EditarFormaPagamento, EditarProduto)
+                            Primary  = FinalizarPedido, ImprimirPedido, DesbloquearPedido
+                            Warning  = AlterarEntrega, AlterarFinanceiro, AlterarPagamento, AlterarPreco, AplicarDesconto
+                            Error    = CancelarPedido, Desativar*, InativarProduto
 
 SERVIÇOS BLAZOR (Services/)
 ----------------------------
-ApiHttpClient        — wrapper HTTP com JWT automático; erros → null;
-                       PutAsync<T> (genérico) e PutAsync não-genérico (retorna ApiResponse)
-CompanyService       — GetAsync() → GET /api/company, UpdateAsync(dto) → PUT /api/company
+ApiHttpClient        — wrapper HTTP com JWT automático; inclui PatchAsync<T>(url, body?)
+CompanyService       — GetAsync, UpdateAsync
 CustomerService      — SearchAsync, GetByIdAsync, CreateAsync, UpdateAsync, DeactivateAsync
 ProductService       — GetAllAsync(paginado), GetAllActiveAsync, CreateAsync, UpdateAsync, DeactivateAsync
 PaymentMethodService — GetAllAsync(onlyActive?), CreateAsync, UpdateAsync, DeactivateAsync
 OrderService         — GetAllAsync, GetByIdAsync, CreateAsync, FinalizeAsync, UnlockAsync,
-                       CreatePrintJobAsync(orderId) → POST /api/order/{id}/printjob,
-                       UpdatePaymentMethodAsync, UpdateDiscountAsync,
+                       CreatePrintJobAsync, UpdatePaymentMethodAsync, UpdateDiscountAsync,
                        UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync
 CategoryService      — GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync
-UserService          — GetAllAsync, CreateAsync, UpdateAsync, ChangePasswordAsync, DeactivateAsync
+UserService          — GetAllAsync, CreateAsync, UpdateAsync, ChangePasswordAsync, DeactivateAsync,
+                       RegenerateCodeAsync(id) → ApiResponse<int>
 AuditLogService      — GetAllAsync(from?, to?)
 AuthService          — LoginAsync, LogoutAsync
 
@@ -236,131 +336,105 @@ PADRÃO ApiResponse
 record ApiResponse<T>(bool Success, T? Data, string? Error)
 record PagedResult<T>(IEnumerable<T> Items, int TotalCount, int Page, int PageSize)
 
-FUNCIONALIDADE DE DESCONTO
----------------------------
-- Campo DiscountAmount (decimal, default 0) em Order e na tabela Orders (migration AddDiscountToOrder)
-- PDV: campo "Desconto (R$)" no resumo; total atualiza em tempo real
-- Pedidos: seção "Aplicar Desconto" no dialog de detalhes (edição pós-criação)
-- Endpoint: PATCH /api/order/{id}/discount { DiscountAmount }
-- Cálculo: AmountWithSurchargeTotal = (AmountTotal × fator) − DiscountAmount
+MULTI-PAGAMENTO COM VALOR POR FORMA (feature completa — implementada)
+-----------------------------------------------------------------------
+Conceito:
+  - À Vista (IsInstallment=false): 1 ou mais formas de pagamento por pedido
+    • 1 forma selecionada → aplica SurchargePercentage desta forma; Amount = total do pedido (auto)
+    • 2+ formas → SurchargePercentage = 0; usuário informa o valor pago em cada forma
+  - A Prazo (IsInstallment=true): exatamente 1 forma de pagamento; Amount = total do pedido (auto)
 
-ALTERAÇÃO DE FORMA DE PAGAMENTO EM PEDIDOS (Admin)
----------------------------------------------------
-- Admin pode alterar a forma de pagamento de um pedido existente no dialog de detalhes
-- PATCH /api/order/{id}/payment (AdminOnly) — recebe { PaymentMethodId }
-- OrderAppService.UpdatePaymentMethodAsync:
-    1. Busca pedido e nova forma de pagamento (valida se ativa)
-    2. order.PaymentMethodId = novo id
-    3. surcharge = AmountTotal × (newPaymentMethod.SurchargePercentage / 100)
-    4. AmountWithSurchargeTotal = AmountTotal + surcharge − DiscountAmount
-    5. Grava + audita com operation "ChangePaymentMethod"
-- Blazor (Pedidos.razor):
-    • PaymentMethodService injetado; lista carregada em OnInitializedAsync
-    • Campo _editPaymentMethodId inicializado com o PaymentMethodId do pedido ao abrir dialog
-    • Botão "Alterar Pagamento" desabilitado se selecionado == atual
-    • Ao salvar: chama OrderService.UpdatePaymentMethodAsync → recarrega pedido
-- SurchargePercentage vem do OrderResponseDto (calculado ao buscar, não armazenado na tabela)
+Validação servidor (OrderAppService):
+  - dto.Payments.Count > 1: valida |sum(Amount) - totalFinal| <= 0.01
+  - dto.Payments.Count == 1: ignora Amount recebido; grava totalFinal diretamente
+  - Mensagem de erro: "A soma dos valores de pagamento (R$ X) não corresponde ao total do pedido (R$ Y)."
+
+Validação cliente (PDV.razor / Pedidos.razor):
+  - Mostra "Restante: R$ X" em verde se ok, vermelho se diferença
+  - PDV: botão FINALIZAR bloqueado se _hasPaymentSelected mas multi e soma errada
+  - Pedidos: botão "Alterar Pagamento" mostra snackbar de aviso se soma errada, aborta
+
+Armazenamento:
+  - OrderPaymentMethod.Amount: decimal, coluna numeric(18,2), DEFAULT 0
+
+Exibição (Pedidos.razor - detalhe do pedido):
+  - 1 forma: exibe só o nome
+  - 2+ formas: cada linha "Nome: R$ X,XX"
+
+CÓDIGO DE USUÁRIO (UserCode)
+------------------------------
+- Cada usuário tem um código numérico único de 4 dígitos (1000–9999), global (não por empresa)
+- Global para evitar conflito no login: na hora do login, a empresa ainda não é conhecida
+- Gerado automaticamente ao criar usuário; pode ser regenerado via UI ou API
+- Login: se dto.Login tem exatamente 4 dígitos numéricos → busca por UserCode; senão busca por e-mail
+- Mensagem de erro unificada: "E-mail, código ou senha inválidos."
+- Usuários existentes antes da migration tiveram código atribuído manualmente por SQL
+
+AUDITORIA — LOG SIMPLES (Opção 1 — implementada)
+--------------------------------------------------
+AuditLog registra:
+  - UserName: nome completo do usuário (claim "fullName" do JWT)
+  - Description: texto em português (ex: "Pedido #42 finalizado")
+  - PreviousValue / NewValue: para alterações (preço, status, pagamento, desconto)
+
+Operações auditadas:
+  Pedidos   : CriarPedido, FinalizarPedido, ImprimirPedido, DesbloquearPedido,
+               AlterarEntrega, AlterarFinanceiro, AlterarPagamento, AplicarDesconto, CancelarPedido
+  Clientes  : CriarCliente, EditarCliente, DesativarCliente
+  Produtos  : CriarProduto, EditarProduto, AlterarPreco (quando BaseSalePrice muda), InativarProduto
+  Pagamentos: CriarFormaPagamento, EditarFormaPagamento, DesativarFormaPagamento
+
+DESCONTO
+--------
+- Campo DiscountAmount (decimal, default 0) em Order e tabela Orders
+- PDV: campo "Desconto (R$)" no resumo; total em tempo real
+- Pedidos: seção "Aplicar Desconto" no dialog de detalhes (edição pós-criação)
+- Cálculo: AmountWithSurchargeTotal = (AmountTotal + surcharge) − DiscountAmount
+
+EXIBIÇÃO DE PREÇOS COM ACRÉSCIMO (Pedidos.razor)
+-------------------------------------------------
+- UnitPrice e TotalPrice nos OrderItems gravados sem acréscimo (preço base)
+- Ao exibir no dialog: _surchargeRate = 1 + SurchargePercentage / 100m
+- Rodapé quando SurchargePercentage > 0: "* Preços com acréscimo de X% incluído."
+- AmountWithSurchargeTotal exibido diretamente do DTO
 
 PERSONALIZAÇÃO DA EMPRESA
 --------------------------
 - Entidade Company (tabela Companies): Name, CNPJ, Address?, Phone?, IsActive
-- GET  /api/company  — retorna dados da empresa do usuário autenticado
-- PUT  /api/company  — atualiza Name, CNPJ, Address, Phone (AdminOnly)
-- POST /api/auth/setup agora aceita companyAddress? e companyPhone? opcionais
-- ICompanyRepository → CompanyRepository (Infrastructure)
-- CompanyAppService: GetAsync, UpdateAsync (Application)
-- Blazor /admin/empresa: formulário simples; carrega via CompanyService.GetAsync() e salva via UpdateAsync()
-- Blazor CompanyService: GetAsync() → GET /api/company, UpdateAsync(dto) → PUT /api/company
-- Pedidos.razor: injeta CompanyService, carrega _company em OnInitializedAsync;
-  BuildReceiptHtml usa _company?.Name/CNPJ/Address no cabeçalho da prévia (fallback "ScaleAtacado")
-- PrintJobController.GetOrderForAgent: injeta ICompanyRepository, preenche
-  CompanyName/CompanyCNPJ/CompanyAddress no OrderResponseDto antes de retornar ao PrintAgent
-- ReceiptFormatter: Center(order.CompanyName ?? "ScaleAtacado") + linhas de CNPJ e Endereço se presentes
-
-EXIBIÇÃO DE PREÇOS COM ACRÉSCIMO (Pedidos.razor — dialog de detalhes)
------------------------------------------------------------------------
-- UnitPrice e TotalPrice nos OrderItems são armazenados sem acréscimo (preço base)
-- Ao exibir no dialog, multiplica pelo _surchargeRate para mostrar valor real ao cliente:
-    var _surchargeRate = 1 + _orderDetail.SurchargePercentage / 100m;
-    // na coluna Unitário:  (context.UnitPrice  * _surchargeRate).ToString("N2")
-    // na coluna Subtotal:  (context.TotalPrice * _surchargeRate).ToString("N2")
-- Rodapé exibido quando SurchargePercentage > 0:
-    "* Preços exibidos com acréscimo de X% (NomeForma) já incluído."
-- AmountWithSurchargeTotal (o total final correto) é mostrado diretamente do DTO — já está correto
+- GET/PUT /api/company (AdminOnly para PUT)
+- Pedidos.razor: CompanyService.GetAsync() → cabeçalho do recibo HTML
+- PrintJobController: preenche CompanyName/CNPJ/Address no OrderResponseDto antes de retornar ao PrintAgent
+- ReceiptFormatter.cs: usa order.PaymentMethods.Select(p => p.Name) concatenado
 
 RECIBO DE IMPRESSÃO
 --------------------
-FLUXO (unificado com PrintAgent):
-  1. Usuário clica "Imprimir Recibo" no dialog de detalhes do pedido
-  2. Pedidos.razor abre MudDialog com <iframe srcdoc="..."> mostrando prévia HTML
-  3. Usuário clica "Confirmar Impressão" → POST /api/order/{id}/printjob → cria PrintJob
-  4. API dispara SignalR "NewPrintJob" {printJobId} ao grupo "PrintAgents"
-  5. PrintAgent recebe → GET /api/printjob/{id}/order → formata → imprime fisicamente
-  6. PrintAgent → PATCH /api/printjob/{id}/status → Printed
+FLUXO:
+  1. Usuário clica "Imprimir Recibo" → dialog HTML com iframe srcdoc
+  2. "Confirmar Impressão" → POST /api/order/{id}/printjob → cria PrintJob
+  3. API dispara SignalR "NewPrintJob" ao grupo "PrintAgents"
+  4. PrintAgent → GET /api/printjob/{id}/order → formata → imprime
+  5. PrintAgent → PATCH /api/printjob/{id}/status → Printed
 
-PRÉVIA HTML (BuildReceiptHtml — Pedidos.razor):
-- MudDialog nativo (sem popup/window.open); iframe com srcdoc
-- Fonte monospace "Courier New", largura 320px
-- Cabeçalho dinâmico: CompanyService.GetAsync() carregado em OnInitializedAsync;
-  exibe Nome + CNPJ + Endereço se preenchidos; fallback "ScaleAtacado"
-- Dados do cliente buscados via CustomerService.GetByIdAsync
-- Itens com preço COM acréscimo; totais: Subtotal | Desconto | TOTAL
-
-IMPRESSÃO FÍSICA (ReceiptFormatter.cs — PrintAgent):
-- Largura 40 colunas, fonte Bold 8pt, margens zeradas
-- Cabeçalho dinâmico: order.CompanyName ?? "ScaleAtacado";
-  exibe CNPJ e Endereço se presentes no OrderResponseDto
-- Mesmos cálculos de acréscimo e totais que a prévia HTML
-- PrinterName configurado em PrintAgent/appsettings.json: "EPSON TM-T20X Receipt"
+PrintAgent (ReceiptFormatter.cs):
+  - Usa string.Join(" + ", order.PaymentMethods.Select(p => p.Name)) para linha de pagamento
+  - 60 colunas, Bold 8pt, margens zeradas, PadBetween com \t
 
 GESTÃO DE USUÁRIOS
 -------------------
-- Senhas: PBKDF2 via ASP.NET Identity (nunca plain text)
-- Admin não vê senha atual; pode apenas redefini-la via PATCH /api/user/{id}/password
-- Usa GeneratePasswordResetTokenAsync + ResetPasswordAsync (sem exigir senha atual)
-- Regras validadas client-side E na API:
-    • Mínimo 6 caracteres  • Pelo menos uma letra minúscula (a-z)  • Pelo menos um número (0-9)
-- Dialog "Alterar Senha" exibe alerta informativo sobre criptografia
+- PATCH /api/user/{id}/password { NewPassword } (sem exigir senha atual — uso admin)
+- PATCH /api/user/{id}/code → gera novo UserCode único (Admin)
+- Regras de senha: mín. 6 chars, 1 minúscula, 1 número
+- Dialog "Alterar Senha" com alerta informativo sobre criptografia
 
 VALIDAÇÃO CLIENT-SIDE (padrão)
 --------------------------------
-Campos string? _errorX → Error/ErrorText nos MudTextField; método ValidateXxx() antes de chamar API.
-Clientes / PDV (Novo Cliente): LegalName, TaxId (11/14 dígitos), Phone, Address, Notes
-Produtos: Name, Code (SKU), Category (Guid? — obrigatória), CostPrice (>0), ProfitMargin (0–1000%)
-Usuários: FullName, Email (MailAddress), Password/Confirm; erros de duplicata exibidos no campo
-
-INFRAESTRUTURA DE IMPRESSÃO (PrintAgent)
------------------------------------------
-PrintHub.cs: ?agentKey=xxx → grupo "PrintAgents"; demais → grupo "Clients"
-
-API:
-  GET  /api/printjob/pending       (X-Agent-Key) — jobs pendentes (failsafe ao iniciar)
-  PATCH /api/printjob/{id}/status  (X-Agent-Key) — atualiza status
-  GET  /api/printjob/{id}/order    (X-Agent-Key) — retorna OrderResponseDto com campos da empresa
-  POST /api/order/{id}/printjob    (JWT) — cria PrintJob + SignalR "NewPrintJob" {printJobId}
-  GET  /api/printjob               (JWT Admin)
-Chave do agente: em appsettings.Development.json → PrintAgent:AgentKey
-
-PrintAgent Windows (Worker Service — IMPLEMENTADO):
-  Worker.cs:
-    - Conecta ao SignalR Hub com ?agentKey=xxx
-    - On "NewPrintJob": ProcessJobAsync(printJobId) direto (sem buscar pendentes)
-    - Failsafe: ao iniciar consulta /pending e processa cada job
-  ReceiptFormatter.cs:
-    - 40 colunas, usa order.CompanyName/CompanyCNPJ/CompanyAddress dinâmicos
-    - Acréscimo aplicado nos preços unitários e no subtotal
-    - Datas em dd/MM/yyyy HH:mm (hora local)
-  PrintService.cs:
-    - System.Drawing.Printing (net8.0-windows)
-    - Margens zeradas, Bold 8pt
-  PrintApiClient.cs:
-    - GetOrderForAgentAsync(printJobId), UpdateStatusAsync(printJobId, status, error?)
-  appsettings.json: PrinterName: "EPSON TM-T20X Receipt"
+Campos string? _errorX → Error/ErrorText nos MudTextField
+LegalName, TaxId (11/14 dígitos), Phone, CostPrice (>0), ProfitMargin (0–1000%)
+Usuários: FullName, Email (MailAddress), Password/Confirm
 
 SEGURANÇA E SESSÃO
 ------------------
-- Token JWT em sessionStorage (não persiste entre sessões do browser)
-- Nova aba ou fechar/reabrir: login obrigatório; F5 na mesma aba: mantém sessão
+- Token JWT em sessionStorage (F5 mantém; fechar aba/browser derruba)
 - appsettings.Development.json fora do git
 
 GIT / CONTROLE DE VERSÃO
@@ -368,12 +442,24 @@ GIT / CONTROLE DE VERSÃO
 Ignorados: appsettings.Development.json, .vscode/, *.docx, bin/, obj/, .vs/
 Rastreados: appsettings.json (template), Migrations/, RESUMO_PROJETO.txt
 
+DOCKER (desenvolvimento)
+-------------------------
+- Apenas postgres sobe via docker-compose: docker compose up -d postgres-db
+- NÃO usar "docker compose up -d" sem nome (tenta buildar API/Blazor desnecessariamente)
+- Erro "NpgsqlException: Failed to connect": Docker Desktop não está rodando → abrir Docker Desktop primeiro
+
 ERROS COMUNS E SOLUÇÕES
 ------------------------
 - 401: token expirado → logout + login
 - "Sistema já configurado": DELETE FROM "Companies"; (não basta apagar AspNetUsers)
 - 400 sem mensagem: pode ser FluentValidation (ValidationProblemDetails, não ApiResponse)
 - 500 ao criar pedido: migration pendente → dotnet ef database update
+- MudSelect MultiSelection: SelectedValuesChanged requer tipo explícito na lambda
+  ex: (IReadOnlyCollection<T> vals) => { _field = vals; StateHasChanged(); }
+- MudButtonGroup: não tem atributo DisableElevation (MudBlazor 9 — remover se houver)
+- psql não está no PATH: usar "C:\Program Files\pgAdmin 4\runtime\psql.exe"
+- psql no PowerShell: aspas duplas em SQL não passam corretamente pelo comando inline;
+  usar docker cp para copiar arquivo .sql e executar com -f /tmp/arquivo.sql
 
 PENDÊNCIAS MAPEADAS
 -------------------
@@ -382,7 +468,7 @@ CRÍTICO:
 
 FUNCIONAL:
   2. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
-  3. Auditoria de Clientes e Usuários (CustomerAppService/UserAppService não auditam)
+  3. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
   4. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
   5. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
   6. Confirmação antes de desativar/excluir (MudMessageBox)
@@ -390,5 +476,6 @@ FUNCIONAL:
 UX/QUALIDADE:
   7. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
   8. Paginação server-side em Usuários (lista cresce com o tempo)
+  9. Busca/filtro de operação na tela de Auditoria
 
 ================================================================================

@@ -10,8 +10,8 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderDto>
         RuleFor(x => x.CustomerId)
             .NotEmpty().WithMessage("Cliente é obrigatório.");
 
-        RuleFor(x => x.PaymentMethodId)
-            .NotEmpty().WithMessage("Forma de pagamento é obrigatória.");
+        RuleFor(x => x.Payments)
+            .NotEmpty().WithMessage("Selecione ao menos uma forma de pagamento.");
 
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("O pedido deve ter pelo menos um item.");

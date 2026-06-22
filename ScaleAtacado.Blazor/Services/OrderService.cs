@@ -34,8 +34,8 @@ public class OrderService
     public Task<ApiResponse?> CreatePrintJobAsync(Guid id)
         => _api.PostAsync($"api/order/{id}/printjob");
 
-    public Task<ApiResponse?> UpdatePaymentMethodAsync(Guid id, Guid paymentMethodId)
-        => _api.PatchAsync($"api/order/{id}/payment", new UpdateOrderPaymentMethodDto(paymentMethodId));
+    public Task<ApiResponse?> UpdatePaymentMethodAsync(Guid id, UpdateOrderPaymentMethodDto dto)
+        => _api.PatchAsync($"api/order/{id}/payment", dto);
 
     public Task<ApiResponse?> UpdateDiscountAsync(Guid id, decimal discountAmount)
         => _api.PatchAsync($"api/order/{id}/discount", new UpdateDiscountDto(discountAmount));

@@ -25,7 +25,8 @@ public class ReceiptFormatter
         lines.Add("CLIENTE:");
         lines.Add(Truncate(order.CustomerName, Width));
         lines.Add(Line('-'));
-        lines.Add($"Pagamento: {Truncate(order.PaymentMethodName, Width - 11)}");
+        var paymentNames = string.Join(" + ", order.PaymentMethods.Select(p => p.Name));
+        lines.Add($"Pagamento: {Truncate(paymentNames, Width - 11)}");
         lines.Add(Line('='));
         lines.Add(PadBetween("ITEM", "VALOR"));
         lines.Add(Line('-'));

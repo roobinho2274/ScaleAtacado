@@ -90,7 +90,9 @@ public class PrintJobController : ControllerBase
         var dto = new OrderResponseDto(
             order.Id, order.OrderNumber, order.CompanyId,
             order.CustomerId, order.Customer.LegalName,
-            order.PaymentMethodId, order.PaymentMethod.Name, order.PaymentMethod.SurchargePercentage,
+            order.IsInstallment,
+            order.SurchargePercentage,
+            order.PaymentMethods.Select(opm => new OrderPaymentMethodDto(opm.PaymentMethodId, opm.PaymentMethod?.Name ?? string.Empty, opm.Amount)).ToList(),
             order.UserId, order.OrderDate,
             order.AmountTotal, order.DiscountAmount, order.AmountWithSurchargeTotal,
             order.DeliveryStatus, order.FinancialStatus, order.IsLocked,

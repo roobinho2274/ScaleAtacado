@@ -33,29 +33,31 @@
     FixedHeader="true" Height="600px">
     <HeaderContent>
         <MudTh>Data/Hora</MudTh>
+        <MudTh>Usuário</MudTh>
         <MudTh>Operação</MudTh>
+        <MudTh>Descrição</MudTh>
         <MudTh>Entidade</MudTh>
-        <MudTh>ID Entidade</MudTh>
         <MudTh Style="text-align:center">Detalhes</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Data">@context.Timestamp.ToString("dd/MM/yy HH:mm:ss")</MudTd>
+        <MudTd DataLabel="Data">@context.Timestamp.ToLocalTime().ToString("dd/MM/yy HH:mm")</MudTd>
+        <MudTd DataLabel="Usuário">
+            <MudText Typo="Typo.body2">@(string.IsNullOrEmpty(context.UserName) ? "—" : context.UserName)</MudText>
+        </MudTd>
         <MudTd DataLabel="Operação">
             <MudChip T="string" Size="Size.Small" Color="@GetOperationColor(context.Operation)">
                 @context.Operation
             </MudChip>
         </MudTd>
-        <MudTd DataLabel="Entidade">@context.EntityName</MudTd>
-        <MudTd DataLabel="ID">
-            <MudText Typo="Typo.caption" Style="font-family:monospace">
-                @(context.EntityId?.Length > 8 ? context.EntityId[..8] + "..." : context.EntityId ?? "—")
-            </MudText>
+        <MudTd DataLabel="Descrição">
+            <MudText Typo="Typo.body2">@(string.IsNullOrEmpty(context.Description) ? "—" : context.Description)</MudText>
         </MudTd>
+        <MudTd DataLabel="Entidade">@context.EntityName</MudTd>
         <MudTd Style="text-align:center">
             @if (!string.IsNullOrEmpty(context.PreviousValue) || !string.IsNullOrEmpty(context.NewValue))
             {
-                <MudIconButton Icon="@Icons.Material.Filled.Info" Size="Size.Small"
-                    OnClick="@(() => ViewDetails(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Small"
+                    Color="Color.Info" OnClick="@(() => ViewDetails(context))" />
             }
         </MudTd>
     </RowTemplate>
@@ -76,18 +78,22 @@
     @_records.Count registro(s) exibido(s)
 </MudText>
 
-<!-- Dialog: Detalhes -->
+<!-- Dialog: Antes / Depois -->
 <MudDialog @bind-Visible="_dialogDetails" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
-    <TitleContent>Detalhes da Operação</TitleContent>
+    <TitleContent>Detalhes da Alteração</TitleContent>
     <DialogContent>
         @if (_selected != null)
         {
             <MudGrid Class="mb-3">
                 <MudItem xs="6">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
-                    <MudText>@_selected.Timestamp.ToString("dd/MM/yyyy HH:mm:ss")</MudText>
+                    <MudText>@_selected.Timestamp.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</MudText>
                 </MudItem>
                 <MudItem xs="6">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Usuário</MudText>
+                    <MudText>@(string.IsNullOrEmpty(_selected.UserName) ? "—" : _selected.UserName)</MudText>
+                </MudItem>
+                <MudItem xs="12">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Operação</MudText>
                     <MudText>@_selected.Operation — @_selected.EntityName</MudText>
                 </MudItem>
@@ -141,11 +147,13 @@
         _dialogDetails = true;
     }
 
-    private static Color GetOperationColor(string operation) => operation?.ToUpper() switch
+    private static Color GetOperationColor(string op) => op switch
     {
-        "CREATE" or "INSERT" or "CRIAR" => Color.Success,
-        "UPDATE" or "ATUALIZAR" or "EDIT" => Color.Info,
-        "DELETE" or "DELETAR" or "EXCLUIR" or "DESATIVAR" => Color.Error,
+        "CriarPedido" or "CriarCliente" or "CriarFormaPagamento" or "CriarProduto" => Color.Success,
+        "EditarPedido" or "EditarCliente" or "EditarFormaPagamento" or "EditarProduto" => Color.Info,
+        "FinalizarPedido" or "ImprimirPedido" or "DesbloquearPedido" => Color.Primary,
+        "AlterarEntrega" or "AlterarFinanceiro" or "AlterarPagamento" or "AlterarPreco" or "AplicarDesconto" => Color.Warning,
+        "CancelarPedido" or "DesativarCliente" or "DesativarFormaPagamento" or "InativarProduto" => Color.Error,
         _ => Color.Default
     };
 }

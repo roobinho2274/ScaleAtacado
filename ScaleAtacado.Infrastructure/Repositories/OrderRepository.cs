@@ -19,7 +19,7 @@ public class OrderRepository : IOrderRepository
     {
         var query = _context.Orders
             .Include(o => o.Customer)
-            .Include(o => o.PaymentMethod)
+            .Include(o => o.PaymentMethods).ThenInclude(opm => opm.PaymentMethod)
             .Include(o => o.Items).ThenInclude(i => i.Product)
             .Where(o => o.Id == id);
 
@@ -36,7 +36,7 @@ public class OrderRepository : IOrderRepository
     {
         var query = _context.Orders
             .Include(o => o.Customer)
-            .Include(o => o.PaymentMethod)
+            .Include(o => o.PaymentMethods).ThenInclude(opm => opm.PaymentMethod)
             .Where(o => o.CompanyId == companyId);
 
         if (customerId.HasValue)

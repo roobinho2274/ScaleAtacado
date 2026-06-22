@@ -46,8 +46,7 @@
     </MudGrid>
 </MudPaper>
 
-<MudTable ServerData="ServerData" @ref="_table" Dense="true" Hover="true" Striped="true"
-    RowClassFunc="GetRowClass">
+<MudTable ServerData="ServerData" @ref="_table" Dense="true" Hover="true" Striped="true">
     <HeaderContent>
         <MudTh><MudTableSortLabel T="OrderListItemDto" SortLabel="numero">Nº</MudTableSortLabel></MudTh>
         <MudTh>Data</MudTh>
@@ -55,7 +54,6 @@
         <MudTh>Pagamento</MudTh>
         <MudTh Style="text-align:right">Total</MudTh>
         <MudTh Style="text-align:center">Entrega</MudTh>
-        <MudTh Style="text-align:center">Financeiro</MudTh>
         <MudTh Style="text-align:center">Ações</MudTh>
     </HeaderContent>
     <RowTemplate>
@@ -67,11 +65,6 @@
         <MudTd DataLabel="Entrega" Style="text-align:center">
             <MudChip T="string" Size="Size.Small" Color="@GetDeliveryColor(context.DeliveryStatus)">
                 @GetDeliveryLabel(context.DeliveryStatus)
-            </MudChip>
-        </MudTd>
-        <MudTd DataLabel="Financeiro" Style="text-align:center">
-            <MudChip T="string" Size="Size.Small" Color="@GetFinancialColor(context.FinancialStatus)">
-                @GetFinancialLabel(context.FinancialStatus)
             </MudChip>
         </MudTd>
         <MudTd Style="text-align:center">
@@ -110,7 +103,18 @@
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Pagamento</MudText>
-                    <MudText Typo="Typo.body2">@_orderDetail.PaymentMethodName</MudText>
+                    @if (_orderDetail.PaymentMethods.Count > 1)
+                    {
+                        @foreach (var pm in _orderDetail.PaymentMethods)
+                        {
+                            <MudText Typo="Typo.body2">@pm.Name: R$ @pm.Amount.ToString("N2")</MudText>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">@string.Join(" + ", _orderDetail.PaymentMethods.Select(p => p.Name))</MudText>
+                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@(_orderDetail.IsInstallment ? "A Prazo" : "À Vista")</MudText>
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Subtotal</MudText>
@@ -154,7 +158,7 @@
             @if (_orderDetail.SurchargePercentage > 0)
             {
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3" Style="display:block">
-                    * Preços exibidos com acréscimo de @_orderDetail.SurchargePercentage.ToString("N1")% (@_orderDetail.PaymentMethodName) já incluído.
+                    * Preços exibidos com acréscimo de @_orderDetail.SurchargePercentage.ToString("N1")% (@string.Join(" + ", _orderDetail.PaymentMethods.Select(p => p.Name))) já incluído.
                 </MudText>
             }
 
@@ -201,25 +205,94 @@
                                 ADMINISTRAÇÃO
                             </MudText>
                         </MudItem>
-                        <MudItem xs="12" sm="8">
-                            <MudSelect T="Guid" Label="Forma de Pagamento" @bind-Value="_editPaymentMethodId"
-                                Variant="Variant.Outlined" Dense="true"
-                                ToStringFunc="@(id => _paymentMethods.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
-                                @foreach (var pm in _paymentMethods)
-                                {
-                                    <MudSelectItem T="Guid" Value="pm.Id">
-                                        @pm.Name
-                                        @if (pm.SurchargePercentage > 0)
-                                        {
-                                            <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
-                                        }
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
+                        <MudItem xs="12">
+                            <MudButtonGroup Variant="Variant.Outlined" FullWidth="true" Class="mb-2">
+                                <MudButton Color="@(!_editIsInstallment ? Color.Primary : Color.Default)"
+                                    Variant="@(!_editIsInstallment ? Variant.Filled : Variant.Outlined)"
+                                    OnClick="@(() => { _editIsInstallment = false; _editPaymentMethodIds = Array.Empty<Guid>(); _editPaymentMethodId = Guid.Empty; })"
+                                    Disabled="_saving" Style="flex:1">
+                                    À Vista
+                                </MudButton>
+                                <MudButton Color="@(_editIsInstallment ? Color.Primary : Color.Default)"
+                                    Variant="@(_editIsInstallment ? Variant.Filled : Variant.Outlined)"
+                                    OnClick="@(() => { _editIsInstallment = true; _editPaymentMethodIds = Array.Empty<Guid>(); _editPaymentMethodId = Guid.Empty; })"
+                                    Disabled="_saving" Style="flex:1">
+                                    A Prazo
+                                </MudButton>
+                            </MudButtonGroup>
                         </MudItem>
+                        @if (!_editIsInstallment)
+                        {
+                            <MudItem xs="12" sm="8">
+                                <MudSelect T="Guid" Label="Formas de Pagamento (À Vista)"
+                                    MultiSelection="true"
+                                    SelectedValues="_editPaymentMethodIds"
+                                    SelectedValuesChanged="@((IReadOnlyCollection<Guid> vals) => OnEditPMsChanged(vals))"
+                                    Variant="Variant.Outlined" Dense="true"
+                                    ToStringFunc="@(id => _paymentMethods.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                                    @foreach (var pm in _paymentMethods.Where(p => !p.IsInstallment))
+                                    {
+                                        <MudSelectItem T="Guid" Value="pm.Id">
+                                            @pm.Name
+                                            @if (pm.SurchargePercentage > 0)
+                                            {
+                                                <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
+                                            }
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            @if (_editPaymentMethodIds.Count > 1)
+                            {
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1" Style="display:block">
+                                        Valores por forma de pagamento:
+                                    </MudText>
+                                    @foreach (var pmId in _editPaymentMethodIds)
+                                    {
+                                        var pmLabel = _paymentMethods.FirstOrDefault(p => p.Id == pmId)?.Name ?? string.Empty;
+                                        <div class="d-flex align-center gap-2 mb-2">
+                                            <MudText Typo="Typo.body2" Style="min-width:90px">@pmLabel:</MudText>
+                                            <MudNumericField T="decimal"
+                                                Value="_editPmAmounts.GetValueOrDefault(pmId)"
+                                                ValueChanged="@(v => { _editPmAmounts[pmId] = v; StateHasChanged(); })"
+                                                Min="0m" Format="N2"
+                                                Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                Style="flex:1" />
+                                        </div>
+                                    }
+                                    <div class="d-flex justify-space-between mt-1">
+                                        <MudText Typo="Typo.caption">Restante:</MudText>
+                                        <MudText Typo="Typo.caption" Color="@(Math.Abs(_orderDetail!.AmountWithSurchargeTotal - _editPmAmounts.Values.Sum()) < 0.01m ? Color.Success : Color.Error)">
+                                            R$ @((_orderDetail!.AmountWithSurchargeTotal - _editPmAmounts.Values.Sum()).ToString("N2"))
+                                        </MudText>
+                                    </div>
+                                </MudItem>
+                            }
+                        }
+                        else
+                        {
+                            <MudItem xs="12" sm="8">
+                                <MudSelect T="Guid" Label="Forma de Pagamento (A Prazo)"
+                                    @bind-Value="_editPaymentMethodId"
+                                    Variant="Variant.Outlined" Dense="true"
+                                    ToStringFunc="@(id => _paymentMethods.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                                    @foreach (var pm in _paymentMethods.Where(p => p.IsInstallment))
+                                    {
+                                        <MudSelectItem T="Guid" Value="pm.Id">
+                                            @pm.Name
+                                            @if (pm.SurchargePercentage > 0)
+                                            {
+                                                <span style="color:var(--mud-palette-warning)"> (+@pm.SurchargePercentage.ToString("N1")%)</span>
+                                            }
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                        }
                         <MudItem xs="12" sm="4" Class="d-flex align-end">
                             <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true"
-                                OnClick="SavePaymentMethodAsync" Disabled="@(_saving || _editPaymentMethodId == _orderDetail.PaymentMethodId)"
+                                OnClick="SavePaymentMethodAsync" Disabled="_saving"
                                 StartIcon="@Icons.Material.Filled.SwapHoriz">
                                 Alterar Pagamento
                             </MudButton>
@@ -302,7 +375,10 @@
     private DeliveryStatus _editDelivery;
     private FinancialStatus _editFinancial;
     private decimal _editDiscount;
+    private bool _editIsInstallment;
+    private IReadOnlyCollection<Guid> _editPaymentMethodIds = Array.Empty<Guid>();
     private Guid _editPaymentMethodId;
+    private Dictionary<Guid, decimal> _editPmAmounts = new();
     private List<PaymentMethodResponseDto> _paymentMethods = new();
     private bool _printPreviewOpen;
     private string _printPreviewHtml = "";
@@ -337,10 +413,15 @@
         if (resp?.Success == true)
         {
             _orderDetail = resp.Data;
-            _editDelivery         = _orderDetail!.DeliveryStatus;
-            _editFinancial        = _orderDetail.FinancialStatus;
-            _editDiscount         = _orderDetail.DiscountAmount;
-            _editPaymentMethodId  = _orderDetail.PaymentMethodId;
+            _editDelivery      = _orderDetail!.DeliveryStatus;
+            _editFinancial     = _orderDetail.FinancialStatus;
+            _editDiscount      = _orderDetail.DiscountAmount;
+            _editIsInstallment = _orderDetail.IsInstallment;
+            if (_orderDetail.IsInstallment && _orderDetail.PaymentMethods.Count > 0)
+                _editPaymentMethodId = _orderDetail.PaymentMethods[0].PaymentMethodId;
+            else
+                _editPaymentMethodIds = _orderDetail.PaymentMethods.Select(p => p.PaymentMethodId).ToList();
+            _editPmAmounts = _orderDetail.PaymentMethods.ToDictionary(p => p.PaymentMethodId, p => p.Amount);
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -354,9 +435,38 @@
 
     private async Task SavePaymentMethodAsync()
     {
-        if (_orderDetail == null || _editPaymentMethodId == _orderDetail.PaymentMethodId) return;
+        if (_orderDetail == null) return;
         _saving = true;
-        var resp = await OrderService.UpdatePaymentMethodAsync(_orderDetail.Id, _editPaymentMethodId);
+
+        List<OrderPaymentInputDto> payments;
+        if (_editIsInstallment)
+        {
+            if (_editPaymentMethodId == Guid.Empty) { _saving = false; return; }
+            payments = new List<OrderPaymentInputDto> { new(_editPaymentMethodId, _orderDetail.AmountWithSurchargeTotal) };
+        }
+        else
+        {
+            var ids = _editPaymentMethodIds.ToList();
+            if (ids.Count == 0) { _saving = false; return; }
+            if (ids.Count == 1)
+            {
+                payments = new List<OrderPaymentInputDto> { new(ids[0], _orderDetail.AmountWithSurchargeTotal) };
+            }
+            else
+            {
+                var remaining = _orderDetail.AmountWithSurchargeTotal - _editPmAmounts.Values.Sum();
+                if (Math.Abs(remaining) > 0.01m)
+                {
+                    Snackbar.Add($"Ajuste os valores: falta R$ {remaining:N2} para completar o total.", Severity.Warning);
+                    _saving = false;
+                    return;
+                }
+                payments = ids.Select(id => new OrderPaymentInputDto(id, _editPmAmounts.GetValueOrDefault(id, 0m))).ToList();
+            }
+        }
+
+        var dto = new UpdateOrderPaymentMethodDto(_editIsInstallment, payments);
+        var resp = await OrderService.UpdatePaymentMethodAsync(_orderDetail.Id, dto);
         if (resp?.Success == true)
         {
             Snackbar.Add("Forma de pagamento alterada e valores recalculados!", Severity.Success);
@@ -364,8 +474,13 @@
             if (updated?.Success == true)
             {
                 _orderDetail = updated.Data;
-                _editPaymentMethodId = _orderDetail!.PaymentMethodId;
-                _editDiscount        = _orderDetail.DiscountAmount;
+                _editIsInstallment = _orderDetail!.IsInstallment;
+                if (_orderDetail.IsInstallment && _orderDetail.PaymentMethods.Count > 0)
+                    _editPaymentMethodId = _orderDetail.PaymentMethods[0].PaymentMethodId;
+                else
+                    _editPaymentMethodIds = _orderDetail.PaymentMethods.Select(p => p.PaymentMethodId).ToList();
+                _editPmAmounts = _orderDetail.PaymentMethods.ToDictionary(p => p.PaymentMethodId, p => p.Amount);
+                _editDiscount = _orderDetail.DiscountAmount;
             }
             await _table!.ReloadServerData();
         }
@@ -529,7 +644,8 @@
             "<hr/>" +
             customerLines +
             "<hr/>" +
-            $"<p><b>Pagamento:</b>&nbsp;{H(o.PaymentMethodName)}</p>" +
+            $"<p><b>Pagamento:</b>&nbsp;{H(string.Join(" + ", o.PaymentMethods.Select(p => p.Name)))}" +
+            $"&nbsp;<span style='font-size:10px;color:#777'>({(o.IsInstallment ? "A Prazo" : "À Vista")})</span></p>" +
             "<hr/>" +
             "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
             sb.ToString() +
@@ -544,16 +660,6 @@
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +
             "</body></html>";
-    }
-
-    private string GetRowClass(OrderListItemDto item, int idx)
-    {
-        if (!item.IsLocked) return "";
-        var complete  = item.DeliveryStatus  == DeliveryStatus.Delivered
-                     && item.FinancialStatus == FinancialStatus.Paid;
-        var cancelled = item.DeliveryStatus  == DeliveryStatus.Cancelled
-                     || item.FinancialStatus == FinancialStatus.Cancelled;
-        return (!complete && !cancelled) ? "mud-theme-warning" : "";
     }
 
     private static Color GetDeliveryColor(DeliveryStatus s) => s switch
@@ -591,4 +697,15 @@
         FinancialStatus.Cancelled     => "Cancelado",
         _ => s.ToString()
     };
+
+    private void OnEditPMsChanged(IReadOnlyCollection<Guid> vals)
+    {
+        _editPaymentMethodIds = vals;
+        var idSet = vals.ToHashSet();
+        foreach (var id in _editPmAmounts.Keys.ToList())
+            if (!idSet.Contains(id)) _editPmAmounts.Remove(id);
+        foreach (var id in vals)
+            if (!_editPmAmounts.ContainsKey(id)) _editPmAmounts[id] = 0m;
+        StateHasChanged();
+    }
 }

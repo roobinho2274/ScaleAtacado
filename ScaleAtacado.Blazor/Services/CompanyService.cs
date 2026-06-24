@@ -13,4 +13,7 @@ public class CompanyService
 
     public Task<ApiResponse?> UpdateAsync(UpdateCompanyDto dto)
         => _api.PutAsync("api/company", dto);
+
+    public Task<ApiResponse?> UpdateLogoAsync(string? logoBase64)
+        => _api.PatchAsync("api/company/logo", new UpdateCompanyLogoDto(logoBase64));
 }

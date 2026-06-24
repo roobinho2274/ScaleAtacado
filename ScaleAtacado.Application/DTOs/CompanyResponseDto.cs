@@ -1,10 +1,11 @@
 namespace ScaleAtacado.Application.DTOs;
 
 public record CompanyResponseDto(
-    Guid   Id,
-    string Name,
-    string CNPJ,
+    Guid    Id,
+    string  Name,
+    string  CNPJ,
     string? Address,
     string? Phone,
-    bool   IsActive
+    bool    IsActive,
+    string? LogoBase64
 );

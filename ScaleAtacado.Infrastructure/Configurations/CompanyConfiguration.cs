@@ -14,6 +14,7 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(c => c.CNPJ).IsRequired().HasMaxLength(18);
         builder.Property(c => c.Address).HasMaxLength(300);
         builder.Property(c => c.Phone).HasMaxLength(20);
+        builder.Property(c => c.LogoBase64).HasColumnType("text");
         builder.HasIndex(c => c.CNPJ).IsUnique();
     }
 }

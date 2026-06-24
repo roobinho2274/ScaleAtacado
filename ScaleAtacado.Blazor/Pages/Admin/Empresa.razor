@@ -1,6 +1,7 @@
 @page "/admin/empresa"
 @attribute [Authorize(Roles = "Admin")]
 @inject CompanyService CompanyService
+@inject CompanyStateService CompanyState
 @inject ISnackbar Snackbar
 
 <PageTitle>Empresa — ScaleAtacado</PageTitle>
@@ -13,52 +14,117 @@
 }
 else
 {
-    <MudPaper Class="pa-4" Style="max-width:600px">
-        <MudGrid>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_name" Label="Nome / Razão Social"
-                    Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
-            </MudItem>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_cnpj" Label="CNPJ"
-                    Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
-            </MudItem>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_address" Label="Endereço"
-                    Variant="Variant.Outlined" />
-            </MudItem>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_phone" Label="Telefone"
-                    Variant="Variant.Outlined" />
-            </MudItem>
-            <MudItem xs="12" Class="d-flex justify-end">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                    StartIcon="@Icons.Material.Filled.Save"
-                    OnClick="SaveAsync" Disabled="_saving">
-                    Salvar
-                </MudButton>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+    <MudGrid Spacing="4">
+
+        <!-- ── Dados cadastrais ─────────────────────────────────── -->
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight:600">Dados Cadastrais</MudText>
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_name" Label="Nome / Razão Social"
+                            Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_cnpj" Label="CNPJ"
+                            Variant="Variant.Outlined" Required="true" RequiredError="Obrigatório" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_address" Label="Endereço"
+                            Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_phone" Label="Telefone"
+                            Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" Class="d-flex justify-end">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                            StartIcon="@Icons.Material.Filled.Save"
+                            OnClick="SaveAsync" Disabled="_saving">
+                            Salvar Dados
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- ── Logo da empresa ─────────────────────────────────── -->
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight:600">Logo da Empresa</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                    Exibido no menu lateral do sistema. PNG ou JPG, máximo 150 KB.
+                </MudText>
+
+                <!-- Preview -->
+                <div style="min-height:120px;border:2px dashed #e0e0e0;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;background:#fafafa;overflow:hidden">
+                    @if (!string.IsNullOrEmpty(_logoPreview))
+                    {
+                        <img src="@_logoPreview"
+                             style="max-height:110px;max-width:100%;object-fit:contain;padding:8px" />
+                    }
+                    else
+                    {
+                        <div style="text-align:center;color:#bdbdbd">
+                            <MudIcon Icon="@Icons.Material.Filled.StoreMallDirectory" Style="font-size:3rem" />
+                            <MudText Typo="Typo.caption">Nenhum logo cadastrado</MudText>
+                        </div>
+                    }
+                </div>
+
+                <!-- Botões -->
+                <div class="d-flex gap-2 flex-wrap">
+                    <InputFile id="logoFileInput" OnChange="OnLogoSelectedAsync"
+                               accept="image/png,image/jpeg" style="display:none" />
+
+                    <MudButton HtmlTag="label" for="logoFileInput"
+                               Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Upload"
+                               Disabled="_savingLogo">
+                        Selecionar Imagem
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(_logoPreview))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="RemoveLogoAsync" Disabled="_savingLogo">
+                            Remover
+                        </MudButton>
+                    }
+                </div>
+
+                @if (_savingLogo)
+                {
+                    <MudProgressLinear Indeterminate="true" Class="mt-3" />
+                }
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
 }
 
 @code {
-    private bool _loading = true;
+    private bool _loading   = true;
     private bool _saving;
+    private bool _savingLogo;
+
     private string _name    = "";
     private string _cnpj    = "";
     private string? _address;
     private string? _phone;
+    private string? _logoPreview;
 
     protected override async Task OnInitializedAsync()
     {
         var resp = await CompanyService.GetAsync();
         if (resp?.Success == true && resp.Data != null)
         {
-            _name    = resp.Data.Name;
-            _cnpj    = resp.Data.CNPJ;
-            _address = resp.Data.Address;
-            _phone   = resp.Data.Phone;
+            _name       = resp.Data.Name;
+            _cnpj       = resp.Data.CNPJ;
+            _address    = resp.Data.Address;
+            _phone      = resp.Data.Phone;
+            _logoPreview = resp.Data.LogoBase64;
         }
         else
         {
@@ -73,10 +139,73 @@ else
         var dto  = new UpdateCompanyDto(_name, _cnpj, _address, _phone);
         var resp = await CompanyService.UpdateAsync(dto);
         Snackbar.Add(
-            resp?.Success == true
-                ? "Dados da empresa atualizados!"
-                : (resp?.Error ?? "Erro ao salvar."),
+            resp?.Success == true ? "Dados da empresa atualizados!" : (resp?.Error ?? "Erro ao salvar."),
             resp?.Success == true ? Severity.Success : Severity.Error);
         _saving = false;
+    }
+
+    private async Task OnLogoSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        var allowed = new[] { "image/png", "image/jpeg" };
+        if (!allowed.Contains(file.ContentType))
+        {
+            Snackbar.Add("Formato inválido. Use PNG ou JPG.", Severity.Warning);
+            return;
+        }
+
+        const long maxBytes = 150 * 1024;
+        if (file.Size > maxBytes)
+        {
+            Snackbar.Add($"Imagem muito grande ({file.Size / 1024} KB). Máximo 150 KB.", Severity.Warning);
+            return;
+        }
+
+        _savingLogo = true;
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: maxBytes);
+            using var ms     = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64  = Convert.ToBase64String(ms.ToArray());
+            var dataUri = $"data:{file.ContentType};base64,{base64}";
+
+            var resp = await CompanyService.UpdateLogoAsync(dataUri);
+            if (resp?.Success == true)
+            {
+                _logoPreview = dataUri;
+                CompanyState.Set(CompanyState.CompanyName, dataUri);
+                Snackbar.Add("Logo atualizado com sucesso!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(resp?.Error ?? "Erro ao salvar logo.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao processar imagem: {ex.Message}", Severity.Error);
+        }
+
+        _savingLogo = false;
+    }
+
+    private async Task RemoveLogoAsync()
+    {
+        _savingLogo = true;
+        var resp = await CompanyService.UpdateLogoAsync(null);
+        if (resp?.Success == true)
+        {
+            _logoPreview = null;
+            CompanyState.Set(CompanyState.CompanyName, null);
+            Snackbar.Add("Logo removido.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(resp?.Error ?? "Erro ao remover logo.", Severity.Error);
+        }
+        _savingLogo = false;
     }
 }

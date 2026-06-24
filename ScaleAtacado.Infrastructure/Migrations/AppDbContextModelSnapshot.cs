@@ -268,6 +268,9 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<string>("LogoBase64")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CNPJ")

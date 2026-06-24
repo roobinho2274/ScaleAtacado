@@ -33,4 +33,14 @@ public class CompanyController : ControllerBase
         var result = await _service.UpdateAsync(User.GetCompanyId(), dto);
         return result.Success ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPatch("logo")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateLogo([FromBody] UpdateCompanyLogoDto dto)
+    {
+        var result = await _service.UpdateLogoAsync(User.GetCompanyId(), dto.LogoBase64);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }

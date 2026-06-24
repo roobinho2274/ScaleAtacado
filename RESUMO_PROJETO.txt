@@ -27,7 +27,7 @@ ScaleAtacado.Infrastructure  — EF DbContext, repositories, JwtService, Migrati
 ScaleAtacado.Api             — controllers, hubs (PrintHub), middlewares, extensions
 ScaleAtacado.Blazor          — frontend WASM
 ScaleAtacado.Shared          — ApiResponse<T>, PagedResult<T>
-ScaleAtacado.PrintAgent      — Worker Service Windows (impressão física — implementado)
+ScaleAtacado.PrintAgent      — Worker Service Windows com System Tray (impressão física)
 
 CONFIGURAÇÕES CRÍTICAS
 ----------------------
@@ -37,7 +37,7 @@ CONFIGURAÇÕES CRÍTICAS
 - Blazor wwwroot/appsettings.json  : { "ApiUrl": "https://localhost:7039" }
 - CORS "BlazorPolicy"              : origens http://localhost:5197 e https://localhost:7252
 - Middleware order (Program.cs)    : app.UseCors() ANTES de app.UseHttpsRedirection()
-- docker-compose.yml               : APENAS PostgreSQL; sem Dockerfiles para API/Blazor ainda
+- docker-compose.yml               : PostgreSQL + API (Dockerfile) + Blazor/nginx (Dockerfile)
 - Swagger                          : DESATIVADO (removido do Program.cs)
 
 BANCO DE DADOS
@@ -53,11 +53,12 @@ MIGRATIONS EF CORE (ordem cronológica)
 -----------------------------------------
 - InitialCreate
 - Phase1_DomainRefactor
-- AddDiscountToOrder              (coluna DiscountAmount na tabela Orders)
-- PaymentMethodRefactor           (IsInstallment bool; tabela OrderPaymentMethods; remove DeadlineDays/PaymentMethodId de Order)
-- AuditLogUserAndDescription      (colunas NomeUsuario + Descricao na tabela Auditorias)
-- AddUserCode                     (coluna UserCode int DEFAULT 0 na tabela AspNetUsers)
+- AddDiscountToOrder                    (coluna DiscountAmount na tabela Orders)
+- PaymentMethodRefactor                 (IsInstallment bool; tabela OrderPaymentMethods)
+- AuditLogUserAndDescription            (colunas NomeUsuario + Descricao na tabela Auditorias)
+- AddUserCode                           (coluna UserCode int DEFAULT 0 na tabela AspNetUsers)
 - AddPaymentAmountToOrderPaymentMethod  (coluna Amount numeric(18,2) DEFAULT 0 em OrderPaymentMethods)
+- AddCompanyLogo                        (coluna LogoBase64 text nullable na tabela Companies)
 
 Para aplicar:
   docker compose up -d postgres-db
@@ -100,7 +101,11 @@ AuditLog        (tabela: Auditorias)
   Description [Descricao], PreviousValue [ValorAnterior], NewValue [ValorNovo],
   Timestamp [DataHora]
 
-Product, Category, PrintJob, Company — nomes já em inglês
+Company         (tabela: Companies)
+  Id, Name, CNPJ, Address?, Phone?, IsActive
+  LogoBase64? (text) — data URI completa ex: "data:image/png;base64,..." (máx. 150 KB recomendado)
+
+Product, Category, PrintJob — nomes já em inglês
 
 ENUMS
 -----
@@ -129,7 +134,7 @@ PaymentMethodResponseDto(Id, CompanyId, Name, IsInstallment, SurchargePercentage
 CreatePaymentMethodDto(Name, IsInstallment, SurchargePercentage)
 UpdatePaymentMethodDto(Name, IsInstallment, SurchargePercentage, IsActive)
 
-OrderPaymentInputDto(PaymentMethodId, Amount)     — DTO de ENTRADA (criar/alterar pedido)
+OrderPaymentInputDto(PaymentMethodId, Amount)         — DTO de ENTRADA (criar/alterar pedido)
 OrderPaymentMethodDto(PaymentMethodId, Name, Amount)  — DTO embutido no OrderResponseDto
 OrderResponseDto — inclui:
   CustomerId, CustomerName, IsInstallment, SurchargePercentage,
@@ -138,6 +143,10 @@ OrderResponseDto — inclui:
 OrderListItemDto — inclui CustomerName, IsInstallment, PaymentMethodNames (string concatenada " + ")
 CreateOrderDto(CustomerId, IsInstallment, List<OrderPaymentInputDto> Payments, List<CreateOrderItemDto> Items, DiscountAmount)
 UpdateOrderPaymentMethodDto(IsInstallment, List<OrderPaymentInputDto> Payments)
+
+CompanyResponseDto(Id, Name, CNPJ, Address?, Phone?, IsActive, LogoBase64?)
+UpdateCompanyDto(Name, CNPJ, Address?, Phone?)
+UpdateCompanyLogoDto(LogoBase64?)   — usado no PATCH /api/company/logo
 
 LoginDto(string Login, string Password)  — campo "Login" aceita e-mail OU código de 4 dígitos
 
@@ -156,6 +165,8 @@ AuditLogAppService
               entityId?=null, previousValue?=null, newValue?=null,
               userName=""*, description=""*)   (* parâmetros opcionais ao final — não-breaking)
   GetByCompanyAsync(companyId, from?, to?)
+  FILTRO DE DATA: usa DateTime.SpecifyKind(date, DateTimeKind.Utc) para compatibilidade Npgsql 6+
+                  "to" inclui o dia inteiro (< to.Date.AddDays(1))
 
 PaymentMethodAppService
   CreateAsync(dto, companyId, userId, userName)
@@ -199,7 +210,11 @@ UserAppService (Infrastructure/Services)
   RegenerateCodeAsync(id, companyId) → ApiResponse<int>  — gera novo código único
   GenerateUniqueCodeAsync()          — interno: sorteia 1000–9999 verificando unicidade global
 
-CompanyAppService   — GetAsync(companyId), UpdateAsync(companyId, dto)
+CompanyAppService
+  GetAsync(companyId)       → CompanyResponseDto (inclui LogoBase64)
+  UpdateAsync(companyId, dto)
+  UpdateLogoAsync(companyId, logoBase64?) — salva ou remove (null) o logo
+
 CategoryAppService — sem mudanças recentes
 
 EXTENSIONS (Api/Extensions/ClaimsPrincipalExtensions.cs)
@@ -217,6 +232,7 @@ PedidoController:        Create, Finalize, PrintJob, Unlock, UpdateDelivery, Upd
                          UpdateDiscount, UpdateFinancial → todos passam (userId, fullName)
 AuthController:          Login — testa 4 dígitos numéricos → busca por UserCode; senão email
 UserController:          PATCH /{id}/code → RegenerateCode (gera novo UserCode)
+CompanyController:       GET, PUT (dados), PATCH /logo (AdminOnly)
 
 API ROUTES
 ----------
@@ -224,6 +240,7 @@ POST   /api/auth/login               { Login, Password }  — aceita e-mail ou c
 POST   /api/auth/setup
 GET    /api/company
 PUT    /api/company                                    (AdminOnly)
+PATCH  /api/company/logo             { LogoBase64? }   (AdminOnly) — data URI ou null para remover
 GET    /api/customer?search=
 GET    /api/customer/{id}
 POST   /api/customer
@@ -299,15 +316,20 @@ PÁGINAS BLAZOR IMPLEMENTADAS
 /admin/categorias       — CRUD simples
 
 /admin/usuarios         — CRUD + dialog separado "Alterar Senha"; perfis Admin/Atendente
-                          NOVIDADE: coluna "Código" mostra UserCode formatado (D4, ex: 1001);
+                          coluna "Código" mostra UserCode formatado (D4, ex: 1001);
                           botão "Gerar" para usuários com código 0; ícone refresh para regenerar;
                           snackbar exibe o código por 8 segundos após criação
 
-/admin/empresa          — edição: Nome, CNPJ, Endereço, Telefone
+/admin/empresa          — Duas seções:
+                          • Dados Cadastrais: Nome, CNPJ, Endereço, Telefone
+                          • Logo da Empresa: upload PNG/JPG (máx 150 KB), preview inline,
+                            botão Remover; salva imediatamente após seleção do arquivo;
+                            ao salvar/remover, sidebar atualiza instantaneamente
 
 /admin/auditoria        — log com filtro por período;
                           colunas: Data/Hora | Usuário | Operação (chip colorido) | Descrição | Entidade | Detalhes
                           dialog de detalhes: mostra Valor Anterior + Novo quando presentes
+                          CORREÇÃO: filtro "to" inclui o dia inteiro (a.Timestamp < to.Date.AddDays(1))
                           cores das operações:
                             Success  = Criar* (CriarPedido, CriarCliente, CriarFormaPagamento, CriarProduto)
                             Info     = Editar* (EditarCliente, EditarFormaPagamento, EditarProduto)
@@ -318,7 +340,10 @@ PÁGINAS BLAZOR IMPLEMENTADAS
 SERVIÇOS BLAZOR (Services/)
 ----------------------------
 ApiHttpClient        — wrapper HTTP com JWT automático; inclui PatchAsync<T>(url, body?)
-CompanyService       — GetAsync, UpdateAsync
+CompanyService       — GetAsync, UpdateAsync, UpdateLogoAsync(logoBase64?)
+CompanyStateService  — singleton; propriedades LogoBase64, CompanyName; evento OnChange;
+                       carregado no MainLayout.OnInitializedAsync e atualizado pela Empresa.razor;
+                       usado para atualizar o sidebar em tempo real ao trocar o logo
 CustomerService      — SearchAsync, GetByIdAsync, CreateAsync, UpdateAsync, DeactivateAsync
 ProductService       — GetAllAsync(paginado), GetAllActiveAsync, CreateAsync, UpdateAsync, DeactivateAsync
 PaymentMethodService — GetAllAsync(onlyActive?), CreateAsync, UpdateAsync, DeactivateAsync
@@ -330,6 +355,24 @@ UserService          — GetAllAsync, CreateAsync, UpdateAsync, ChangePasswordAs
                        RegenerateCodeAsync(id) → ApiResponse<int>
 AuditLogService      — GetAllAsync(from?, to?)
 AuthService          — LoginAsync, LogoutAsync
+
+LOGO DA EMPRESA (feature completa — implementada)
+--------------------------------------------------
+Armazenamento:
+  - Company.LogoBase64 (text, nullable) — data URI completa ex: "data:image/png;base64,..."
+  - Salvo via PATCH /api/company/logo { LogoBase64? } (null = remover logo)
+
+Upload (Empresa.razor):
+  - InputFile com accept="image/png,image/jpeg"
+  - Validação: tipo (PNG/JPG) + tamanho (máx 150 KB = 153.600 bytes)
+  - Converte para base64 + prefixo data URI no browser (sem tráfego de arquivo binário)
+  - Preview imediato após seleção; botão "Remover" quando há logo cadastrado
+
+Exibição (MainLayout / Sidebar):
+  - CompanyStateService (singleton) compartilha logo e nome entre componentes
+  - Drawer header: se LogoBase64 preenchido → mostra <img> 40×40px + nome da empresa
+                   senão → mantém SVG padrão do SCALEatacado
+  - Atualização em tempo real via evento OnChange (sem reload de página)
 
 PADRÃO ApiResponse
 ------------------
@@ -368,9 +411,8 @@ CÓDIGO DE USUÁRIO (UserCode)
 - Gerado automaticamente ao criar usuário; pode ser regenerado via UI ou API
 - Login: se dto.Login tem exatamente 4 dígitos numéricos → busca por UserCode; senão busca por e-mail
 - Mensagem de erro unificada: "E-mail, código ou senha inválidos."
-- Usuários existentes antes da migration tiveram código atribuído manualmente por SQL
 
-AUDITORIA — LOG SIMPLES (Opção 1 — implementada)
+AUDITORIA — LOG SIMPLES (implementada)
 --------------------------------------------------
 AuditLog registra:
   - UserName: nome completo do usuário (claim "fullName" do JWT)
@@ -383,6 +425,10 @@ Operações auditadas:
   Clientes  : CriarCliente, EditarCliente, DesativarCliente
   Produtos  : CriarProduto, EditarProduto, AlterarPreco (quando BaseSalePrice muda), InativarProduto
   Pagamentos: CriarFormaPagamento, EditarFormaPagamento, DesativarFormaPagamento
+
+BUG CORRIGIDO — Filtro de data (AuditLogRepository.GetByCompanyAsync):
+  - "to" deve incluir o dia inteiro: a.Timestamp < to.Value.Date.AddDays(1)
+  - DateTime.SpecifyKind(..., DateTimeKind.Utc) necessário para Npgsql 6+ com timestamptz
 
 DESCONTO
 --------
@@ -398,14 +444,6 @@ EXIBIÇÃO DE PREÇOS COM ACRÉSCIMO (Pedidos.razor)
 - Rodapé quando SurchargePercentage > 0: "* Preços com acréscimo de X% incluído."
 - AmountWithSurchargeTotal exibido diretamente do DTO
 
-PERSONALIZAÇÃO DA EMPRESA
---------------------------
-- Entidade Company (tabela Companies): Name, CNPJ, Address?, Phone?, IsActive
-- GET/PUT /api/company (AdminOnly para PUT)
-- Pedidos.razor: CompanyService.GetAsync() → cabeçalho do recibo HTML
-- PrintJobController: preenche CompanyName/CNPJ/Address no OrderResponseDto antes de retornar ao PrintAgent
-- ReceiptFormatter.cs: usa order.PaymentMethods.Select(p => p.Name) concatenado
-
 RECIBO DE IMPRESSÃO
 --------------------
 FLUXO:
@@ -418,6 +456,39 @@ FLUXO:
 PrintAgent (ReceiptFormatter.cs):
   - Usa string.Join(" + ", order.PaymentMethods.Select(p => p.Name)) para linha de pagamento
   - 60 colunas, Bold 8pt, margens zeradas, PadBetween com \t
+
+PRINT AGENT — SYSTEM TRAY UI (implementado)
+--------------------------------------------
+Arquivos:
+  PrintAgentSettings.cs  — record com ApiUrl, AgentKey, PrinterName, FallbackIntervalMinutes
+  AgentStatus.cs         — singleton: IsHubConnected, LastJobAt?, LastJobSuccess
+  TrayApplicationContext.cs — ApplicationContext com NotifyIcon; menu: "Configurar...", "Fechar Agente"
+  ConfigForm.cs          — WinForms Form 480×316:
+                           ComboBox impressoras (PrinterSettings.InstalledPrinters),
+                           TextBox ApiUrl, TextBox AgentKey (PasswordChar='●'), CheckBox "Mostrar",
+                           NumericUpDown intervalo (1–60 min), painel status (verde/laranja),
+                           "Testar Impressão", "Salvar", "Fechar"
+                           Salvar: escreve appsettings.json + ((IConfigurationRoot)_config).Reload()
+                           PrinterName aplica hot-reload; URL/AgentKey requerem reinício
+  Worker.cs              — dois loops paralelos:
+                           ReconnectLoopAsync: tenta reconectar ao Hub a cada 30s quando desconectado
+                           FallbackLoopAsync: verifica jobs pendentes via HTTP a cada N minutos
+  Program.cs             — [STAThread] Main; usa WinForms = System.Windows.Forms; alias necessário
+                           porque "Application" no namespace ScaleAtacado.PrintAgent resolve para
+                           ScaleAtacado.Application (conflito de namespace)
+
+CSPROJ do PrintAgent:
+  <OutputType>WinExe</OutputType>
+  <UseWindowsForms>true</UseWindowsForms>
+
+Execução: dotnet run --project .\ScaleAtacado.PrintAgent\
+  Terminal fica "parado" (sem console) — ícone aparece na bandeja (system tray, canto inferior direito)
+  Duplo-clique ou botão direito → "Configurar Impressora..."
+
+Ordem de inicialização recomendada:
+  1. Docker (PostgreSQL)
+  2. API (VS ou dotnet run)
+  3. PrintAgent — reconecta automaticamente em até 30s se API demorar a subir
 
 GESTÃO DE USUÁRIOS
 -------------------
@@ -442,11 +513,16 @@ GIT / CONTROLE DE VERSÃO
 Ignorados: appsettings.Development.json, .vscode/, *.docx, bin/, obj/, .vs/
 Rastreados: appsettings.json (template), Migrations/, RESUMO_PROJETO.txt
 
-DOCKER (desenvolvimento)
--------------------------
-- Apenas postgres sobe via docker-compose: docker compose up -d postgres-db
-- NÃO usar "docker compose up -d" sem nome (tenta buildar API/Blazor desnecessariamente)
-- Erro "NpgsqlException: Failed to connect": Docker Desktop não está rodando → abrir Docker Desktop primeiro
+DOCKER
+------
+Produção/staging: docker compose up -d   (sobe DB + API + Blazor/nginx)
+Desenvolvimento : docker compose up -d postgres-db   (apenas BD)
+Containers:
+  scale_atacado_db  — postgres:15-alpine, porta 5432
+  scale_atacado_api — ASP.NET Core, porta interna 5000
+  scale_atacado_web — nginx servindo Blazor WASM, porta 80
+NÃO usar "docker compose up -d" sem nome em desenvolvimento (tenta buildar imagens)
+Erro "NpgsqlException: Failed to connect": Docker Desktop não está rodando → abrir primeiro
 
 ERROS COMUNS E SOLUÇÕES
 ------------------------
@@ -454,28 +530,28 @@ ERROS COMUNS E SOLUÇÕES
 - "Sistema já configurado": DELETE FROM "Companies"; (não basta apagar AspNetUsers)
 - 400 sem mensagem: pode ser FluentValidation (ValidationProblemDetails, não ApiResponse)
 - 500 ao criar pedido: migration pendente → dotnet ef database update
+- Auditoria vazia: reiniciar API após correção do filtro de data (AddDays(1) + SpecifyKind Utc)
 - MudSelect MultiSelection: SelectedValuesChanged requer tipo explícito na lambda
   ex: (IReadOnlyCollection<T> vals) => { _field = vals; StateHasChanged(); }
 - MudButtonGroup: não tem atributo DisableElevation (MudBlazor 9 — remover se houver)
-- psql não está no PATH: usar "C:\Program Files\pgAdmin 4\runtime\psql.exe"
-- psql no PowerShell: aspas duplas em SQL não passam corretamente pelo comando inline;
-  usar docker cp para copiar arquivo .sql e executar com -f /tmp/arquivo.sql
+- "Application" ambíguo no PrintAgent: usar alias WinForms = System.Windows.Forms
+- Locks de DLL ao buildar: fechar processo ScaleAtacado.Api antes de dotnet build/ef migrations
+- psql no PowerShell: aspas duplas em SQL não passam corretamente;
+  usar docker exec com Bash ou arquivo .sql com -f
 
 PENDÊNCIAS MAPEADAS
 -------------------
-CRÍTICO:
-  1. Docker: Dockerfiles para API e Blazor (nginx) + docker-compose completo
-
 FUNCIONAL:
-  2. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
-  3. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
-  4. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
-  5. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
-  6. Confirmação antes de desativar/excluir (MudMessageBox)
+  1. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
+  2. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
+  3. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
+  4. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
+  5. Confirmação antes de desativar/excluir (MudMessageBox)
 
 UX/QUALIDADE:
-  7. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
-  8. Paginação server-side em Usuários (lista cresce com o tempo)
-  9. Busca/filtro de operação na tela de Auditoria
+  6. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
+  7. Paginação server-side em Usuários (lista cresce com o tempo)
+  8. Busca/filtro de operação na tela de Auditoria
+  9. Logo no cabeçalho do recibo impresso (requer suporte ESC/POS para imagem bitmap)
 
 ================================================================================

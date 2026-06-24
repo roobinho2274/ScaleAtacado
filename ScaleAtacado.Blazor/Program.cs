@@ -32,5 +32,6 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<CompanyService>();
+builder.Services.AddSingleton<CompanyStateService>();
 
 await builder.Build().RunAsync();

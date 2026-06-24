@@ -22,10 +22,16 @@ public class AuditLogRepository : IAuditLogRepository
         var query = _context.AuditLogs.Where(a => a.CompanyId == companyId);
 
         if (from.HasValue)
-            query = query.Where(a => a.Timestamp >= from.Value);
+        {
+            var fromUtc = DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc);
+            query = query.Where(a => a.Timestamp >= fromUtc);
+        }
 
         if (to.HasValue)
-            query = query.Where(a => a.Timestamp <= to.Value);
+        {
+            var toUtc = DateTime.SpecifyKind(to.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(a => a.Timestamp < toUtc);
+        }
 
         return await query.OrderByDescending(a => a.Timestamp).ToListAsync();
     }

@@ -107,7 +107,19 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
 builder.Services.AddSignalR();
 
 // Controllers + Swagger
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(opt =>
+    {
+        opt.InvalidModelStateResponseFactory = ctx =>
+        {
+            var errs = ctx.ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? e.Exception?.Message : e.ErrorMessage)
+                .Where(m => m != null);
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(
+                ScaleAtacado.Shared.Common.ApiResponse.Fail("Dados inválidos: " + string.Join("; ", errs)));
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

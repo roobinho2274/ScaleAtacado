@@ -2,7 +2,7 @@ namespace ScaleAtacado.Application.DTOs;
 
 public record OrderItemResponseDto(
     Guid Id,
-    Guid ProductId,
+    Guid? ProductId,
     string ProductName,
     string? ProductCode,
     int Quantity,

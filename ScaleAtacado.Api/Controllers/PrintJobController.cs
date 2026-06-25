@@ -97,7 +97,7 @@ public class PrintJobController : ControllerBase
             order.AmountTotal, order.DiscountAmount, order.AmountWithSurchargeTotal,
             order.DeliveryStatus, order.FinancialStatus, order.IsLocked,
             order.Items.Select(i => new OrderItemResponseDto(
-                i.Id, i.ProductId, i.Product?.Name ?? string.Empty, i.Product?.Code,
+                i.Id, i.ProductId, i.ProductName, i.ProductCode,
                 i.Quantity, i.UnitPrice, i.TotalPrice)).ToList(),
             CompanyName:    company?.Name,
             CompanyCNPJ:    company?.CNPJ,

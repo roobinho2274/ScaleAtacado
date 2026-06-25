@@ -10,6 +10,8 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
     {
         builder.ToTable("OrderItems");
         builder.HasKey(oi => oi.Id);
+        builder.Property(oi => oi.ProductName).IsRequired().HasMaxLength(200);
+        builder.Property(oi => oi.ProductCode).HasMaxLength(50);
         builder.Property(oi => oi.UnitPrice).HasPrecision(18, 2);
         builder.Property(oi => oi.TotalPrice).HasPrecision(18, 2);
 
@@ -21,6 +23,7 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.HasOne(oi => oi.Product)
                .WithMany()
                .HasForeignKey(oi => oi.ProductId)
+               .IsRequired(false)
                .OnDelete(DeleteBehavior.Restrict);
     }
 }

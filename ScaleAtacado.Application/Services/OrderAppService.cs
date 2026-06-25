@@ -65,11 +65,13 @@ public class OrderAppService
 
             items.Add(new OrderItem
             {
-                Id = Guid.NewGuid(),
-                ProductId = product.Id,
-                Quantity = itemDto.Quantity,
-                UnitPrice = product.BaseSalePrice,
-                TotalPrice = product.BaseSalePrice * itemDto.Quantity
+                Id          = Guid.NewGuid(),
+                ProductId   = product.Id,
+                ProductName = product.Name,
+                ProductCode = product.Code,
+                Quantity    = itemDto.Quantity,
+                UnitPrice   = product.BaseSalePrice,
+                TotalPrice  = product.BaseSalePrice * itemDto.Quantity
             });
         }
 
@@ -441,8 +443,8 @@ public class OrderAppService
         o.DeliveryStatus, o.FinancialStatus, o.IsLocked,
         o.Items.Select(i => new OrderItemResponseDto(
             i.Id, i.ProductId,
-            i.Product?.Name ?? string.Empty,
-            i.Product?.Code,
+            i.ProductName,
+            i.ProductCode,
             i.Quantity, i.UnitPrice, i.TotalPrice
         )).ToList()
     );

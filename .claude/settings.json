@@ -7,7 +7,8 @@
       "PowerShell(Start-Sleep -Seconds 3; $apiProc = Get-Process -Name \"ScaleAtacado.Api\" -ErrorAction SilentlyContinue; if \\($apiProc\\) { netstat -ano 2>$null | Select-String \\($apiProc.Id\\).ToString\\(\\) | Select-Object -First 10 } else { \"Processo nao encontrado\" })",
       "PowerShell(Start-Process -FilePath \"dotnet\" -ArgumentList \"run --project c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Api --no-build --launch-profile https\" -WindowStyle Normal)",
       "Bash(curl -sk -X POST https://localhost:7039/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"acrsolucoesemti@gmail.com\",\"password\":\"Scale@123\"}')",
-      "Bash(curl -sk -X POST https://localhost:7039/api/auth/login -H 'Content-Type: application/json' -d '{\"login\":\"acrsolucoesemti@gmail.com\",\"password\":\"Scale@123\"}')"
+      "Bash(curl -sk -X POST https://localhost:7039/api/auth/login -H 'Content-Type: application/json' -d '{\"login\":\"acrsolucoesemti@gmail.com\",\"password\":\"Scale@123\"}')",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Tests.E2E\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object -ExpandProperty FullName)"
     ]
   }
 }

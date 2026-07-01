@@ -16,7 +16,17 @@
 <!-- Filtros -->
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudGrid>
-        <MudItem xs="12" sm="4">
+        <MudItem xs="12" sm="3">
+            <MudDatePicker Label="Data inicial" @bind-Date="_filterFrom"
+                Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudDatePicker Label="Data final" @bind-Date="_filterTo"
+                Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
             <MudSelect T="DeliveryStatus?" Label="Status Entrega" @bind-Value="_filterDelivery"
                 Variant="Variant.Outlined" Dense="true" Clearable="true">
                 <MudSelectItem T="DeliveryStatus?" Value="null">Todos</MudSelectItem>
@@ -27,7 +37,7 @@
                 <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Cancelled">Cancelado</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="4">
+        <MudItem xs="12" sm="3">
             <MudSelect T="FinancialStatus?" Label="Status Financeiro" @bind-Value="_filterFinancial"
                 Variant="Variant.Outlined" Dense="true" Clearable="true">
                 <MudSelectItem T="FinancialStatus?" Value="null">Todos</MudSelectItem>
@@ -37,9 +47,15 @@
                 <MudSelectItem T="FinancialStatus?" Value="FinancialStatus.Cancelled">Cancelado</MudSelectItem>
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="4" Class="d-flex align-end">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ReloadAsync"
-                StartIcon="@Icons.Material.Filled.Search" FullWidth="true">
+        <MudItem xs="12" Class="d-flex justify-end gap-2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                StartIcon="@Icons.Material.Filled.FilterAltOff"
+                OnClick="ClearFiltersAsync">
+                Limpar
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                StartIcon="@Icons.Material.Filled.Search"
+                OnClick="ReloadAsync">
                 Filtrar
             </MudButton>
         </MudItem>
@@ -368,6 +384,8 @@
     private MudTable<OrderListItemDto>? _table;
     private DeliveryStatus? _filterDelivery;
     private FinancialStatus? _filterFinancial;
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
     private bool _dialogDetails;
     private bool _saving;
     private OrderResponseDto? _orderDetail;
@@ -395,13 +413,23 @@
 
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
     {
-        var resp = await OrderService.GetAllAsync(state.Page + 1, state.PageSize, _filterDelivery, _filterFinancial);
+        var resp = await OrderService.GetAllAsync(state.Page + 1, state.PageSize,
+            _filterDelivery, _filterFinancial, _filterFrom, _filterTo);
         if (resp?.Success == true && resp.Data != null)
             return new TableData<OrderListItemDto> { Items = resp.Data.Items, TotalItems = resp.Data.TotalCount };
         return new TableData<OrderListItemDto> { Items = [], TotalItems = 0 };
     }
 
     private async Task ReloadAsync() => await _table!.ReloadServerData();
+
+    private async Task ClearFiltersAsync()
+    {
+        _filterFrom = null;
+        _filterTo = null;
+        _filterDelivery = null;
+        _filterFinancial = null;
+        await _table!.ReloadServerData();
+    }
 
     private async Task ViewDetailsAsync(Guid id)
     {

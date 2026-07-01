@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Atualizado em: 30/06/2026
+  Atualizado em: 01/07/2026 (v2)
 ================================================================================
 
 STACK
@@ -271,6 +271,7 @@ DELETE /api/paymentmethod/{id}                        (AdminOnly)
 GET    /api/user, POST /api/user, PUT /api/user/{id}
 PATCH  /api/user/{id}/password       { NewPassword }
 PATCH  /api/user/{id}/code                            (Admin — gera novo UserCode único)
+PATCH  /api/user/{id}/activate                        (Admin — reativa usuário desativado)
 DELETE /api/user/{id}
 GET    /api/printjob/pending         (X-Agent-Key)
 PATCH  /api/printjob/{id}/status     (X-Agent-Key)
@@ -303,7 +304,8 @@ PÁGINAS BLAZOR IMPLEMENTADAS
                             Após salvar: produto adicionado ao autocomplete e auto-selecionado
                             PERMISSÃO: POST /api/product liberado para qualquer usuário autenticado
 
-/pedidos                — lista paginada + filtros (DeliveryStatus/FinancialStatus);
+/pedidos                — lista paginada + filtros (Data inicial/final, DeliveryStatus, FinancialStatus);
+                          botão "Limpar" zera todos os filtros de uma vez;
                           dialog de detalhes: itens com preço COM acréscimo;
                           Pagamento: se 1 forma → exibe nome; se 2+ formas → exibe "Nome: R$ X" por linha;
                           seção Admin: alterar forma de pagamento (modal/filtro + multi/single select),
@@ -353,12 +355,13 @@ CompanyStateService  — singleton; propriedades LogoBase64, CompanyName; evento
 CustomerService      — SearchAsync, GetByIdAsync, CreateAsync, UpdateAsync, DeactivateAsync
 ProductService       — GetAllAsync(paginado), GetAllActiveAsync, CreateAsync, UpdateAsync, DeactivateAsync
 PaymentMethodService — GetAllAsync(onlyActive?), CreateAsync, UpdateAsync, DeactivateAsync
-OrderService         — GetAllAsync, GetByIdAsync, CreateAsync, FinalizeAsync, UnlockAsync,
+OrderService         — GetAllAsync(page, pageSize, deliveryStatus?, financialStatus?, from?, to?),
+                       GetByIdAsync, CreateAsync, FinalizeAsync, UnlockAsync,
                        CreatePrintJobAsync, UpdatePaymentMethodAsync, UpdateDiscountAsync,
                        UpdateDeliveryStatusAsync, UpdateFinancialStatusAsync
 CategoryService      — GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync
 UserService          — GetAllAsync, CreateAsync, UpdateAsync, ChangePasswordAsync, DeactivateAsync,
-                       RegenerateCodeAsync(id) → ApiResponse<int>
+                       RegenerateCodeAsync(id) → ApiResponse<int>, ReactivateAsync(id)
 AuditLogService      — GetAllAsync(from?, to?)
 AuthService          — LoginAsync, LogoutAsync
 
@@ -561,17 +564,24 @@ Base: PlaywrightTestBase.cs — LoginAsAdminAsync, LoginAsAtendenteAsync
 Config: TestConfig.cs       — TEST_BASE_URL=https://localhost:7252
 Para rodar: cd ScaleAtacado.Tests.E2E && dotnet test --no-build
 
+IMPLEMENTADO RECENTEMENTE
+--------------------------
+  ✅ #5 Confirmação antes de desativar/excluir — MudMessageBox em Clientes, Produtos,
+        FormasPagamento, Usuarios, Categorias (ShowMessageBoxAsync — MudBlazor 9)
+  ✅ #6 Reativação de usuário — botão verde PersonAdd para usuários inativos;
+        PATCH /api/user/{id}/activate; UserAppService.ReactivateAsync
+  ✅ #4 Filtro por data nos Pedidos — dois MudDatePicker (Data inicial / Data final)
+        adicionados ao painel de filtros; botão "Limpar" zera todos os filtros;
+        OrderService.GetAllAsync recebe from?/to? e passa para a API (já suportava)
+
 PENDÊNCIAS MAPEADAS
 -------------------
 FUNCIONAL:
   1. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
   2. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
   3. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
-  4. Filtro por data nos Pedidos: API suporta from/to, falta UI em Pedidos.razor
-  5. Confirmação antes de desativar/excluir (MudMessageBox)
 
 UX/QUALIDADE:
-  6. Reativação de usuário desativado (hoje só desativa, sem botão de reativar)
   7. Paginação server-side em Usuários (lista cresce com o tempo)
   8. Busca/filtro de operação na tela de Auditoria
   9. Logo no cabeçalho do recibo impresso (requer suporte ESC/POS para imagem bitmap)

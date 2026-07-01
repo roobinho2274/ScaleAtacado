@@ -145,6 +145,18 @@ public class UserAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> ReactivateAsync(Guid id, Guid companyId)
+    {
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null || user.CompanyId != companyId)
+            return ApiResponse.Fail("Usuário não encontrado.");
+
+        user.IsActive = true;
+        await _userManager.UpdateAsync(user);
+
+        return ApiResponse.Ok();
+    }
+
     private static UserResponseDto ToDto(ApplicationUser u) => new(
         u.Id, u.CompanyId, u.FullName, u.Email!, u.Profile, u.IsActive, u.CreatedAt, u.UserCode
     );

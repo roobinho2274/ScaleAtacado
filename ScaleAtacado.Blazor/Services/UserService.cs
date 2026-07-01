@@ -25,4 +25,7 @@ public class UserService
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/user/{id}");
+
+    public Task<ApiResponse?> ReactivateAsync(Guid id)
+        => _api.PatchAsync($"api/user/{id}/activate", new { });
 }

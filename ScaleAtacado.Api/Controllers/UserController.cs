@@ -81,4 +81,13 @@ public class UserController : ControllerBase
         var result = await _service.DeactivateAsync(id, User.GetCompanyId());
         return result.Success ? Ok(result) : NotFound(result);
     }
+
+    [HttpPatch("{id:guid}/activate")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Reactivate(Guid id)
+    {
+        var result = await _service.ReactivateAsync(id, User.GetCompanyId());
+        return result.Success ? Ok(result) : NotFound(result);
+    }
 }

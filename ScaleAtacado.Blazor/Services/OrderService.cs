@@ -11,11 +11,14 @@ public class OrderService
 
     public Task<ApiResponse<PagedResult<OrderListItemDto>>?> GetAllAsync(
         int page = 1, int pageSize = 20,
-        DeliveryStatus? deliveryStatus = null, FinancialStatus? financialStatus = null)
+        DeliveryStatus? deliveryStatus = null, FinancialStatus? financialStatus = null,
+        DateTime? from = null, DateTime? to = null)
     {
         var q = $"api/order?page={page}&pageSize={pageSize}";
         if (deliveryStatus.HasValue) q += $"&deliveryStatus={(int)deliveryStatus.Value}";
         if (financialStatus.HasValue) q += $"&financialStatus={(int)financialStatus.Value}";
+        if (from.HasValue) q += $"&from={from.Value:yyyy-MM-dd}";
+        if (to.HasValue)   q += $"&to={to.Value:yyyy-MM-dd}";
         return _api.GetAsync<PagedResult<OrderListItemDto>>(q);
     }
 

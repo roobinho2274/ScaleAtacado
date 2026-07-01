@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ScaleAtacado.Application.DTOs;
+using ScaleAtacado.Application.Services;
 using ScaleAtacado.Infrastructure.Identity;
 using ScaleAtacado.Shared.Common;
 
@@ -8,10 +9,12 @@ namespace ScaleAtacado.Infrastructure.Services;
 public class UserAppService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AuditLogAppService _auditLog;
 
-    public UserAppService(UserManager<ApplicationUser> userManager)
+    public UserAppService(UserManager<ApplicationUser> userManager, AuditLogAppService auditLog)
     {
         _userManager = userManager;
+        _auditLog = auditLog;
     }
 
     public async Task<int> GenerateUniqueCodeAsync()
@@ -26,7 +29,7 @@ public class UserAppService
         throw new InvalidOperationException("Não há códigos de 4 dígitos disponíveis.");
     }
 
-    public async Task<ApiResponse<UserResponseDto>> CreateAsync(CreateUserDto dto, Guid companyId)
+    public async Task<ApiResponse<UserResponseDto>> CreateAsync(CreateUserDto dto, Guid companyId, Guid adminId, string adminName)
     {
         var existing = await _userManager.FindByEmailAsync(dto.Email);
         if (existing != null)
@@ -54,10 +57,19 @@ public class UserAppService
             return ApiResponse<UserResponseDto>.Fail(errors);
         }
 
+        await _auditLog.RecordAsync(
+            companyId, adminId,
+            operation: "CriarUsuario",
+            entityName: "Usuario",
+            entityId: user.Id.ToString(),
+            userName: adminName,
+            description: $"Usuário '{user.FullName}' ({user.Email}) criado"
+        );
+
         return ApiResponse<UserResponseDto>.Ok(ToDto(user));
     }
 
-    public async Task<ApiResponse<UserResponseDto>> UpdateAsync(Guid id, UpdateUserDto dto, Guid companyId)
+    public async Task<ApiResponse<UserResponseDto>> UpdateAsync(Guid id, UpdateUserDto dto, Guid companyId, Guid adminId, string adminName)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
         if (user == null || user.CompanyId != companyId)
@@ -73,6 +85,15 @@ public class UserAppService
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
             return ApiResponse<UserResponseDto>.Fail(errors);
         }
+
+        await _auditLog.RecordAsync(
+            companyId, adminId,
+            operation: "EditarUsuario",
+            entityName: "Usuario",
+            entityId: user.Id.ToString(),
+            userName: adminName,
+            description: $"Usuário '{user.FullName}' editado"
+        );
 
         return ApiResponse<UserResponseDto>.Ok(ToDto(user));
     }
@@ -133,7 +154,7 @@ public class UserAppService
         return ApiResponse<int>.Ok(newCode);
     }
 
-    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> DeactivateAsync(Guid id, Guid companyId, Guid adminId, string adminName)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
         if (user == null || user.CompanyId != companyId)
@@ -142,10 +163,19 @@ public class UserAppService
         user.IsActive = false;
         await _userManager.UpdateAsync(user);
 
+        await _auditLog.RecordAsync(
+            companyId, adminId,
+            operation: "DesativarUsuario",
+            entityName: "Usuario",
+            entityId: user.Id.ToString(),
+            userName: adminName,
+            description: $"Usuário '{user.FullName}' desativado"
+        );
+
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse> ReactivateAsync(Guid id, Guid companyId)
+    public async Task<ApiResponse> ReactivateAsync(Guid id, Guid companyId, Guid adminId, string adminName)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
         if (user == null || user.CompanyId != companyId)
@@ -153,6 +183,15 @@ public class UserAppService
 
         user.IsActive = true;
         await _userManager.UpdateAsync(user);
+
+        await _auditLog.RecordAsync(
+            companyId, adminId,
+            operation: "ReativarUsuario",
+            entityName: "Usuario",
+            entityId: user.Id.ToString(),
+            userName: adminName,
+            description: $"Usuário '{user.FullName}' reativado"
+        );
 
         return ApiResponse.Ok();
     }

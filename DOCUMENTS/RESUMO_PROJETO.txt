@@ -434,6 +434,7 @@ Operações auditadas:
   Clientes  : CriarCliente, EditarCliente, DesativarCliente
   Produtos  : CriarProduto, EditarProduto, AlterarPreco (quando BaseSalePrice muda), InativarProduto
   Pagamentos: CriarFormaPagamento, EditarFormaPagamento, DesativarFormaPagamento
+  Usuários  : CriarUsuario, EditarUsuario, DesativarUsuario, ReativarUsuario
 
 BUG CORRIGIDO — Filtro de data (AuditLogRepository.GetByCompanyAsync):
   - "to" deve incluir o dia inteiro: a.Timestamp < to.Value.Date.AddDays(1)
@@ -577,12 +578,15 @@ IMPLEMENTADO RECENTEMENTE
         IProductRepository → ProductRepository → ProductAppService → ProductController
         → ProductService (Blazor); filtro client-side removido de Produtos.razor;
         paginação agora reflete o total correto ao filtrar por categoria
+  ✅ #2 Auditoria de Usuários — AuditLogAppService injetado em UserAppService;
+        CreateAsync/UpdateAsync/DeactivateAsync/ReactivateAsync agora recebem adminId/adminName
+        e registram CriarUsuario / EditarUsuario / DesativarUsuario / ReativarUsuario;
+        UserController atualizado para passar User.GetUserId() e User.GetFullName()
 
 PENDÊNCIAS MAPEADAS
 -------------------
 FUNCIONAL:
   1. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
-  2. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
 
 UX/QUALIDADE:
   7. Paginação server-side em Usuários (lista cresce com o tempo)

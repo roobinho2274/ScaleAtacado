@@ -31,7 +31,7 @@ public class ProductAppService
             Id = Guid.NewGuid(),
             CompanyId = companyId,
             Name = dto.Name,
-            Code = dto.Code,
+            Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim(),
             CostPrice = dto.CostPrice,
             ProfitMargin = dto.ProfitMargin,
             BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin),
@@ -73,7 +73,7 @@ public class ProductAppService
         var precoAlterado = precoAnterior != novoPreco;
 
         product.Name = dto.Name;
-        product.Code = dto.Code;
+        product.Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim();
         product.CostPrice = dto.CostPrice;
         product.ProfitMargin = dto.ProfitMargin;
         product.BaseSalePrice = novoPreco;

@@ -8,7 +8,19 @@
       "PowerShell(Start-Process -FilePath \"dotnet\" -ArgumentList \"run --project c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Api --no-build --launch-profile https\" -WindowStyle Normal)",
       "Bash(curl -sk -X POST https://localhost:7039/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"acrsolucoesemti@gmail.com\",\"password\":\"Scale@123\"}')",
       "Bash(curl -sk -X POST https://localhost:7039/api/auth/login -H 'Content-Type: application/json' -d '{\"login\":\"acrsolucoesemti@gmail.com\",\"password\":\"Scale@123\"}')",
-      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Tests.E2E\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object -ExpandProperty FullName)"
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Tests.E2E\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object -ExpandProperty FullName)",
+      "Bash(curl -sk https://localhost:7252 -o /dev/null -w \"%{http_code}\" --max-time 3)",
+      "Bash(curl -sk https://localhost:7001/health --max-time 3)",
+      "Bash(curl -sk https://localhost:7001/api/auth/login --max-time 3 -w \"%{http_code}\")",
+      "Bash(curl -sk https://localhost:7097/api/auth/login --max-time 3 -w \"%{http_code}\")",
+      "Bash(curl -sk https://localhost:7039/api/auth/login --max-time 3 -w \"\\\\n%{http_code}\")",
+      "Bash(curl -sk https://localhost:7039/health --max-time 3 -w \"\\\\n%{http_code}\")",
+      "Read(//c/Users/robso/AppData/Local/Temp/**)",
+      "PowerShell(netstat -ano | Select-String \":7039|:7252|:5247\" | ForEach-Object { $_.ToString\\(\\).Trim\\(\\) })",
+      "Read(//c/Temp/**)",
+      "PowerShell(Get-Service | Where-Object { $_.Name -match \"pg|post|sql\" } | Select-Object Name, Status, DisplayName)",
+      "Read(//c/Users/robso/Documents/ACR/Project/ScaleAtacado/ScaleAtacado.Blazor/**)",
+      "Bash(xargs grep -l \"ProductController\\\\|product.*controller\" -i)"
     ]
   }
 }

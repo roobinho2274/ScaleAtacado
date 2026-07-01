@@ -2,9 +2,11 @@
 @attribute [Authorize]
 @inject CustomerService CustomerService
 @inject ProductService ProductService
+@inject CategoryService CategoryService
 @inject PaymentMethodService PaymentMethodService
 @inject OrderService OrderService
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>PDV — ScaleAtacado</PageTitle>
 
@@ -44,26 +46,32 @@
         <MudPaper Class="pa-4 mb-4" Elevation="2">
             <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Adicionar Produto</b></MudText>
             <MudGrid>
-                <MudItem xs="12" sm="6">
+                <MudItem xs="9" sm="5">
                     <MudAutocomplete T="ProductResponseDto"
                         Label="Buscar produto"
                         @bind-Value="_selectedProduct"
                         SearchFunc="SearchProductsAsync"
                         ToStringFunc="@(p => p != null ? $"{p.Name} — R$ {p.BaseSalePrice:N2}" : string.Empty)"
                         Variant="Variant.Outlined"
-                        Dense="true"
                         FullWidth="true"
                         Clearable="true"
                         Disabled="_finalizing" />
+                </MudItem>
+                <MudItem xs="3" sm="2" Class="d-flex align-end">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
+                        OnClick="OpenNewProduct" Style="height:56px"
+                        Disabled="_finalizing">
+                        + Novo
+                    </MudButton>
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudNumericField @bind-Value="_quantity" Label="Quantidade"
                         Variant="Variant.Outlined" Min="1" Max="9999"
                         Disabled="_finalizing" />
                 </MudItem>
-                <MudItem xs="6" sm="3">
+                <MudItem xs="6" sm="2" Class="d-flex align-end">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                        OnClick="AddItem" Style="height:40px"
+                        OnClick="AddItem" Style="height:56px"
                         Disabled="@(_finalizing || _selectedProduct == null)">
                         Adicionar
                     </MudButton>
@@ -292,6 +300,66 @@
     </DialogActions>
 </MudDialog>
 
+<!-- Dialog: Novo Produto (cadastro rápido via PDV) -->
+<MudDialog @bind-Visible="_productDialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>Novo Produto</TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_newProductName" Label="Nome"
+            Placeholder="ex: Coca-Cola 2L, Arroz 5kg"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            Error="@(_errProductName != null)" ErrorText="@_errProductName" />
+
+        <MudSelect T="Guid?" Label="Categoria" @bind-Value="_newProductCategoryId"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            Placeholder="Selecione uma categoria"
+            Error="@(_errProductCategory != null)" ErrorText="@_errProductCategory">
+            @foreach (var cat in _categories)
+            {
+                <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (_isAdmin)
+        {
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudNumericField @bind-Value="_newProductCost" Label="Custo (R$)"
+                        Variant="Variant.Outlined" Min="0m" Format="N2"
+                        Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField @bind-Value="_newProductMargin" Label="Margem (%)"
+                        Variant="Variant.Outlined" Min="0m" Max="1000m" Format="N2" />
+                </MudItem>
+            </MudGrid>
+            @if (_newProductCost > 0)
+            {
+                var precoVenda = _newProductCost * (1 + _newProductMargin / 100m);
+                <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
+                    Preço de venda calculado: <b>R$ @precoVenda.ToString("N2")</b>
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudNumericField @bind-Value="_newProductSalePrice" Label="Preço de Venda (R$)"
+                Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
+                Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
+            <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1" Style="display:block">
+                Custo e margem serão definidos pelo administrador.
+            </MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _productDialogOpen = false)">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            OnClick="SaveNewProductAsync" Disabled="_savingProduct">
+            @if (_savingProduct) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" /> }
+            Salvar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private CustomerResponseDto? _selectedCustomer;
     private ProductResponseDto? _selectedProduct;
@@ -302,21 +370,36 @@
     private int _quantity = 1;
     private decimal _discount = 0m;
     private bool _finalizing;
+    private bool _isAdmin;
+
+    // ── Novo Cliente ──────────────────────────────────────────────────────────
     private bool _customerDialogOpen;
     private bool _savingCustomer;
-
     private string _newCustomerName    = "";
     private string _newCustomerTaxId   = "";
     private string _newCustomerPhone   = "";
     private string _newCustomerAddress = "";
     private string _newCustomerNotes   = "";
-
     private string? _errorName;
     private string? _errorTaxId;
     private string? _errorPhone;
     private string? _errorAddress;
     private string? _errorNotes;
 
+    // ── Novo Produto (PDV) ────────────────────────────────────────────────────
+    private bool _productDialogOpen;
+    private bool _savingProduct;
+    private List<CategoryResponseDto> _categories = new();
+    private string _newProductName = "";
+    private Guid? _newProductCategoryId;
+    private decimal _newProductCost;
+    private decimal _newProductMargin;
+    private decimal _newProductSalePrice;
+    private string? _errProductName;
+    private string? _errProductCategory;
+    private string? _errProductPrice;
+
+    // ── Carrinho / Dados ──────────────────────────────────────────────────────
     private List<OrderItemVm> _items = new();
     private List<ProductResponseDto> _products = new();
     private List<PaymentMethodResponseDto> _paymentMethods = new();
@@ -346,6 +429,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = authState.User.IsInRole("Admin");
+
         var prodResp = await ProductService.GetAllActiveAsync();
         if (prodResp?.Success == true && prodResp.Data != null)
             _products = prodResp.Data.ToList();
@@ -353,6 +439,10 @@
         var pmResp = await PaymentMethodService.GetAllAsync(onlyActive: true);
         if (pmResp?.Success == true && pmResp.Data != null)
             _paymentMethods = pmResp.Data.ToList();
+
+        var catResp = await CategoryService.GetAllAsync();
+        if (catResp?.Success == true && catResp.Data != null)
+            _categories = catResp.Data.ToList();
     }
 
     private async Task<IEnumerable<CustomerResponseDto>> SearchCustomersAsync(string term, CancellationToken ct)
@@ -491,6 +581,8 @@
         _finalizing = false;
     }
 
+    // ── Novo Cliente ──────────────────────────────────────────────────────────
+
     private void OpenNewCustomer()
     {
         _newCustomerName    = "";
@@ -571,6 +663,70 @@
         }
 
         _savingCustomer = false;
+    }
+
+    // ── Novo Produto (PDV) ────────────────────────────────────────────────────
+
+    private void OpenNewProduct()
+    {
+        _newProductName = "";
+        _newProductCategoryId = null;
+        _newProductCost = 0;
+        _newProductMargin = 0;
+        _newProductSalePrice = 0;
+        _errProductName = _errProductCategory = _errProductPrice = null;
+        _productDialogOpen = true;
+    }
+
+    private async Task SaveNewProductAsync()
+    {
+        _errProductName = _errProductCategory = _errProductPrice = null;
+
+        if (string.IsNullOrWhiteSpace(_newProductName))
+            _errProductName = "Nome é obrigatório.";
+        else if (_newProductName.Trim().Length > 100)
+            _errProductName = "Nome deve ter no máximo 100 caracteres.";
+
+        if (!_newProductCategoryId.HasValue)
+            _errProductCategory = "Selecione uma categoria.";
+
+        if (_isAdmin && _newProductCost <= 0)
+            _errProductPrice = "Custo deve ser maior que zero.";
+        else if (!_isAdmin && _newProductSalePrice <= 0)
+            _errProductPrice = "Preço de venda deve ser maior que zero.";
+
+        if (_errProductName != null || _errProductCategory != null || _errProductPrice != null)
+            return;
+
+        _savingProduct = true;
+
+        var (cost, margin) = _isAdmin
+            ? (_newProductCost, _newProductMargin)
+            : (_newProductSalePrice, 0m);
+
+        var dto = new CreateProductDto(
+            Guid.Empty,
+            "",
+            _newProductName.Trim(),
+            cost,
+            margin,
+            _newProductCategoryId!.Value
+        );
+
+        var resp = await ProductService.CreateAsync(dto);
+        if (resp?.Success == true && resp.Data != null)
+        {
+            _products.Add(resp.Data);
+            _selectedProduct = resp.Data;
+            _productDialogOpen = false;
+            Snackbar.Add("Produto criado!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(resp?.Error ?? "Erro ao criar produto.", Severity.Error);
+        }
+
+        _savingProduct = false;
     }
 
     private class OrderItemVm

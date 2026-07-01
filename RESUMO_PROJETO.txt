@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Atualizado em: 22/06/2026
+  Atualizado em: 30/06/2026
 ================================================================================
 
 STACK
@@ -259,7 +259,7 @@ PATCH  /api/order/{id}/delivery      { DeliveryStatus }
 PATCH  /api/order/{id}/financial     { FinancialStatus }                    (AdminOnly)
 GET    /api/product?page=&pageSize=&search=&isActive=
 GET    /api/product/{id}
-POST   /api/product                                   (AdminOnly)
+POST   /api/product                                   (qualquer usuário autenticado)
 PUT    /api/product/{id}                              (AdminOnly)
 DELETE /api/product/{id}                              (AdminOnly)
 GET    /api/category, POST, PUT, DELETE
@@ -296,6 +296,12 @@ PÁGINAS BLAZOR IMPLEMENTADAS
                           • A Prazo: MudSelect single select (apenas formas IsInstallment=true)
                           • Autocomplete cliente/produto, qtd, desconto (R$), total em tempo real
                           • Dialog "Novo Cliente" inline; finaliza pedido com CreateOrderDto
+                          • Dialog "Novo Produto" inline (cadastro rápido via PDV):
+                            - Admin: Nome + Categoria + Custo (R$) + Margem (%) → preço calculado
+                            - Atendente: Nome + Categoria + Preço de Venda → salva com
+                              CostPrice=SalePrice e ProfitMargin=0 (admin edita depois)
+                            Após salvar: produto adicionado ao autocomplete e auto-selecionado
+                            PERMISSÃO: POST /api/product liberado para qualquer usuário autenticado
 
 /pedidos                — lista paginada + filtros (DeliveryStatus/FinancialStatus);
                           dialog de detalhes: itens com preço COM acréscimo;
@@ -538,6 +544,22 @@ ERROS COMUNS E SOLUÇÕES
 - Locks de DLL ao buildar: fechar processo ScaleAtacado.Api antes de dotnet build/ef migrations
 - psql no PowerShell: aspas duplas em SQL não passam corretamente;
   usar docker exec com Bash ou arquivo .sql com -f
+
+TESTES E2E (Playwright NUnit) — estado atual: 32 aprovados, 0 falhas, 2 ignorados
+---------------------------------------------------------------------------
+Arquivos: ScaleAtacado.Tests.E2E/Tests/
+  AuthTests.cs   (5 testes)  — Login válido/inválido/vazio, rota protegida, logout
+  PdvTests.cs    (8 testes)  — Tela carrega, adicionar/remover item, limpar, pagamento,
+                               finalizar desabilitado sem cliente,
+                               Novo Produto Admin (custo+margem), Novo Produto Atendente (preço final)
+  ClienteTests.cs (4 testes) — Tela, criar, buscar, CPF inválido
+  ProdutoTests.cs (5 testes) — Tela, criar, sem nome, buscar, badge status
+  PedidoTests.cs  (4 testes) — Tela, detalhes, paginação(Ignore), filtro status(Ignore)
+  AdminTests.cs   (8 testes) — Usuários: tela, criar; FormasPagamento: tela, criar;
+                               Categorias: tela; Empresa: tela; Auditoria: tela; Atendente sem menu admin
+Base: PlaywrightTestBase.cs — LoginAsAdminAsync, LoginAsAtendenteAsync
+Config: TestConfig.cs       — TEST_BASE_URL=https://localhost:7252
+Para rodar: cd ScaleAtacado.Tests.E2E && dotnet test --no-build
 
 PENDÊNCIAS MAPEADAS
 -------------------

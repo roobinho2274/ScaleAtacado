@@ -11,25 +11,41 @@
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudGrid>
-        <MudItem xs="12" sm="4">
+        <MudItem xs="12" sm="3">
             <MudDatePicker @bind-Date="_dateFrom" Label="De" Variant="Variant.Outlined"
                 DateFormat="dd/MM/yyyy" Clearable="true" />
         </MudItem>
-        <MudItem xs="12" sm="4">
+        <MudItem xs="12" sm="3">
             <MudDatePicker @bind-Date="_dateTo" Label="Até" Variant="Variant.Outlined"
                 DateFormat="dd/MM/yyyy" Clearable="true" />
         </MudItem>
-        <MudItem xs="12" sm="4" Class="d-flex align-end">
+        <MudItem xs="12" sm="3">
+            <MudSelect T="string?" Label="Entidade" @bind-Value="_filterEntity"
+                Variant="Variant.Outlined" Dense="true" Clearable="true">
+                <MudSelectItem T="string?" Value="null">Todas</MudSelectItem>
+                <MudSelectItem T="string?" Value="@("Pedido")">Pedido</MudSelectItem>
+                <MudSelectItem T="string?" Value="@("Cliente")">Cliente</MudSelectItem>
+                <MudSelectItem T="string?" Value="@("Produto")">Produto</MudSelectItem>
+                <MudSelectItem T="string?" Value="@("FormaPagamento")">Forma de Pagamento</MudSelectItem>
+                <MudSelectItem T="string?" Value="@("Usuario")">Usuário</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3" Class="d-flex align-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
                 OnClick="LoadAsync" StartIcon="@Icons.Material.Filled.Search"
                 Disabled="_loading">
                 Filtrar
             </MudButton>
         </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_searchText" Label="Buscar em operação, descrição ou usuário"
+                Variant="Variant.Outlined" Clearable="true" Immediate="true"
+                Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ManageSearch" />
+        </MudItem>
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="_records" Dense="true" Hover="true" Striped="true" Loading="_loading"
+<MudTable Items="_records" Filter="FilterRecord" Dense="true" Hover="true" Striped="true" Loading="_loading"
     FixedHeader="true" Height="600px">
     <HeaderContent>
         <MudTh>Data/Hora</MudTh>
@@ -75,7 +91,11 @@
 </MudTable>
 
 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-    @_records.Count registro(s) exibido(s)
+    @_records.Count registro(s) carregado(s)
+    @if (!string.IsNullOrWhiteSpace(_searchText) || !string.IsNullOrEmpty(_filterEntity))
+    {
+        <span> — filtro ativo</span>
+    }
 </MudText>
 
 <!-- Dialog: Antes / Depois -->
@@ -129,6 +149,23 @@
     private AuditLogResponseDto? _selected;
     private DateTime? _dateFrom = DateTime.Today.AddDays(-7);
     private DateTime? _dateTo = DateTime.Today;
+    private string _searchText = "";
+    private string? _filterEntity;
+
+    private bool FilterRecord(AuditLogResponseDto r)
+    {
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var s = _searchText.Trim().ToLowerInvariant();
+            var matchOp   = r.Operation.ToLowerInvariant().Contains(s);
+            var matchDesc = r.Description?.ToLowerInvariant().Contains(s) == true;
+            var matchUser = r.UserName?.ToLowerInvariant().Contains(s) == true;
+            if (!matchOp && !matchDesc && !matchUser) return false;
+        }
+        if (!string.IsNullOrEmpty(_filterEntity) && r.EntityName != _filterEntity)
+            return false;
+        return true;
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -149,11 +186,11 @@
 
     private static Color GetOperationColor(string op) => op switch
     {
-        "CriarPedido" or "CriarCliente" or "CriarFormaPagamento" or "CriarProduto" => Color.Success,
-        "EditarPedido" or "EditarCliente" or "EditarFormaPagamento" or "EditarProduto" => Color.Info,
-        "FinalizarPedido" or "ImprimirPedido" or "DesbloquearPedido" => Color.Primary,
+        "CriarPedido" or "CriarCliente" or "CriarFormaPagamento" or "CriarProduto" or "CriarUsuario" => Color.Success,
+        "EditarCliente" or "EditarFormaPagamento" or "EditarProduto" or "EditarUsuario" => Color.Info,
+        "FinalizarPedido" or "ImprimirPedido" or "DesbloquearPedido" or "Login" or "ReativarUsuario" => Color.Primary,
         "AlterarEntrega" or "AlterarFinanceiro" or "AlterarPagamento" or "AlterarPreco" or "AplicarDesconto" => Color.Warning,
-        "CancelarPedido" or "DesativarCliente" or "DesativarFormaPagamento" or "InativarProduto" => Color.Error,
+        "CancelarPedido" or "DesativarCliente" or "DesativarFormaPagamento" or "InativarProduto" or "DesativarUsuario" or "Logoff" => Color.Error,
         _ => Color.Default
     };
 }

@@ -269,7 +269,8 @@ GET    /api/paymentmethod/{id}
 POST   /api/paymentmethod                             (AdminOnly)
 PUT    /api/paymentmethod/{id}                        (AdminOnly)
 DELETE /api/paymentmethod/{id}                        (AdminOnly)
-GET    /api/user, POST /api/user, PUT /api/user/{id}
+GET    /api/user?page=&pageSize=&search=  (AdminOnly — lista paginada com busca)
+POST   /api/user, PUT /api/user/{id}
 PATCH  /api/user/{id}/password       { NewPassword }
 PATCH  /api/user/{id}/code                            (Admin — gera novo UserCode único)
 PATCH  /api/user/{id}/activate                        (Admin — reativa usuário desativado)
@@ -324,7 +325,8 @@ PÁGINAS BLAZOR IMPLEMENTADAS
 
 /admin/categorias       — CRUD simples
 
-/admin/usuarios         — CRUD + dialog separado "Alterar Senha"; perfis Admin/Atendente
+/admin/usuarios         — CRUD paginado (server-side, 10/20/50 por página) com busca por nome/e-mail;
+                          dialog separado "Alterar Senha"; perfis Admin/Atendente;
                           coluna "Código" mostra UserCode formatado (D4, ex: 1001);
                           botão "Gerar" para usuários com código 0; ícone refresh para regenerar;
                           snackbar exibe o código por 8 segundos após criação
@@ -335,16 +337,17 @@ PÁGINAS BLAZOR IMPLEMENTADAS
                             botão Remover; salva imediatamente após seleção do arquivo;
                             ao salvar/remover, sidebar atualiza instantaneamente
 
-/admin/auditoria        — log com filtro por período;
+/admin/auditoria        — log com filtros: período (De/Até), entidade (select) e busca por texto
+                          (operação/descrição/usuário, filtro client-side em tempo real);
                           colunas: Data/Hora | Usuário | Operação (chip colorido) | Descrição | Entidade | Detalhes
                           dialog de detalhes: mostra Valor Anterior + Novo quando presentes
                           CORREÇÃO: filtro "to" inclui o dia inteiro (a.Timestamp < to.Date.AddDays(1))
                           cores das operações:
-                            Success  = Criar* (CriarPedido, CriarCliente, CriarFormaPagamento, CriarProduto)
-                            Info     = Editar* (EditarCliente, EditarFormaPagamento, EditarProduto)
-                            Primary  = FinalizarPedido, ImprimirPedido, DesbloquearPedido
+                            Success  = Criar* + CriarUsuario
+                            Info     = Editar* (Cliente, FormaPagamento, Produto, Usuario)
+                            Primary  = FinalizarPedido, ImprimirPedido, DesbloquearPedido, Login, ReativarUsuario
                             Warning  = AlterarEntrega, AlterarFinanceiro, AlterarPagamento, AlterarPreco, AplicarDesconto
-                            Error    = CancelarPedido, Desativar*, InativarProduto
+                            Error    = CancelarPedido, Desativar*, InativarProduto, DesativarUsuario, Logoff
 
 SERVIÇOS BLAZOR (Services/)
 ----------------------------
@@ -587,6 +590,12 @@ IMPLEMENTADO RECENTEMENTE
   ✅ #1 Auditoria de logoff — POST /api/auth/logout [Authorize] adicionado ao AuthController;
         registra operação "Logoff" antes de responder; AuthService (Blazor) injeta ApiHttpClient
         e chama o endpoint antes de limpar o sessionStorage (falha não bloqueia o logout)
+  ✅ #7 Paginação server-side em Usuários — UserAppService.GetAllAsync(page, pageSize, search?);
+        UserController.GetAll aceita ?page=&pageSize=&search=; UserService Blazor atualizado;
+        Usuarios.razor convertido para MudTable ServerData com campo de busca por nome/e-mail
+  ✅ #8 Busca/filtro na Auditoria — campo de busca por texto (operação/descrição/usuário) com
+        Immediate="true"; select de entidade (Pedido/Cliente/Produto/FormaPagamento/Usuário);
+        filtro client-side via MudTable.Filter; GetOperationColor atualizado com novas operações
 
 PENDÊNCIAS MAPEADAS
 -------------------

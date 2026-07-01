@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using ScaleAtacado.Application.DTOs;
 using ScaleAtacado.Application.Services;
 using ScaleAtacado.Infrastructure.Identity;
@@ -107,14 +108,23 @@ public class UserAppService
         return ApiResponse<UserResponseDto>.Ok(ToDto(user));
     }
 
-    public ApiResponse<IEnumerable<UserResponseDto>> GetAll(Guid companyId)
+    public async Task<ApiResponse<PagedResult<UserResponseDto>>> GetAllAsync(
+        Guid companyId, int page = 1, int pageSize = 20, string? search = null)
     {
-        var users = _userManager.Users
-            .Where(u => u.CompanyId == companyId)
-            .OrderBy(u => u.FullName)
-            .ToList();
+        var query = _userManager.Users.Where(u => u.CompanyId == companyId);
 
-        return ApiResponse<IEnumerable<UserResponseDto>>.Ok(users.Select(ToDto));
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(u => u.FullName.Contains(search) || u.Email!.Contains(search));
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderBy(u => u.FullName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PagedResult<UserResponseDto>(items.Select(ToDto), totalCount, page, pageSize);
+        return ApiResponse<PagedResult<UserResponseDto>>.Ok(result);
     }
 
     public async Task<ApiResponse> ChangePasswordAsync(Guid id, string newPassword, Guid companyId)

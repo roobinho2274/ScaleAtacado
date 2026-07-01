@@ -20,10 +20,13 @@ public class UserController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IEnumerable<UserResponseDto>>), StatusCodes.Status200OK)]
-    public IActionResult GetAll()
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<UserResponseDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
     {
-        var result = _service.GetAll(User.GetCompanyId());
+        var result = await _service.GetAllAsync(User.GetCompanyId(), page, pageSize, search);
         return Ok(result);
     }
 

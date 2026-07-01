@@ -14,7 +14,25 @@
     </MudButton>
 </div>
 
-<MudTable Items="_users" Dense="true" Hover="true" Striped="true" Loading="_loading">
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudGrid>
+        <MudItem xs="12" sm="9">
+            <MudTextField @bind-Value="_searchTerm" Label="Buscar por nome ou e-mail"
+                Variant="Variant.Outlined" Clearable="true"
+                Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                OnKeyUp="OnKeyUp" />
+        </MudItem>
+        <MudItem xs="12" sm="3" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                StartIcon="@Icons.Material.Filled.Search"
+                OnClick="@(() => _table!.ReloadServerData())">
+                Filtrar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudTable ServerData="ServerData" @ref="_table" Dense="true" Hover="true" Striped="true">
     <HeaderContent>
         <MudTh>Nome</MudTh>
         <MudTh>E-mail</MudTh>
@@ -86,6 +104,10 @@
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhum usuário encontrado.</NoRecordsContent>
+    <LoadingContent>Carregando...</LoadingContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+    </PagerContent>
 </MudTable>
 
 <!-- Dialog: Criar -->
@@ -185,8 +207,8 @@
 </MudDialog>
 
 @code {
-    private List<UserResponseDto> _users = new();
-    private bool _loading;
+    private MudTable<UserResponseDto>? _table;
+    private string _searchTerm = "";
     private bool _dialogNew;
     private bool _dialogEdit;
     private bool _dialogPassword;
@@ -205,14 +227,17 @@
     private string? _errorNewPassword;
     private string? _errorConfirm;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
+    private async Task<TableData<UserResponseDto>> ServerData(TableState state, CancellationToken ct)
     {
-        _loading = true;
-        var resp = await UserService.GetAllAsync();
-        _users = resp?.Data?.ToList() ?? new();
-        _loading = false;
+        var resp = await UserService.GetAllAsync(state.Page + 1, state.PageSize, _searchTerm);
+        if (resp?.Success == true && resp.Data != null)
+            return new TableData<UserResponseDto> { Items = resp.Data.Items, TotalItems = resp.Data.TotalCount };
+        return new TableData<UserResponseDto> { Items = [], TotalItems = 0 };
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await _table!.ReloadServerData();
     }
 
     private void OpenNew()
@@ -315,7 +340,7 @@
             var codeMsg = code > 0 ? $" Código de acesso: {code:D4}" : "";
             Snackbar.Add($"Usuário criado com sucesso!{codeMsg}", Severity.Success, cfg => cfg.VisibleStateDuration = 8000);
             _dialogNew = false;
-            await LoadAsync();
+            await _table!.ReloadServerData();
         }
         else
         {
@@ -342,7 +367,7 @@
         {
             Snackbar.Add("Usuário atualizado!", Severity.Success);
             _dialogEdit = false;
-            await LoadAsync();
+            await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao atualizar usuário.", Severity.Error);
 
@@ -371,7 +396,7 @@
         if (resp?.Success == true)
         {
             Snackbar.Add($"Novo código de {u.FullName}: {resp.Data:D4}", Severity.Success, cfg => cfg.VisibleStateDuration = 8000);
-            await LoadAsync();
+            await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao gerar código.", Severity.Error);
     }
@@ -388,7 +413,7 @@
         if (resp?.Success == true)
         {
             Snackbar.Add("Usuário desativado.", Severity.Info);
-            await LoadAsync();
+            await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }
@@ -405,7 +430,7 @@
         if (resp?.Success == true)
         {
             Snackbar.Add($"{u.FullName} reativado.", Severity.Success);
-            await LoadAsync();
+            await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }

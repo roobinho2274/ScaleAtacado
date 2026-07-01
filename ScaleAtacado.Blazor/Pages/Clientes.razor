@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject CustomerService CustomerService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Clientes — ScaleAtacado</PageTitle>
 
@@ -174,6 +175,12 @@
 
     private async Task DeactivateAsync(CustomerResponseDto c)
     {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Desativar cliente",
+            $"Deseja realmente desativar \"{c.LegalName}\"?",
+            yesText: "Desativar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
         var resp = await CustomerService.DeactivateAsync(c.Id);
         if (resp?.Success == true)
         {

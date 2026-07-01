@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject CategoryService CategoryService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Categorias — ScaleAtacado</PageTitle>
 
@@ -142,6 +143,12 @@
 
     private async Task DeleteAsync(CategoryResponseDto c)
     {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Excluir categoria",
+            $"Deseja realmente excluir \"{c.Name}\"? Esta ação não pode ser desfeita.",
+            yesText: "Excluir", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
         var resp = await CategoryService.DeleteAsync(c.Id);
         if (resp?.Success == true)
         {

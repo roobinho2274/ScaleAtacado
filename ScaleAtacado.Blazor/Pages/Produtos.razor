@@ -3,6 +3,7 @@
 @inject ProductService ProductService
 @inject CategoryService CategoryService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Produtos — ScaleAtacado</PageTitle>
 
@@ -281,6 +282,12 @@
 
     private async Task DeactivateAsync(ProductResponseDto p)
     {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Desativar produto",
+            $"Deseja realmente desativar \"{p.Name}\"?",
+            yesText: "Desativar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
         var resp = await ProductService.DeactivateAsync(p.Id);
         if (resp?.Success == true)
         {

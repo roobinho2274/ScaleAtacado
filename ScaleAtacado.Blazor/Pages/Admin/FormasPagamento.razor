@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject PaymentMethodService PaymentMethodService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Formas de Pagamento — ScaleAtacado</PageTitle>
 
@@ -156,6 +157,12 @@
 
     private async Task DeactivateAsync(PaymentMethodResponseDto f)
     {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Desativar forma de pagamento",
+            $"Deseja realmente desativar \"{f.Name}\"?",
+            yesText: "Desativar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
         var resp = await PaymentMethodService.DeactivateAsync(f.Id);
         if (resp?.Success == true)
         {

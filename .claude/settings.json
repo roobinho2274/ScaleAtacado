@@ -20,7 +20,14 @@
       "Read(//c/Temp/**)",
       "PowerShell(Get-Service | Where-Object { $_.Name -match \"pg|post|sql\" } | Select-Object Name, Status, DisplayName)",
       "Read(//c/Users/robso/Documents/ACR/Project/ScaleAtacado/ScaleAtacado.Blazor/**)",
-      "Bash(xargs grep -l \"ProductController\\\\|product.*controller\" -i)"
+      "Bash(xargs grep -l \"ProductController\\\\|product.*controller\" -i)",
+      "Read(//c/Users/robso/.nuget/packages/mudblazor/9.4.0/**)",
+      "Bash(powershell -Command ' *)",
+      "Bash(grep -r \"ShowMessageBox\\\\|MessageBox\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/\" --include=\"*.xml\" -l 2>/dev/null | head -3)",
+      "Read(//c/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/**)",
+      "Bash(grep -i \"ShowMessageBox\\\\|MessageBox\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/MudBlazor.xml\" | head -20)",
+      "Read(//c/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/**)",
+      "Bash(grep -i \"ShowAsync\\\\|ShowMessageBox\\\\|IDialogService\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/MudBlazor.xml\" | grep -i \"member name\" | head -20)"
     ]
   }
 }

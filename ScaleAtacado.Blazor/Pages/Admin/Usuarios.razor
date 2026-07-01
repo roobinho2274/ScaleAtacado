@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject UserService UserService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Usuários — ScaleAtacado</PageTitle>
 
@@ -371,6 +372,12 @@
 
     private async Task DeactivateAsync(UserResponseDto u)
     {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Desativar usuário",
+            $"Deseja realmente desativar \"{u.FullName}\"? O usuário não conseguirá mais fazer login.",
+            yesText: "Desativar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
         var resp = await UserService.DeactivateAsync(u.Id);
         if (resp?.Success == true)
         {

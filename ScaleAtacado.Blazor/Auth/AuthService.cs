@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ScaleAtacado.Application.DTOs;
+using ScaleAtacado.Blazor.Services;
 using ScaleAtacado.Shared.Common;
 
 namespace ScaleAtacado.Blazor.Auth;
@@ -8,11 +9,13 @@ public class AuthService
 {
     private readonly HttpClient _http;
     private readonly JwtAuthStateProvider _authState;
+    private readonly ApiHttpClient _api;
 
-    public AuthService(HttpClient http, JwtAuthStateProvider authState)
+    public AuthService(HttpClient http, JwtAuthStateProvider authState, ApiHttpClient api)
     {
         _http = http;
         _authState = authState;
+        _api = api;
     }
 
     public async Task<ApiResponse<AuthTokenDto>?> LoginAsync(string email, string password)
@@ -37,5 +40,9 @@ public class AuthService
     }
 
     public async Task LogoutAsync()
-        => await _authState.NotifyLogoutAsync();
+    {
+        // registra logoff na auditoria antes de remover o token (fire-and-forget: falha não bloqueia)
+        await _api.PostAsync("api/auth/logout");
+        await _authState.NotifyLogoutAsync();
+    }
 }

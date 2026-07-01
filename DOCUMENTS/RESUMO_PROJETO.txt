@@ -237,6 +237,7 @@ CompanyController:       GET, PUT (dados), PATCH /logo (AdminOnly)
 API ROUTES
 ----------
 POST   /api/auth/login               { Login, Password }  — aceita e-mail ou código 4 dígitos
+POST   /api/auth/logout              [Authorize] — registra Logoff na auditoria
 POST   /api/auth/setup
 GET    /api/company
 PUT    /api/company                                    (AdminOnly)
@@ -435,6 +436,7 @@ Operações auditadas:
   Produtos  : CriarProduto, EditarProduto, AlterarPreco (quando BaseSalePrice muda), InativarProduto
   Pagamentos: CriarFormaPagamento, EditarFormaPagamento, DesativarFormaPagamento
   Usuários  : CriarUsuario, EditarUsuario, DesativarUsuario, ReativarUsuario
+  Auth      : Login, Logoff
 
 BUG CORRIGIDO — Filtro de data (AuditLogRepository.GetByCompanyAsync):
   - "to" deve incluir o dia inteiro: a.Timestamp < to.Value.Date.AddDays(1)
@@ -582,11 +584,12 @@ IMPLEMENTADO RECENTEMENTE
         CreateAsync/UpdateAsync/DeactivateAsync/ReactivateAsync agora recebem adminId/adminName
         e registram CriarUsuario / EditarUsuario / DesativarUsuario / ReativarUsuario;
         UserController atualizado para passar User.GetUserId() e User.GetFullName()
+  ✅ #1 Auditoria de logoff — POST /api/auth/logout [Authorize] adicionado ao AuthController;
+        registra operação "Logoff" antes de responder; AuthService (Blazor) injeta ApiHttpClient
+        e chama o endpoint antes de limpar o sessionStorage (falha não bloqueia o logout)
 
 PENDÊNCIAS MAPEADAS
 -------------------
-FUNCIONAL:
-  1. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
 
 UX/QUALIDADE:
   7. Paginação server-side em Usuários (lista cresce com o tempo)

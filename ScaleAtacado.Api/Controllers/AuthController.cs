@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ScaleAtacado.Api.Extensions;
 using ScaleAtacado.Application.DTOs;
 using ScaleAtacado.Application.Services;
 using ScaleAtacado.Domain.Entities;
@@ -79,6 +81,22 @@ public class AuthController : ControllerBase
         );
 
         return Ok(ApiResponse<AuthTokenDto>.Ok(response));
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Logout()
+    {
+        await _auditLog.RecordAsync(
+            User.GetCompanyId(), User.GetUserId(),
+            operation: "Logoff",
+            entityName: "Usuario",
+            entityId: User.GetUserId().ToString(),
+            userName: User.GetFullName(),
+            description: $"{User.GetFullName()} encerrou a sessão"
+        );
+        return Ok(ApiResponse.Ok());
     }
 
     [HttpPost("setup")]

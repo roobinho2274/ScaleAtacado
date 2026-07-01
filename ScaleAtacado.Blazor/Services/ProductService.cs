@@ -9,11 +9,12 @@ public class ProductService
     public ProductService(ApiHttpClient api) => _api = api;
 
     public Task<ApiResponse<PagedResult<ProductResponseDto>>?> GetAllAsync(
-        int page = 1, int pageSize = 20, string? search = null, bool? isActive = null)
+        int page = 1, int pageSize = 20, string? search = null, bool? isActive = null, Guid? categoryId = null)
     {
         var q = $"api/product?page={page}&pageSize={pageSize}";
         if (!string.IsNullOrWhiteSpace(search)) q += $"&search={Uri.EscapeDataString(search)}";
         if (isActive.HasValue) q += $"&isActive={isActive.Value}";
+        if (categoryId.HasValue) q += $"&categoryId={categoryId.Value}";
         return _api.GetAsync<PagedResult<ProductResponseDto>>(q);
     }
 

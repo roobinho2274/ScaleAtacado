@@ -121,9 +121,9 @@ public class ProductAppService
     }
 
     public async Task<ApiResponse<PagedResult<ProductResponseDto>>> GetAllAsync(
-        Guid companyId, int page, int pageSize, string? search, bool? isActive)
+        Guid companyId, int page, int pageSize, string? search, bool? isActive, Guid? categoryId = null)
     {
-        var (items, totalCount) = await _repository.GetAllAsync(companyId, page, pageSize, search, isActive);
+        var (items, totalCount) = await _repository.GetAllAsync(companyId, page, pageSize, search, isActive, categoryId);
         var dtos = items.Select(p => ToDto(p, p.Category?.Name ?? string.Empty));
         var result = new PagedResult<ProductResponseDto>(dtos, totalCount, page, pageSize);
         return ApiResponse<PagedResult<ProductResponseDto>>.Ok(result);

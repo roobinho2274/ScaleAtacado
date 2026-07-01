@@ -186,7 +186,7 @@ ProductAppService
   CreateAsync(dto, companyId, userId, userName)   — inclui audit "CriarProduto"
   UpdateAsync(id, dto, companyId, userId, userName) — audit "AlterarPreco" se preço mudou, senão "EditarProduto"
   GetByIdAsync(id, companyId)
-  GetAllAsync(companyId, page, pageSize, search?, isActive?)
+  GetAllAsync(companyId, page, pageSize, search?, isActive?, categoryId?)
   GetAllActiveAsync(companyId)
   DeactivateAsync(id, companyId, userId, userName) — audit "InativarProduto"
 
@@ -257,7 +257,7 @@ PATCH  /api/order/{id}/payment       { IsInstallment, Payments[{PaymentMethodId,
 PATCH  /api/order/{id}/discount      { DiscountAmount }
 PATCH  /api/order/{id}/delivery      { DeliveryStatus }
 PATCH  /api/order/{id}/financial     { FinancialStatus }                    (AdminOnly)
-GET    /api/product?page=&pageSize=&search=&isActive=
+GET    /api/product?page=&pageSize=&search=&isActive=&categoryId=
 GET    /api/product/{id}
 POST   /api/product                                   (qualquer usuário autenticado)
 PUT    /api/product/{id}                              (AdminOnly)
@@ -573,13 +573,16 @@ IMPLEMENTADO RECENTEMENTE
   ✅ #4 Filtro por data nos Pedidos — dois MudDatePicker (Data inicial / Data final)
         adicionados ao painel de filtros; botão "Limpar" zera todos os filtros;
         OrderService.GetAllAsync recebe from?/to? e passa para a API (já suportava)
+  ✅ #3 Filtro de categoria em Produtos (server-side) — categoryId? propagado por
+        IProductRepository → ProductRepository → ProductAppService → ProductController
+        → ProductService (Blazor); filtro client-side removido de Produtos.razor;
+        paginação agora reflete o total correto ao filtrar por categoria
 
 PENDÊNCIAS MAPEADAS
 -------------------
 FUNCIONAL:
   1. Auditoria de logoff: POST /api/auth/logout + chamada no Blazor
   2. Auditoria de Usuários (UserAppService não audita criação/edição/desativação)
-  3. Filtro de categoria em Produtos: client-side hoje (quebra paginação para categorias)
 
 UX/QUALIDADE:
   7. Paginação server-side em Usuários (lista cresce com o tempo)

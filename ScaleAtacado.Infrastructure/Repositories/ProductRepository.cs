@@ -24,7 +24,7 @@ public class ProductRepository : IProductRepository
             .FirstOrDefaultAsync(p => p.Code == code && p.CompanyId == companyId);
 
     public async Task<(IEnumerable<Product> Items, int TotalCount)> GetAllAsync(
-        Guid companyId, int page, int pageSize, string? search, bool? isActive)
+        Guid companyId, int page, int pageSize, string? search, bool? isActive, Guid? categoryId = null)
     {
         var query = _context.Products
             .Include(p => p.Category)
@@ -35,6 +35,9 @@ public class ProductRepository : IProductRepository
 
         if (isActive.HasValue)
             query = query.Where(p => p.IsActive == isActive.Value);
+
+        if (categoryId.HasValue)
+            query = query.Where(p => p.CategoryId == categoryId.Value);
 
         var totalCount = await query.CountAsync();
         var items = await query

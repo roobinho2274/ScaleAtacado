@@ -178,14 +178,9 @@
 
     private async Task<TableData<ProductResponseDto>> ServerData(TableState state, CancellationToken ct)
     {
-        var resp = await ProductService.GetAllAsync(state.Page + 1, state.PageSize, _searchTerm);
+        var resp = await ProductService.GetAllAsync(state.Page + 1, state.PageSize, _searchTerm, categoryId: _filterCategory);
         if (resp?.Success == true && resp.Data != null)
-        {
-            var items = resp.Data.Items.AsEnumerable();
-            if (_filterCategory.HasValue)
-                items = items.Where(p => p.CategoryId == _filterCategory.Value);
-            return new TableData<ProductResponseDto> { Items = items, TotalItems = resp.Data.TotalCount };
-        }
+            return new TableData<ProductResponseDto> { Items = resp.Data.Items, TotalItems = resp.Data.TotalCount };
         return new TableData<ProductResponseDto> { Items = [], TotalItems = 0 };
     }
 

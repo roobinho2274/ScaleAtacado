@@ -25,9 +25,10 @@ public class ProductController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null)
+        [FromQuery] bool? isActive = null,
+        [FromQuery] Guid? categoryId = null)
     {
-        var result = await _service.GetAllAsync(User.GetCompanyId(), page, pageSize, search, isActive);
+        var result = await _service.GetAllAsync(User.GetCompanyId(), page, pageSize, search, isActive, categoryId);
         return Ok(result);
     }
 

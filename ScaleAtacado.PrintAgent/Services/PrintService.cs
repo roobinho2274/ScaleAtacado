@@ -15,12 +15,30 @@ public class PrintService
     public IEnumerable<string> GetInstalledPrinters()
         => PrinterSettings.InstalledPrinters.Cast<string>();
 
-    public bool Print(string receiptText, string? printerName = null)
+    public bool Print(string receiptText, string? printerName = null, string? logoBase64 = null)
     {
+        // Decode logo once; disposal handled via try/finally
+        Image? logoImage = null;
+        if (!string.IsNullOrWhiteSpace(logoBase64))
+        {
+            try
+            {
+                var raw = logoBase64.Contains(',')
+                    ? logoBase64[(logoBase64.IndexOf(',') + 1)..]
+                    : logoBase64;
+                logoImage = Image.FromStream(new MemoryStream(Convert.FromBase64String(raw)));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Não foi possível decodificar o logo. Imprimindo sem logo.");
+            }
+        }
+
         try
         {
             var lines = receiptText.Split('\n');
             var lineIndex = 0;
+            var logoDrawn = false;
 
             var doc = new PrintDocument();
 
@@ -51,6 +69,24 @@ public class PrintService
                 var textWidth = right - left - 2 * pad;
                 var fmtCenter = new StringFormat { Alignment = StringAlignment.Center };
                 var fmtTypo = StringFormat.GenericTypographic;
+
+                // Logo: only on the first page
+                if (!logoDrawn && logoImage != null)
+                {
+                    logoDrawn = true;
+                    var maxLogoH = lineHeight * 5f;
+                    var scaleW = textWidth / (float)logoImage.Width;
+                    var scaleH = maxLogoH  / (float)logoImage.Height;
+                    var scale  = Math.Min(1f, Math.Min(scaleW, scaleH));
+                    var logoW  = logoImage.Width  * scale;
+                    var logoH  = logoImage.Height * scale;
+                    var logoX  = left + pad + (textWidth - logoW) / 2f;
+                    if (y + logoH <= bottom)
+                    {
+                        e.Graphics!.DrawImage(logoImage, logoX, y, logoW, logoH);
+                        y += logoH + lineHeight * 0.5f;
+                    }
+                }
 
                 while (lineIndex < lines.Length)
                 {
@@ -120,6 +156,10 @@ public class PrintService
         {
             _logger.LogError(ex, "Erro ao imprimir cupom.");
             return false;
+        }
+        finally
+        {
+            logoImage?.Dispose();
         }
     }
 

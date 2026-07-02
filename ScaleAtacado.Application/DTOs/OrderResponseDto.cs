@@ -20,7 +20,8 @@ public record OrderResponseDto(
     FinancialStatus FinancialStatus,
     bool IsLocked,
     List<OrderItemResponseDto> Items,
-    string? CompanyName    = null,
-    string? CompanyCNPJ   = null,
-    string? CompanyAddress = null
+    string? CompanyName       = null,
+    string? CompanyCNPJ      = null,
+    string? CompanyAddress   = null,
+    string? CompanyLogoBase64 = null
 );

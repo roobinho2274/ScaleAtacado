@@ -1,6 +1,6 @@
 ================================================================================
   SCALEatacado — RESUMO DO PROJETO PARA CONTINUIDADE EM NOVO CHAT
-  Atualizado em: 01/07/2026 (v2)
+  Atualizado em: 02/07/2026
 ================================================================================
 
 STACK
@@ -596,9 +596,14 @@ IMPLEMENTADO RECENTEMENTE
   ✅ #8 Busca/filtro na Auditoria — campo de busca por texto (operação/descrição/usuário) com
         Immediate="true"; select de entidade (Pedido/Cliente/Produto/FormaPagamento/Usuário);
         filtro client-side via MudTable.Filter; GetOperationColor atualizado com novas operações
+  ✅ #9 Logo no recibo impresso (GDI) — OrderResponseDto.CompanyLogoBase64? adicionado;
+        PrintJobController repassa company.LogoBase64; PrintService.Print aceita logoBase64?
+        e desenha via GDI DrawImage no topo da primeira página (centralizado, max 5×lineHeight,
+        escala proporcional sem ampliar); falha no decode não bloqueia a impressão
 
 PENDÊNCIAS MAPEADAS
 -------------------
+(nenhuma pendência funcional aberta)
 
 UX/QUALIDADE:
   7. Paginação server-side em Usuários (lista cresce com o tempo)

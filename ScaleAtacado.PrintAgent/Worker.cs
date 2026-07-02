@@ -159,7 +159,7 @@ public class Worker : BackgroundService
 
         var receipt = _formatter.Format(order);
         var printerName = _configuration["PrintAgent:PrinterName"];
-        var success = _printService.Print(receipt, printerName);
+        var success = _printService.Print(receipt, printerName, order.CompanyLogoBase64);
 
         _status.LastJobAt = DateTime.Now;
         _status.LastJobSuccess = success;

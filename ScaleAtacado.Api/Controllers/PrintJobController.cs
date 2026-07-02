@@ -99,9 +99,10 @@ public class PrintJobController : ControllerBase
             order.Items.Select(i => new OrderItemResponseDto(
                 i.Id, i.ProductId, i.ProductName, i.ProductCode,
                 i.Quantity, i.UnitPrice, i.TotalPrice)).ToList(),
-            CompanyName:    company?.Name,
-            CompanyCNPJ:    company?.CNPJ,
-            CompanyAddress: company?.Address
+            CompanyName:        company?.Name,
+            CompanyCNPJ:        company?.CNPJ,
+            CompanyAddress:     company?.Address,
+            CompanyLogoBase64:  company?.LogoBase64
         );
 
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));

@@ -28,7 +28,9 @@
       "Bash(grep -i \"ShowMessageBox\\\\|MessageBox\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/MudBlazor.xml\" | head -20)",
       "Read(//c/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/**)",
       "Bash(grep -i \"ShowAsync\\\\|ShowMessageBox\\\\|IDialogService\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/MudBlazor.xml\" | grep -i \"member name\" | head -20)",
-      "Bash(xargs cat)"
+      "Bash(xargs cat)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

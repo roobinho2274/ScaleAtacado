@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using ScaleAtacado.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace ScaleAtacado.Infrastructure.Migrations
 {
-    /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260622210000_AddCustomProductToOrderItem")]
     public partial class AddCustomProductToOrderItem : Migration
     {
         /// <inheritdoc />

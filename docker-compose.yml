@@ -48,7 +48,7 @@ services:
       dockerfile: ScaleAtacado.Blazor/Dockerfile
     container_name: scale_atacado_web
     ports:
-      - "8081:80"
+      - "80:80"
     depends_on:
       - api
     restart: unless-stopped

@@ -30,7 +30,8 @@
       "Bash(grep -i \"ShowAsync\\\\|ShowMessageBox\\\\|IDialogService\" \"c:/Users/robso/.nuget/packages/mudblazor/9.4.0/lib/net8.0/MudBlazor.xml\" | grep -i \"member name\" | head -20)",
       "Bash(xargs cat)",
       "Skill(artifact-design)",
-      "Skill(artifact-design:*)"
+      "Skill(artifact-design:*)",
+      "Read(//c/Users/robso/Documents/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

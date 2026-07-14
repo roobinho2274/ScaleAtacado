@@ -377,5 +377,3 @@ appsettings.Development.json
 #pasta com o modelo de impressão, que é gerada automaticamente e não deve ser versionada
 PrintModel/
 
-# Migrations do EF Core — gerenciadas manualmente via SQL, não versionadas
-**/Migrations/

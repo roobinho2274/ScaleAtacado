@@ -31,7 +31,8 @@
       "Bash(xargs cat)",
       "Skill(artifact-design)",
       "Skill(artifact-design:*)",
-      "Read(//c/Users/robso/Documents/**)"
+      "Read(//c/Users/robso/Documents/**)",
+      "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet build --no-restore 2>&1 | Where-Object { $_ -match \"erro|error\" -and $_ -notmatch \"warning\" } | Select-Object -Last 20)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

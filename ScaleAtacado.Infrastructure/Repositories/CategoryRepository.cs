@@ -40,6 +40,12 @@ public class CategoryRepository : ICategoryRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(Category category)
+    {
+        _context.Categories.Remove(category);
+        return Task.CompletedTask;
+    }
+
     public async Task<bool> SaveChangesAsync()
         => await _context.SaveChangesAsync() > 0;
 }

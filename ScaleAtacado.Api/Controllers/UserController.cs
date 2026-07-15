@@ -93,4 +93,13 @@ public class UserController : ControllerBase
         var result = await _service.ReactivateAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : NotFound(result);
     }
+
+    [HttpDelete("{id:guid}/permanent")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DeletePermanent(Guid id)
+    {
+        var result = await _service.DeletePermanentAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }

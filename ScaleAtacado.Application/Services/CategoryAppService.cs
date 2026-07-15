@@ -75,9 +75,9 @@ public class CategoryAppService
             return ApiResponse.Fail("Categoria não encontrada.");
 
         if (await _repository.HasProductsAsync(id))
-            return ApiResponse.Fail("Não é possível excluir uma categoria que possui produtos vinculados.");
+            return ApiResponse.Fail("Não é possível excluir uma categoria que possui produtos vinculados. Remova ou mova os produtos antes de excluir.");
 
-        await _repository.UpdateAsync(category);
+        await _repository.RemoveAsync(category);
         await _repository.SaveChangesAsync();
 
         return ApiResponse.Ok();

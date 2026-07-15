@@ -93,7 +93,7 @@
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
                     title="Desativar usuário"
-                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
+                    Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
             }
             else
             {
@@ -101,6 +101,9 @@
                     title="Reativar usuário"
                     Color="Color.Success" OnClick="@(() => ReactivateAsync(context))" />
             }
+            <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                title="Excluir permanentemente"
+                Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhum usuário encontrado.</NoRecordsContent>
@@ -433,6 +436,23 @@
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private async Task DeletePermanentAsync(UserResponseDto u)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir usuário permanentemente",
+            $"Você está prestes a excluir \"{u.FullName}\" ({u.Email}) de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita e removerá o acesso imediatamente. Prefira 'Desativar' se quiser apenas bloquear o acesso.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await UserService.DeletePermanentAsync(u.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add($"Usuário \"{u.FullName}\" excluído permanentemente.", Severity.Info);
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir usuário.", Severity.Error);
     }
 
     private class NewVm

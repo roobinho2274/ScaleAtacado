@@ -53,12 +53,21 @@
         </MudTd>
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                title="Editar cliente"
                 OnClick="@(() => OpenEdit(context))" />
-            @if (context.IsActive)
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
-                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
-            }
+            <AuthorizeView Roles="Admin" Context="authActions">
+                <Authorized>
+                    @if (context.IsActive)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
+                            title="Inativar cliente"
+                            Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
+                    }
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                        title="Excluir permanentemente"
+                        Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
+                </Authorized>
+            </AuthorizeView>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhum cliente encontrado.</NoRecordsContent>
@@ -203,6 +212,23 @@
             await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private async Task DeletePermanentAsync(CustomerResponseDto c)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir cliente permanentemente",
+            $"Você está prestes a excluir \"{c.LegalName}\" de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita. Se este cliente possuir pedidos vinculados, a exclusão será bloqueada — neste caso, use a opção 'Inativar'.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await CustomerService.DeletePermanentAsync(c.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Cliente excluído permanentemente.", Severity.Info);
+            await LoadAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir cliente.", Severity.Error);
     }
 
     private class FormVm

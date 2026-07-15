@@ -144,9 +144,9 @@
     private async Task DeleteAsync(CategoryResponseDto c)
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Excluir categoria",
-            $"Deseja realmente excluir \"{c.Name}\"? Esta ação não pode ser desfeita.",
-            yesText: "Excluir", cancelText: "Cancelar");
+            "⚠️ Excluir categoria permanentemente",
+            $"Você está prestes a excluir \"{c.Name}\" de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita. A exclusão será bloqueada se houver produtos vinculados a esta categoria.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
         if (confirmed != true) return;
 
         var resp = await CategoryService.DeleteAsync(c.Id);

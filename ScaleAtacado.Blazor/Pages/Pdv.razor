@@ -244,17 +244,13 @@
                 </div>
             }
 
-            <AuthorizeView Roles="Admin">
-                <Authorized>
-                    <div class="d-flex align-center justify-space-between mb-2">
-                        <MudText Typo="Typo.body2">Desconto:</MudText>
-                        <MudNumericField @bind-Value="_discount" Min="0m" Format="N2"
-                            Variant="Variant.Outlined" Margin="Margin.Dense"
-                            Style="width:120px" Placeholder="0,00"
-                            Disabled="_finalizing" />
-                    </div>
-                </Authorized>
-            </AuthorizeView>
+            <div class="d-flex align-center justify-space-between mb-2">
+                <MudText Typo="Typo.body2">Desconto:</MudText>
+                <MudNumericField @bind-Value="_discount" Min="0m" Format="N2"
+                    Variant="Variant.Outlined" Margin="Margin.Dense"
+                    Style="width:120px" Placeholder="0,00"
+                    Disabled="_finalizing" />
+            </div>
 
             <MudDivider Class="my-2" />
             <div class="d-flex justify-space-between mb-4">

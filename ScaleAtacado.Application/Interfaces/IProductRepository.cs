@@ -10,5 +10,7 @@ public interface IProductRepository
     Task<IEnumerable<Product>> GetAllActiveAsync(Guid companyId);
     Task AddAsync(Product product);
     Task UpdateAsync(Product product);
+    Task RemoveAsync(Product product);
+    Task<bool> HasOrderItemsAsync(Guid productId);
     Task<bool> SaveChangeAsync();
 }

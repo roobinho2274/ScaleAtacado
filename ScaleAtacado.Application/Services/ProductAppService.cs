@@ -158,6 +158,30 @@ public class ProductAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> DeletePermanentAsync(Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var product = await _repository.GetProductByIdAsync(id, companyId);
+        if (product == null)
+            return ApiResponse.Fail("Produto não encontrado.");
+
+        if (await _repository.HasOrderItemsAsync(id))
+            return ApiResponse.Fail("Não é possível excluir este produto pois ele está vinculado a pedidos existentes. Inative-o para ocultá-lo.");
+
+        await _repository.RemoveAsync(product);
+        await _repository.SaveChangeAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "ExcluirProduto",
+            entityName: "Produto",
+            entityId: id.ToString(),
+            userName: userName,
+            description: $"Produto '{product.Name}' excluído permanentemente"
+        );
+
+        return ApiResponse.Ok();
+    }
+
     private static decimal CalculateSalePrice(decimal costPrice, decimal profitMargin)
         => costPrice * (1 + profitMargin / 100);
 

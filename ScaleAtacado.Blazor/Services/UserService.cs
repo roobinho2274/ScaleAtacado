@@ -33,4 +33,7 @@ public class UserService
 
     public Task<ApiResponse?> ReactivateAsync(Guid id)
         => _api.PatchAsync($"api/user/{id}/activate", new { });
+
+    public Task<ApiResponse?> DeletePermanentAsync(Guid id)
+        => _api.DeleteAsync($"api/user/{id}/permanent");
 }

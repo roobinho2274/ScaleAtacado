@@ -86,12 +86,17 @@
             <Authorized>
                 <MudTd Style="text-align:center">
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                        title="Editar produto"
                         OnClick="@(() => OpenEdit(context))" />
                     @if (context.IsActive)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.ToggleOff" Size="Size.Small"
-                            Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
+                            title="Inativar produto"
+                            Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
                     }
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                        title="Excluir permanentemente"
+                        Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
                 </MudTd>
             </Authorized>
         </AuthorizeView>
@@ -290,6 +295,23 @@
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private async Task DeletePermanentAsync(ProductResponseDto p)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir produto permanentemente",
+            $"Você está prestes a excluir \"{p.Name}\" de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita. Se este produto estiver vinculado a pedidos anteriores, a exclusão será bloqueada — neste caso, use a opção 'Inativar'.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await ProductService.DeletePermanentAsync(p.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Produto excluído permanentemente.", Severity.Info);
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir produto.", Severity.Error);
     }
 
     private class FormVm

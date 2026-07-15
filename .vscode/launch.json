@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API (ScaleAtacado.Api)",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/ScaleAtacado.Api/ScaleAtacado.Api.csproj",
+      "launchProfile": "https",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": "Blazor (ScaleAtacado.Blazor)",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/ScaleAtacado.Blazor/ScaleAtacado.Blazor.csproj",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + Blazor",
+      "configurations": ["API (ScaleAtacado.Api)", "Blazor (ScaleAtacado.Blazor)"],
+      "stopAll": true
+    }
+  ]
+}

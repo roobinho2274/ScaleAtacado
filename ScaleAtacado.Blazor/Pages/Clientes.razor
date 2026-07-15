@@ -70,7 +70,8 @@
     <DialogContent>
         <MudTextField @bind-Value="_form.LegalName" Label="Nome / Razão Social"
             Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_nameError != null)" ErrorText="@_nameError" />
         <MudTextField @bind-Value="_form.TaxId" Label="CPF / CNPJ"
             Placeholder="000.000.000-00 ou 00.000.000/0000-00"
             HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
@@ -103,6 +104,7 @@
     private bool _saving;
     private CustomerResponseDto? _editing;
     private FormVm _form = new();
+    private string? _nameError;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -142,9 +144,15 @@
 
     private async Task SaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(_form.LegalName)) return;
+        _nameError = null;
+        if (string.IsNullOrWhiteSpace(_form.LegalName) || _form.LegalName.Trim().Length < 2)
+        {
+            _nameError = "Nome deve ter pelo menos 2 caracteres.";
+            return;
+        }
         _saving = true;
-
+        try
+        {
         if (_editing == null)
         {
             var dto = new CreateCustomerDto(_form.LegalName, _form.TaxId, _form.Address, _form.Phone, _form.Notes);
@@ -169,8 +177,15 @@
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
         }
-
-        _saving = false;
+        }
+        catch
+        {
+            Snackbar.Add("Erro ao conectar ao servidor.", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task DeactivateAsync(CustomerResponseDto c)

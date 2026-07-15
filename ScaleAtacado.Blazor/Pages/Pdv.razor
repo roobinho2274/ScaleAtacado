@@ -46,6 +46,18 @@
         <MudPaper Class="pa-4 mb-4" Elevation="2">
             <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Adicionar Produto</b></MudText>
             <MudGrid>
+                <MudItem xs="12">
+                    <MudSelect T="Guid?" Label="Categoria" Value="_selectedCategoryFilter"
+                        ValueChanged="@((Guid? v) => { _selectedCategoryFilter = v; _selectedProduct = null; })"
+                        Variant="Variant.Outlined" Dense="true" FullWidth="true"
+                        Clearable="true" Disabled="_finalizing"
+                        Placeholder="Todas as categorias">
+                        @foreach (var cat in _categories)
+                        {
+                            <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
                 <MudItem xs="9" sm="5">
                     <MudAutocomplete T="ProductResponseDto"
                         Label="Buscar produto"
@@ -232,13 +244,17 @@
                 </div>
             }
 
-            <div class="d-flex align-center justify-space-between mb-2">
-                <MudText Typo="Typo.body2">Desconto:</MudText>
-                <MudNumericField @bind-Value="_discount" Min="0m" Format="N2"
-                    Variant="Variant.Outlined" Margin="Margin.Dense"
-                    Style="width:120px" Placeholder="0,00"
-                    Disabled="_finalizing" />
-            </div>
+            <AuthorizeView Roles="Admin">
+                <Authorized>
+                    <div class="d-flex align-center justify-space-between mb-2">
+                        <MudText Typo="Typo.body2">Desconto:</MudText>
+                        <MudNumericField @bind-Value="_discount" Min="0m" Format="N2"
+                            Variant="Variant.Outlined" Margin="Margin.Dense"
+                            Style="width:120px" Placeholder="0,00"
+                            Disabled="_finalizing" />
+                    </div>
+                </Authorized>
+            </AuthorizeView>
 
             <MudDivider Class="my-2" />
             <div class="d-flex justify-space-between mb-4">
@@ -390,6 +406,7 @@
     private bool _productDialogOpen;
     private bool _savingProduct;
     private List<CategoryResponseDto> _categories = new();
+    private Guid? _selectedCategoryFilter;
     private string _newProductName = "";
     private Guid? _newProductCategoryId;
     private decimal _newProductCost;
@@ -453,11 +470,16 @@
 
     private Task<IEnumerable<ProductResponseDto>> SearchProductsAsync(string term, CancellationToken ct)
     {
+        var source = _selectedCategoryFilter.HasValue
+            ? _products.Where(p => p.CategoryId == _selectedCategoryFilter.Value)
+            : _products;
+
         var result = string.IsNullOrWhiteSpace(term)
-            ? _products
-            : _products.Where(p =>
+            ? source
+            : source.Where(p =>
                 p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true));
+
         return Task.FromResult<IEnumerable<ProductResponseDto>>(result);
     }
 

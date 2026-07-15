@@ -6,6 +6,7 @@
 @inject CustomerService CustomerService
 @inject PaymentMethodService PaymentMethodService
 @inject CompanyService CompanyService
+@inject ProductService ProductService
 
 <PageTitle>Pedidos — ScaleAtacado</PageTitle>
 
@@ -178,22 +179,81 @@
                 </MudText>
             }
 
-            <!-- Desconto -->
-            <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
-                <MudGrid>
-                    <MudItem xs="12" sm="6">
-                        <MudNumericField @bind-Value="_editDiscount" Label="Desconto (R$)"
-                            Variant="Variant.Outlined" Min="0m" Format="N2"
-                            HelperText="Desconto em reais aplicado ao total do pedido" />
-                    </MudItem>
-                    <MudItem xs="12" sm="6" Class="d-flex align-end">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
-                            OnClick="SaveDiscountAsync" Disabled="_saving">
-                            Aplicar Desconto
+            <!-- Editar Itens + Desconto — apenas Admin -->
+            <AuthorizeView Roles="Admin">
+                <Authorized>
+                    <!-- Editar Itens -->
+                    <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2" Style="display:block;font-weight:600;letter-spacing:0.06em;text-transform:uppercase">
+                            Editar Itens
+                        </MudText>
+
+                        @foreach (var item in _editItems)
+                        {
+                            <div class="d-flex align-center gap-2 mb-2">
+                                <MudText Typo="Typo.body2" Style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                    @item.ProductName
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space:nowrap">
+                                    R$ @item.UnitPrice.ToString("N2")
+                                </MudText>
+                                <MudNumericField T="int" Value="item.Quantity" Min="1" Max="9999"
+                                    ValueChanged="@(v => { item.Quantity = v; StateHasChanged(); })"
+                                    Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:80px" />
+                                <MudText Typo="Typo.body2" Style="min-width:80px;text-align:right;white-space:nowrap">
+                                    R$ @((item.UnitPrice * item.Quantity).ToString("N2"))
+                                </MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                    Size="Size.Small"
+                                    OnClick="@(() => { _editItems.Remove(item); StateHasChanged(); })" />
+                            </div>
+                        }
+
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12" sm="7">
+                                <MudAutocomplete T="ProductResponseDto"
+                                    Label="Adicionar produto"
+                                    @bind-Value="_addProduct"
+                                    SearchFunc="SearchProductsForEditAsync"
+                                    ToStringFunc="@(p => p != null ? $"{p.Name} — R$ {p.BaseSalePrice:N2}" : string.Empty)"
+                                    Variant="Variant.Outlined" Dense="true" FullWidth="true" Clearable="true" />
+                            </MudItem>
+                            <MudItem xs="6" sm="2">
+                                <MudNumericField @bind-Value="_addQty" Label="Qtd"
+                                    Variant="Variant.Outlined" Min="1" Max="9999" />
+                            </MudItem>
+                            <MudItem xs="6" sm="3" Class="d-flex align-end">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
+                                    OnClick="AddEditItem" Disabled="@(_addProduct == null)" Style="height:56px">
+                                    + Adicionar
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-3"
+                            OnClick="SaveItemsAsync" Disabled="@(_saving || _editItems.Count == 0)">
+                            Salvar Itens
                         </MudButton>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+                    </MudPaper>
+
+                    <!-- Desconto -->
+                    <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField @bind-Value="_editDiscount" Label="Desconto (R$)"
+                                    Variant="Variant.Outlined" Min="0m" Format="N2"
+                                    HelperText="Desconto em reais aplicado ao total do pedido" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6" Class="d-flex align-end">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
+                                    OnClick="SaveDiscountAsync" Disabled="_saving">
+                                    Aplicar Desconto
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </Authorized>
+            </AuthorizeView>
 
             <MudGrid>
                 <MudItem xs="12" sm="6">
@@ -401,6 +461,10 @@
     private bool _printPreviewOpen;
     private string _printPreviewHtml = "";
     private CompanyResponseDto? _company;
+    private List<ProductResponseDto> _products = new();
+    private List<EditItemVm> _editItems = new();
+    private ProductResponseDto? _addProduct;
+    private int _addQty = 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -409,6 +473,9 @@
 
         var compResp = await CompanyService.GetAsync();
         _company = compResp?.Data;
+
+        var prodResp = await ProductService.GetAllActiveAsync();
+        _products = prodResp?.Data?.ToList() ?? new();
     }
 
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
@@ -450,6 +517,15 @@
             else
                 _editPaymentMethodIds = _orderDetail.PaymentMethods.Select(p => p.PaymentMethodId).ToList();
             _editPmAmounts = _orderDetail.PaymentMethods.ToDictionary(p => p.PaymentMethodId, p => p.Amount);
+            _editItems = _orderDetail.Items.Select(i => new EditItemVm
+            {
+                ProductId   = i.ProductId ?? Guid.Empty,
+                ProductName = i.ProductName,
+                UnitPrice   = i.UnitPrice,
+                Quantity    = i.Quantity
+            }).ToList();
+            _addProduct = null;
+            _addQty = 1;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -526,11 +602,81 @@
             Snackbar.Add("Desconto aplicado!", Severity.Success);
             var updated = await OrderService.GetByIdAsync(_orderDetail.Id);
             if (updated?.Success == true)
+            {
                 _orderDetail = updated.Data;
+                _editDiscount = _orderDetail!.DiscountAmount;
+                StateHasChanged();
+            }
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao aplicar desconto.", Severity.Error);
         _saving = false;
+    }
+
+    private Task<IEnumerable<ProductResponseDto>> SearchProductsForEditAsync(string term, CancellationToken ct)
+    {
+        var result = string.IsNullOrWhiteSpace(term)
+            ? _products
+            : _products.Where(p =>
+                p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+        return Task.FromResult<IEnumerable<ProductResponseDto>>(result);
+    }
+
+    private void AddEditItem()
+    {
+        if (_addProduct == null) return;
+        var existing = _editItems.FirstOrDefault(i => i.ProductId == _addProduct.Id);
+        if (existing != null)
+            existing.Quantity += _addQty;
+        else
+            _editItems.Add(new EditItemVm
+            {
+                ProductId   = _addProduct.Id,
+                ProductName = _addProduct.Name,
+                UnitPrice   = _addProduct.BaseSalePrice,
+                Quantity    = _addQty
+            });
+        _addProduct = null;
+        _addQty = 1;
+    }
+
+    private async Task SaveItemsAsync()
+    {
+        if (_orderDetail == null || _editItems.Count == 0) return;
+        _saving = true;
+        var dto = new UpdateOrderItemsDto(
+            _editItems.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList());
+        var resp = await OrderService.UpdateItemsAsync(_orderDetail.Id, dto);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Itens atualizados!", Severity.Success);
+            var updated = await OrderService.GetByIdAsync(_orderDetail.Id);
+            if (updated?.Success == true)
+            {
+                _orderDetail = updated.Data;
+                _editDiscount = _orderDetail!.DiscountAmount;
+                _editItems = _orderDetail.Items.Select(i => new EditItemVm
+                {
+                    ProductId   = i.ProductId ?? Guid.Empty,
+                    ProductName = i.ProductName,
+                    UnitPrice   = i.UnitPrice,
+                    Quantity    = i.Quantity
+                }).ToList();
+                StateHasChanged();
+            }
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao atualizar itens.", Severity.Error);
+        _saving = false;
+    }
+
+    private class EditItemVm
+    {
+        public Guid ProductId   { get; set; }
+        public string ProductName { get; set; } = "";
+        public decimal UnitPrice  { get; set; }
+        public int Quantity       { get; set; }
     }
 
     private async Task SaveDeliveryAsync()

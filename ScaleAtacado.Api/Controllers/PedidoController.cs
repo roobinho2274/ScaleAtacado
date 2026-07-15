@@ -121,6 +121,16 @@ public class OrderController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPatch("{id:guid}/items")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateItems(Guid id, [FromBody] UpdateOrderItemsDto dto)
+    {
+        var result = await _service.UpdateItemsAsync(id, dto, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPatch("{id:guid}/financial")]
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]

@@ -356,7 +356,9 @@ public class OrderAppService
 
         order.IsInstallment = dto.IsInstallment;
         order.SurchargePercentage = newMethods.Count == 1 ? newMethods[0].SurchargePercentage : 0m;
-        order.PaymentMethods = newMethods.Select(pm => new OrderPaymentMethod
+        order.AmountWithSurchargeTotal = newTotal;
+
+        var newPaymentMethods = newMethods.Select(pm => new OrderPaymentMethod
         {
             Id = Guid.NewGuid(),
             OrderId = order.Id,
@@ -364,9 +366,7 @@ public class OrderAppService
             Amount = amountsMapUpd.GetValueOrDefault(pm.Id, newTotal)
         }).ToList();
 
-        order.AmountWithSurchargeTotal = newTotal;
-
-        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.ReplacePaymentMethodsAsync(order, newPaymentMethods);
         await _orderRepository.SaveChangesAsync();
 
         await _auditLog.RecordAsync(
@@ -408,6 +408,61 @@ public class OrderAppService
             previousValue: $"R$ {previousDiscount:N2}",
             newValue: $"R$ {discount:N2}",
             description: $"Pedido #{order.OrderNumber}: desconto R$ {previousDiscount:N2} → R$ {discount:N2}"
+        );
+
+        return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse> UpdateItemsAsync(
+        Guid id, UpdateOrderItemsDto dto, Guid companyId, Guid userId, string userName)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        if (dto.Items == null || dto.Items.Count == 0)
+            return ApiResponse.Fail("O pedido deve ter ao menos um item.");
+
+        var newItems = new List<OrderItem>();
+        foreach (var itemDto in dto.Items)
+        {
+            var product = await _productRepository.GetProductByIdAsync(itemDto.ProductId, companyId);
+            if (product == null || !product.IsActive)
+                return ApiResponse.Fail($"Produto '{itemDto.ProductId}' não encontrado ou inativo.");
+
+            newItems.Add(new OrderItem
+            {
+                Id          = Guid.NewGuid(),
+                OrderId     = order.Id,
+                ProductId   = product.Id,
+                ProductName = product.Name,
+                ProductCode = product.Code,
+                Quantity    = itemDto.Quantity,
+                UnitPrice   = product.BaseSalePrice,
+                TotalPrice  = product.BaseSalePrice * itemDto.Quantity
+            });
+        }
+
+        var subtotal  = newItems.Sum(i => i.TotalPrice);
+        var surcharge = subtotal * (order.SurchargePercentage / 100m);
+        var newTotal  = subtotal + surcharge - order.DiscountAmount;
+
+        order.AmountTotal = subtotal;
+        order.AmountWithSurchargeTotal = newTotal;
+
+        if (order.PaymentMethods.Count == 1)
+            order.PaymentMethods.First().Amount = newTotal;
+
+        await _orderRepository.ReplaceItemsAsync(order, newItems);
+        await _orderRepository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "AlterarItens",
+            entityName: "Pedido",
+            entityId: order.Id.ToString(),
+            userName: userName,
+            description: $"Pedido #{order.OrderNumber}: itens alterados, novo total R$ {newTotal:N2}"
         );
 
         return ApiResponse.Ok();

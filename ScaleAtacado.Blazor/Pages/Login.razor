@@ -29,9 +29,13 @@
     Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
     OnKeyUp="OnKeyUp" />
 
-<MudTextField @bind-Value="_password" Label="Senha" InputType="InputType.Password"
+<MudTextField @bind-Value="_password" Label="Senha"
+    InputType="@(_showPassword ? InputType.Text : InputType.Password)"
     Variant="Variant.Outlined" FullWidth="true" Class="mb-4"
-    OnKeyUp="OnKeyUp" />
+    OnKeyUp="OnKeyUp"
+    Adornment="Adornment.End"
+    AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+    OnAdornmentClick="@(() => _showPassword = !_showPassword)" />
 
 @if (!string.IsNullOrEmpty(_error))
 {
@@ -52,6 +56,7 @@
     private string _password = "";
     private string _error = "";
     private bool _loading;
+    private bool _showPassword;
 
     private async Task OnKeyUp(KeyboardEventArgs e)
     {

@@ -8,6 +8,7 @@ public class Product
     public string? Code { get; set; }
     public decimal CostPrice { get; set; }
     public decimal ProfitMargin { get; set; }
+    public int PackageQuantity { get; set; } = 1;
     public decimal BaseSalePrice { get; set; }
     public bool IsActive { get; set; } = true;
 

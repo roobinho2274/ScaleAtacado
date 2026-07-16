@@ -7,5 +7,6 @@ public record CreateProductDto
     string Name,
     decimal CostPrice,
     decimal ProfitMargin,
-    Guid CategoryId
+    Guid CategoryId,
+    int PackageQuantity = 1
 );

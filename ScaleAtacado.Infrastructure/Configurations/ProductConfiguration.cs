@@ -12,6 +12,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Name).IsRequired().HasMaxLength(100);
         builder.Property(p => p.Code).HasMaxLength(50);
+        builder.Property(p => p.PackageQuantity).IsRequired().HasDefaultValue(1);
         builder.Property(p => p.CostPrice).HasPrecision(18, 2);
         builder.Property(p => p.ProfitMargin).HasPrecision(5, 2);
         builder.Property(p => p.BaseSalePrice).HasPrecision(18, 2);

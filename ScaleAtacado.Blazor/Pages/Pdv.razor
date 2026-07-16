@@ -333,9 +333,12 @@
 
         @if (_isAdmin)
         {
+            <MudNumericField @bind-Value="_newProductPackageQty" Label="Qtd no Pacote"
+                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="9999"
+                HelperText="Número de itens no pacote (ex: 12 para um fardo de 12)" />
             <MudGrid>
                 <MudItem xs="6">
-                    <MudNumericField @bind-Value="_newProductCost" Label="Custo (R$)"
+                    <MudNumericField @bind-Value="_newProductCost" Label="Custo por Item (R$)"
                         Variant="Variant.Outlined" Min="0m" Format="N2"
                         Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
                 </MudItem>
@@ -346,9 +349,14 @@
             </MudGrid>
             @if (_newProductCost > 0)
             {
-                var precoVenda = _newProductCost * (1 + _newProductMargin / 100m);
+                var precoItem = _newProductCost * (1 + _newProductMargin / 100m);
+                var precoPacote = _newProductPackageQty * precoItem;
                 <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
-                    Preço de venda calculado: <b>R$ @precoVenda.ToString("N2")</b>
+                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                    @if (_newProductPackageQty > 1)
+                    {
+                        <text> (@_newProductPackageQty × R$ @precoItem.ToString("N2")/item)</text>
+                    }
                 </MudText>
             }
         }
@@ -405,6 +413,7 @@
     private Guid? _selectedCategoryFilter;
     private string _newProductName = "";
     private Guid? _newProductCategoryId;
+    private int _newProductPackageQty = 1;
     private decimal _newProductCost;
     private decimal _newProductMargin;
     private decimal _newProductSalePrice;
@@ -689,6 +698,7 @@
     {
         _newProductName = "";
         _newProductCategoryId = null;
+        _newProductPackageQty = 1;
         _newProductCost = 0;
         _newProductMargin = 0;
         _newProductSalePrice = 0;
@@ -718,9 +728,9 @@
 
         _savingProduct = true;
 
-        var (cost, margin) = _isAdmin
-            ? (_newProductCost, _newProductMargin)
-            : (_newProductSalePrice, 0m);
+        var (cost, margin, pkgQty) = _isAdmin
+            ? (_newProductCost, _newProductMargin, _newProductPackageQty)
+            : (_newProductSalePrice, 0m, 1);
 
         var dto = new CreateProductDto(
             Guid.Empty,
@@ -728,7 +738,8 @@
             _newProductName.Trim(),
             cost,
             margin,
-            _newProductCategoryId!.Value
+            _newProductCategoryId!.Value,
+            pkgQty
         );
 
         var resp = await ProductService.CreateAsync(dto);

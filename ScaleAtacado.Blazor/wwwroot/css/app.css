@@ -175,12 +175,33 @@ code {
     min-height: 297mm;
     padding: 7mm 9mm;
     box-shadow: 0 2px 14px rgba(0,0,0,0.18);
-    font-family: 'DM Sans', Arial, sans-serif;
+    font-family: 'Arial Narrow', 'Arial', sans-serif;
+    font-stretch: condensed;
     font-size: 7.5pt;
     color: #212121;
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+}
+
+/* Corpo em 2 colunas */
+.rpt-columns {
+    display: flex;
+    gap: 0;
+    align-items: flex-start;
+}
+
+.rpt-column {
+    flex: 1;
+    min-width: 0;
+}
+
+.rpt-col-divider {
+    width: 1px;
+    background: #CFD8DC;
+    margin: 0 5mm;
+    align-self: stretch;
+    flex-shrink: 0;
 }
 
 /* Cabeçalho */
@@ -285,9 +306,9 @@ code {
 .rpt-table .tr { text-align: right; }
 .rpt-table .fw { font-weight: 700; }
 
-.col-cod   { width: 56px; }
-.col-emb   { width: 46px; }
-.col-valor { width: 80px; }
+.col-cod   { width: 44px; }
+.col-emb   { width: 38px; }
+.col-valor { width: 62px; }
 
 /* Rodapé */
 .rpt-footer {

@@ -362,12 +362,23 @@
         }
         else
         {
-            <MudNumericField @bind-Value="_newProductSalePrice" Label="Preço de Venda (R$)"
+            <MudNumericField @bind-Value="_newProductPackageQty" Label="Qtd no Pacote"
+                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="9999"
+                HelperText="Número de itens que compõem este pacote (ex: 12 para um fardo de 12)" />
+            <MudNumericField @bind-Value="_newProductSalePrice" Label="Preço por Item (R$)"
                 Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
                 Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
-            <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1" Style="display:block">
-                Custo e margem serão definidos pelo administrador.
-            </MudText>
+            @if (_newProductSalePrice > 0)
+            {
+                var precoPacote = _newProductPackageQty * _newProductSalePrice;
+                <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
+                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                    @if (_newProductPackageQty > 1)
+                    {
+                        <text> (@_newProductPackageQty × R$ @_newProductSalePrice.ToString("N2")/item)</text>
+                    }
+                </MudText>
+            }
         }
     </DialogContent>
     <DialogActions>
@@ -721,7 +732,7 @@
         if (_isAdmin && _newProductCost <= 0)
             _errProductPrice = "Custo deve ser maior que zero.";
         else if (!_isAdmin && _newProductSalePrice <= 0)
-            _errProductPrice = "Preço de venda deve ser maior que zero.";
+            _errProductPrice = "Preço por item deve ser maior que zero.";
 
         if (_errProductName != null || _errProductCategory != null || _errProductPrice != null)
             return;
@@ -730,7 +741,7 @@
 
         var (cost, margin, pkgQty) = _isAdmin
             ? (_newProductCost, _newProductMargin, _newProductPackageQty)
-            : (_newProductSalePrice, 0m, 1);
+            : (_newProductSalePrice, 0m, _newProductPackageQty);
 
         var dto = new CreateProductDto(
             Guid.Empty,

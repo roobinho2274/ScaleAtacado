@@ -206,6 +206,34 @@ public class UserAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> DeletePermanentAsync(Guid id, Guid companyId, Guid adminId, string adminName)
+    {
+        if (id == adminId)
+            return ApiResponse.Fail("Não é possível excluir sua própria conta. Use 'Desativar' se necessário.");
+
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user == null || user.CompanyId != companyId)
+            return ApiResponse.Fail("Usuário não encontrado.");
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            return ApiResponse.Fail(errors);
+        }
+
+        await _auditLog.RecordAsync(
+            companyId, adminId,
+            operation: "ExcluirUsuario",
+            entityName: "Usuario",
+            entityId: id.ToString(),
+            userName: adminName,
+            description: $"Usuário '{user.FullName}' ({user.Email}) excluído permanentemente"
+        );
+
+        return ApiResponse.Ok();
+    }
+
     private static UserResponseDto ToDto(ApplicationUser u) => new(
         u.Id, u.CompanyId, u.FullName, u.Email!, u.Profile, u.IsActive, u.CreatedAt, u.UserCode
     );

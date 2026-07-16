@@ -10,5 +10,6 @@ public interface ICategoryRepository
     Task<bool> HasProductsAsync(Guid categoryId);
     Task AddAsync(Category category);
     Task UpdateAsync(Category category);
+    Task RemoveAsync(Category category);
     Task<bool> SaveChangesAsync();
 }

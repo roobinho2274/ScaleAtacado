@@ -43,6 +43,9 @@ public class OrderService
     public Task<ApiResponse?> UpdateDiscountAsync(Guid id, decimal discountAmount)
         => _api.PatchAsync($"api/order/{id}/discount", new UpdateDiscountDto(discountAmount));
 
+    public Task<ApiResponse?> UpdateItemsAsync(Guid id, UpdateOrderItemsDto dto)
+        => _api.PatchAsync($"api/order/{id}/items", dto);
+
     public Task<ApiResponse?> UpdateDeliveryStatusAsync(Guid id, DeliveryStatus status)
         => _api.PatchAsync($"api/order/{id}/delivery", new UpdateDeliveryStatusDto(status));
 

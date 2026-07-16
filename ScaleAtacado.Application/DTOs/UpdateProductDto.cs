@@ -6,5 +6,6 @@ public record UpdateProductDto(
     decimal CostPrice,
     decimal ProfitMargin,
     Guid CategoryId,
-    bool IsActive
+    bool IsActive,
+    int PackageQuantity = 1
 );

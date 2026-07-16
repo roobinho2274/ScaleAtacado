@@ -64,6 +64,15 @@ public class ProductRepository : IProductRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(Product product)
+    {
+        _context.Products.Remove(product);
+        return Task.CompletedTask;
+    }
+
+    public async Task<bool> HasOrderItemsAsync(Guid productId)
+        => await _context.OrderItems.AnyAsync(oi => oi.ProductId == productId);
+
     public async Task<bool> SaveChangeAsync()
         => await _context.SaveChangesAsync() > 0;
 }

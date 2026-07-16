@@ -53,12 +53,21 @@
         </MudTd>
         <MudTd Style="text-align:center">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                title="Editar cliente"
                 OnClick="@(() => OpenEdit(context))" />
-            @if (context.IsActive)
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
-                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
-            }
+            <AuthorizeView Roles="Admin" Context="authActions">
+                <Authorized>
+                    @if (context.IsActive)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
+                            title="Inativar cliente"
+                            Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
+                    }
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                        title="Excluir permanentemente"
+                        Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
+                </Authorized>
+            </AuthorizeView>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhum cliente encontrado.</NoRecordsContent>
@@ -70,7 +79,8 @@
     <DialogContent>
         <MudTextField @bind-Value="_form.LegalName" Label="Nome / Razão Social"
             Placeholder="ex: João da Silva ou Mercado Bom Preço Ltda"
-            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Error="@(_nameError != null)" ErrorText="@_nameError" />
         <MudTextField @bind-Value="_form.TaxId" Label="CPF / CNPJ"
             Placeholder="000.000.000-00 ou 00.000.000/0000-00"
             HelperText="Apenas números — 11 dígitos (CPF) ou 14 dígitos (CNPJ)"
@@ -103,6 +113,7 @@
     private bool _saving;
     private CustomerResponseDto? _editing;
     private FormVm _form = new();
+    private string? _nameError;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -142,9 +153,15 @@
 
     private async Task SaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(_form.LegalName)) return;
+        _nameError = null;
+        if (string.IsNullOrWhiteSpace(_form.LegalName) || _form.LegalName.Trim().Length < 2)
+        {
+            _nameError = "Nome deve ter pelo menos 2 caracteres.";
+            return;
+        }
         _saving = true;
-
+        try
+        {
         if (_editing == null)
         {
             var dto = new CreateCustomerDto(_form.LegalName, _form.TaxId, _form.Address, _form.Phone, _form.Notes);
@@ -169,8 +186,15 @@
             }
             else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
         }
-
-        _saving = false;
+        }
+        catch
+        {
+            Snackbar.Add("Erro ao conectar ao servidor.", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task DeactivateAsync(CustomerResponseDto c)
@@ -188,6 +212,23 @@
             await LoadAsync();
         }
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
+    }
+
+    private async Task DeletePermanentAsync(CustomerResponseDto c)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir cliente permanentemente",
+            $"Você está prestes a excluir \"{c.LegalName}\" de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita. Se este cliente possuir pedidos vinculados, a exclusão será bloqueada — neste caso, use a opção 'Inativar'.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await CustomerService.DeletePermanentAsync(c.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Cliente excluído permanentemente.", Severity.Info);
+            await LoadAsync();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir cliente.", Severity.Error);
     }
 
     private class FormVm

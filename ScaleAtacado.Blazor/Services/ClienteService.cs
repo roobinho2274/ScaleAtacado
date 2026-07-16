@@ -23,4 +23,7 @@ public class CustomerService
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/customer/{id}");
+
+    public Task<ApiResponse?> DeletePermanentAsync(Guid id)
+        => _api.DeleteAsync($"api/customer/{id}/permanent");
 }

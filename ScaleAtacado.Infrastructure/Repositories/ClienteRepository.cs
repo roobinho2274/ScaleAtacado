@@ -44,6 +44,15 @@ public class CustomerRepository : ICustomerRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(Customer customer)
+    {
+        _context.Customers.Remove(customer);
+        return Task.CompletedTask;
+    }
+
+    public async Task<bool> HasOrdersAsync(Guid customerId)
+        => await _context.Orders.AnyAsync(o => o.CustomerId == customerId);
+
     public async Task<bool> SaveChangesAsync()
         => await _context.SaveChangesAsync() > 0;
 }

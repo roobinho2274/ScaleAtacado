@@ -52,13 +52,14 @@
         <MudTh>Código</MudTh>
         <MudTh>Nome</MudTh>
         <MudTh>Categoria</MudTh>
+        <MudTh Style="text-align:center">Qtd/Pacote</MudTh>
         <AuthorizeView Roles="Admin" Context="authCostHeader">
             <Authorized>
-                <MudTh Style="text-align:right">Custo</MudTh>
+                <MudTh Style="text-align:right">Custo/Item</MudTh>
                 <MudTh Style="text-align:right">Margem</MudTh>
             </Authorized>
         </AuthorizeView>
-        <MudTh Style="text-align:right">Preço Venda</MudTh>
+        <MudTh Style="text-align:right">Preço Pacote</MudTh>
         <MudTh Style="text-align:center">Status</MudTh>
         <AuthorizeView Roles="Admin" Context="authHeader">
             <Authorized>
@@ -70,13 +71,23 @@
         <MudTd DataLabel="Código">@(context.Code ?? "—")</MudTd>
         <MudTd DataLabel="Nome">@context.Name</MudTd>
         <MudTd DataLabel="Categoria">@context.CategoryName</MudTd>
+        <MudTd DataLabel="Qtd/Pacote" Style="text-align:center">
+            @if (context.PackageQuantity > 1)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Info">@context.PackageQuantity un.</MudChip>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Default">1 un.</MudText>
+            }
+        </MudTd>
         <AuthorizeView Roles="Admin" Context="authCostRow">
             <Authorized>
-                <MudTd DataLabel="Custo" Style="text-align:right">R$ @context.CostPrice.ToString("N2")</MudTd>
+                <MudTd DataLabel="Custo/Item" Style="text-align:right">R$ @context.CostPrice.ToString("N2")</MudTd>
                 <MudTd DataLabel="Margem" Style="text-align:right">@context.ProfitMargin.ToString("N1")%</MudTd>
             </Authorized>
         </AuthorizeView>
-        <MudTd DataLabel="Preço" Style="text-align:right"><b>R$ @context.BaseSalePrice.ToString("N2")</b></MudTd>
+        <MudTd DataLabel="Preço Pacote" Style="text-align:right"><b>R$ @context.BaseSalePrice.ToString("N2")</b></MudTd>
         <MudTd DataLabel="Status" Style="text-align:center">
             <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
                 @(context.IsActive ? "Ativo" : "Inativo")
@@ -86,12 +97,17 @@
             <Authorized>
                 <MudTd Style="text-align:center">
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                        title="Editar produto"
                         OnClick="@(() => OpenEdit(context))" />
                     @if (context.IsActive)
                     {
                         <MudIconButton Icon="@Icons.Material.Filled.ToggleOff" Size="Size.Small"
-                            Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
+                            title="Inativar produto"
+                            Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
                     }
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                        title="Excluir permanentemente"
+                        Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
                 </MudTd>
             </Authorized>
         </AuthorizeView>
@@ -124,9 +140,13 @@
                 <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
             }
         </MudSelect>
+        <MudNumericField @bind-Value="_form.PackageQuantity" Label="Qtd no Pacote"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="9999"
+            HelperText="Número de itens que compõem este pacote (ex: 12 para um fardo de 12 unidades)"
+            Error="@(_errorPackage != null)" ErrorText="@_errorPackage" />
         <MudGrid>
             <MudItem xs="6">
-                <MudNumericField @bind-Value="_form.CostPrice" Label="Custo (R$)"
+                <MudNumericField @bind-Value="_form.CostPrice" Label="Custo por Item (R$)"
                     Variant="Variant.Outlined" Min="0m" Format="N2"
                     Error="@(_errorPrice != null)" ErrorText="@_errorPrice" />
             </MudItem>
@@ -136,11 +156,16 @@
                     Error="@(_errorMargin != null)" ErrorText="@_errorMargin" />
             </MudItem>
         </MudGrid>
-        @if (_form.CostPrice > 0 || _form.ProfitMargin > 0)
+        @if (_form.CostPrice > 0)
         {
-            var precoVenda = _form.CostPrice * (1 + _form.ProfitMargin / 100m);
+            var precoItem = _form.CostPrice * (1 + _form.ProfitMargin / 100m);
+            var precoPacote = _form.PackageQuantity * precoItem;
             <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2">
-                Preço de venda calculado: <b>R$ @precoVenda.ToString("N2")</b>
+                Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                @if (_form.PackageQuantity > 1)
+                {
+                    <text> (@_form.PackageQuantity × R$ @precoItem.ToString("N2")/item)</text>
+                }
             </MudText>
         }
     </DialogContent>
@@ -167,6 +192,7 @@
     private string? _errorName;
     private string? _errorCode;
     private string? _errorCategory;
+    private string? _errorPackage;
     private string? _errorPrice;
     private string? _errorMargin;
 
@@ -190,7 +216,7 @@
     }
 
     private void ClearErrors() =>
-        _errorName = _errorCode = _errorCategory = _errorPrice = _errorMargin = null;
+        _errorName = _errorCode = _errorCategory = _errorPackage = _errorPrice = _errorMargin = null;
 
     private void OpenNew()
     {
@@ -208,6 +234,7 @@
             Name = p.Name,
             Code = p.Code ?? "",
             CategoryId = (Guid?)p.CategoryId,
+            PackageQuantity = p.PackageQuantity,
             CostPrice = p.CostPrice,
             ProfitMargin = p.ProfitMargin
         };
@@ -230,8 +257,11 @@
         if (!_form.CategoryId.HasValue)
             _errorCategory = "Selecione uma categoria.";
 
+        if (_form.PackageQuantity < 1)
+            _errorPackage = "A quantidade mínima no pacote é 1.";
+
         if (_form.CostPrice <= 0)
-            _errorPrice = "Preço de custo deve ser maior que zero.";
+            _errorPrice = "Custo por item deve ser maior que zero.";
 
         if (_form.ProfitMargin < 0)
             _errorMargin = "Margem de lucro não pode ser negativa.";
@@ -239,7 +269,7 @@
             _errorMargin = "Margem de lucro não pode exceder 1000%.";
 
         return _errorName == null && _errorCode == null && _errorCategory == null
-            && _errorPrice == null && _errorMargin == null;
+            && _errorPackage == null && _errorPrice == null && _errorMargin == null;
     }
 
     private async Task SaveAsync()
@@ -249,7 +279,7 @@
 
         if (_editing == null)
         {
-            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value);
+            var dto = new CreateProductDto(Guid.Empty, _form.Code, _form.Name.Trim(), _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value, _form.PackageQuantity);
             var resp = await ProductService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -261,7 +291,7 @@
         }
         else
         {
-            var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value, true);
+            var dto = new UpdateProductDto(_form.Name.Trim(), _form.Code, _form.CostPrice, _form.ProfitMargin, _form.CategoryId!.Value, true, _form.PackageQuantity);
             var resp = await ProductService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
@@ -292,11 +322,29 @@
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }
 
+    private async Task DeletePermanentAsync(ProductResponseDto p)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir produto permanentemente",
+            $"Você está prestes a excluir \"{p.Name}\" de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita. Se este produto estiver vinculado a pedidos anteriores, a exclusão será bloqueada — neste caso, use a opção 'Inativar'.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await ProductService.DeletePermanentAsync(p.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Produto excluído permanentemente.", Severity.Info);
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir produto.", Severity.Error);
+    }
+
     private class FormVm
     {
         public string Name { get; set; } = "";
         public string Code { get; set; } = "";
         public Guid? CategoryId { get; set; }
+        public int PackageQuantity { get; set; } = 1;
         public decimal CostPrice { get; set; }
         public decimal ProfitMargin { get; set; }
     }

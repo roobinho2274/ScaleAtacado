@@ -43,6 +43,15 @@ public class PaymentMethodRepository : IPaymentMethodRepository
         return Task.CompletedTask;
     }
 
+    public Task RemoveAsync(PaymentMethod paymentMethod)
+    {
+        _context.PaymentMethods.Remove(paymentMethod);
+        return Task.CompletedTask;
+    }
+
+    public async Task<bool> HasOrderPaymentsAsync(Guid paymentMethodId)
+        => await _context.OrderPaymentMethods.AnyAsync(op => op.PaymentMethodId == paymentMethodId);
+
     public async Task<bool> SaveChangesAsync()
         => await _context.SaveChangesAsync() > 0;
 }

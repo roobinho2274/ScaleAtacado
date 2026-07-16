@@ -81,6 +81,22 @@ public class OrderRepository : IOrderRepository
         return Task.CompletedTask;
     }
 
+    public async Task ReplaceItemsAsync(Order order, List<OrderItem> newItems)
+    {
+        _context.OrderItems.RemoveRange(order.Items);
+        await _context.OrderItems.AddRangeAsync(newItems);
+        order.Items = newItems;
+        _context.Orders.Update(order);
+    }
+
+    public async Task ReplacePaymentMethodsAsync(Order order, List<OrderPaymentMethod> newPayments)
+    {
+        _context.OrderPaymentMethods.RemoveRange(order.PaymentMethods);
+        await _context.OrderPaymentMethods.AddRangeAsync(newPayments);
+        order.PaymentMethods = newPayments;
+        _context.Orders.Update(order);
+    }
+
     public async Task<bool> SaveChangesAsync()
         => await _context.SaveChangesAsync() > 0;
 }

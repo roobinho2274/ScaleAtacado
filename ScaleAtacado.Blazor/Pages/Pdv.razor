@@ -46,6 +46,18 @@
         <MudPaper Class="pa-4 mb-4" Elevation="2">
             <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Adicionar Produto</b></MudText>
             <MudGrid>
+                <MudItem xs="12">
+                    <MudSelect T="Guid?" Label="Categoria" Value="_selectedCategoryFilter"
+                        ValueChanged="@((Guid? v) => { _selectedCategoryFilter = v; _selectedProduct = null; })"
+                        Variant="Variant.Outlined" Dense="true" FullWidth="true"
+                        Clearable="true" Disabled="_finalizing"
+                        Placeholder="Todas as categorias">
+                        @foreach (var cat in _categories)
+                        {
+                            <MudSelectItem T="Guid?" Value="(Guid?)cat.Id">@cat.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
                 <MudItem xs="9" sm="5">
                     <MudAutocomplete T="ProductResponseDto"
                         Label="Buscar produto"
@@ -321,9 +333,12 @@
 
         @if (_isAdmin)
         {
+            <MudNumericField @bind-Value="_newProductPackageQty" Label="Qtd no Pacote"
+                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="9999"
+                HelperText="Número de itens no pacote (ex: 12 para um fardo de 12)" />
             <MudGrid>
                 <MudItem xs="6">
-                    <MudNumericField @bind-Value="_newProductCost" Label="Custo (R$)"
+                    <MudNumericField @bind-Value="_newProductCost" Label="Custo por Item (R$)"
                         Variant="Variant.Outlined" Min="0m" Format="N2"
                         Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
                 </MudItem>
@@ -334,20 +349,36 @@
             </MudGrid>
             @if (_newProductCost > 0)
             {
-                var precoVenda = _newProductCost * (1 + _newProductMargin / 100m);
+                var precoItem = _newProductCost * (1 + _newProductMargin / 100m);
+                var precoPacote = _newProductPackageQty * precoItem;
                 <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
-                    Preço de venda calculado: <b>R$ @precoVenda.ToString("N2")</b>
+                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                    @if (_newProductPackageQty > 1)
+                    {
+                        <text> (@_newProductPackageQty × R$ @precoItem.ToString("N2")/item)</text>
+                    }
                 </MudText>
             }
         }
         else
         {
-            <MudNumericField @bind-Value="_newProductSalePrice" Label="Preço de Venda (R$)"
+            <MudNumericField @bind-Value="_newProductPackageQty" Label="Qtd no Pacote"
+                Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="9999"
+                HelperText="Número de itens que compõem este pacote (ex: 12 para um fardo de 12)" />
+            <MudNumericField @bind-Value="_newProductSalePrice" Label="Preço por Item (R$)"
                 Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
                 Error="@(_errProductPrice != null)" ErrorText="@_errProductPrice" />
-            <MudText Typo="Typo.caption" Color="Color.Info" Class="mt-1" Style="display:block">
-                Custo e margem serão definidos pelo administrador.
-            </MudText>
+            @if (_newProductSalePrice > 0)
+            {
+                var precoPacote = _newProductPackageQty * _newProductSalePrice;
+                <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
+                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                    @if (_newProductPackageQty > 1)
+                    {
+                        <text> (@_newProductPackageQty × R$ @_newProductSalePrice.ToString("N2")/item)</text>
+                    }
+                </MudText>
+            }
         }
     </DialogContent>
     <DialogActions>
@@ -390,8 +421,10 @@
     private bool _productDialogOpen;
     private bool _savingProduct;
     private List<CategoryResponseDto> _categories = new();
+    private Guid? _selectedCategoryFilter;
     private string _newProductName = "";
     private Guid? _newProductCategoryId;
+    private int _newProductPackageQty = 1;
     private decimal _newProductCost;
     private decimal _newProductMargin;
     private decimal _newProductSalePrice;
@@ -453,11 +486,16 @@
 
     private Task<IEnumerable<ProductResponseDto>> SearchProductsAsync(string term, CancellationToken ct)
     {
+        var source = _selectedCategoryFilter.HasValue
+            ? _products.Where(p => p.CategoryId == _selectedCategoryFilter.Value)
+            : _products;
+
         var result = string.IsNullOrWhiteSpace(term)
-            ? _products
-            : _products.Where(p =>
+            ? source
+            : source.Where(p =>
                 p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+                (p.Code?.Contains(term, StringComparison.OrdinalIgnoreCase) == true));
+
         return Task.FromResult<IEnumerable<ProductResponseDto>>(result);
     }
 
@@ -671,6 +709,7 @@
     {
         _newProductName = "";
         _newProductCategoryId = null;
+        _newProductPackageQty = 1;
         _newProductCost = 0;
         _newProductMargin = 0;
         _newProductSalePrice = 0;
@@ -693,16 +732,16 @@
         if (_isAdmin && _newProductCost <= 0)
             _errProductPrice = "Custo deve ser maior que zero.";
         else if (!_isAdmin && _newProductSalePrice <= 0)
-            _errProductPrice = "Preço de venda deve ser maior que zero.";
+            _errProductPrice = "Preço por item deve ser maior que zero.";
 
         if (_errProductName != null || _errProductCategory != null || _errProductPrice != null)
             return;
 
         _savingProduct = true;
 
-        var (cost, margin) = _isAdmin
-            ? (_newProductCost, _newProductMargin)
-            : (_newProductSalePrice, 0m);
+        var (cost, margin, pkgQty) = _isAdmin
+            ? (_newProductCost, _newProductMargin, _newProductPackageQty)
+            : (_newProductSalePrice, 0m, _newProductPackageQty);
 
         var dto = new CreateProductDto(
             Guid.Empty,
@@ -710,7 +749,8 @@
             _newProductName.Trim(),
             cost,
             margin,
-            _newProductCategoryId!.Value
+            _newProductCategoryId!.Value,
+            pkgQty
         );
 
         var resp = await ProductService.CreateAsync(dto);

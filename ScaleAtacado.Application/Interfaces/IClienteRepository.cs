@@ -10,5 +10,7 @@ public interface ICustomerRepository
     Task<IEnumerable<Customer>> GetAllActiveAsync(Guid companyId);
     Task AddAsync(Customer customer);
     Task UpdateAsync(Customer customer);
+    Task RemoveAsync(Customer customer);
+    Task<bool> HasOrdersAsync(Guid customerId);
     Task<bool> SaveChangesAsync();
 }

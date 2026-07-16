@@ -32,9 +32,10 @@ public class ProductAppService
             CompanyId = companyId,
             Name = dto.Name,
             Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim(),
+            PackageQuantity = dto.PackageQuantity < 1 ? 1 : dto.PackageQuantity,
             CostPrice = dto.CostPrice,
             ProfitMargin = dto.ProfitMargin,
-            BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin),
+            BaseSalePrice = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin, dto.PackageQuantity),
             CategoryId = dto.CategoryId,
             IsActive = true
         };
@@ -69,11 +70,12 @@ public class ProductAppService
         }
 
         var precoAnterior = product.BaseSalePrice;
-        var novoPreco = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin);
+        var novoPreco = CalculateSalePrice(dto.CostPrice, dto.ProfitMargin, dto.PackageQuantity);
         var precoAlterado = precoAnterior != novoPreco;
 
         product.Name = dto.Name;
         product.Code = string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim();
+        product.PackageQuantity = dto.PackageQuantity < 1 ? 1 : dto.PackageQuantity;
         product.CostPrice = dto.CostPrice;
         product.ProfitMargin = dto.ProfitMargin;
         product.BaseSalePrice = novoPreco;
@@ -158,12 +160,39 @@ public class ProductAppService
         return ApiResponse.Ok();
     }
 
-    private static decimal CalculateSalePrice(decimal costPrice, decimal profitMargin)
-        => costPrice * (1 + profitMargin / 100);
+    public async Task<ApiResponse> DeletePermanentAsync(Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var product = await _repository.GetProductByIdAsync(id, companyId);
+        if (product == null)
+            return ApiResponse.Fail("Produto não encontrado.");
+
+        if (await _repository.HasOrderItemsAsync(id))
+            return ApiResponse.Fail("Não é possível excluir este produto pois ele está vinculado a pedidos existentes. Inative-o para ocultá-lo.");
+
+        await _repository.RemoveAsync(product);
+        await _repository.SaveChangeAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "ExcluirProduto",
+            entityName: "Produto",
+            entityId: id.ToString(),
+            userName: userName,
+            description: $"Produto '{product.Name}' excluído permanentemente"
+        );
+
+        return ApiResponse.Ok();
+    }
+
+    private static decimal CalculateSalePrice(decimal costPrice, decimal profitMargin, int packageQuantity)
+    {
+        var qty = packageQuantity < 1 ? 1 : packageQuantity;
+        return qty * costPrice * (1 + profitMargin / 100);
+    }
 
     private static ProductResponseDto ToDto(Product p, string categoryName) => new(
         p.Id, p.CompanyId, p.Name, p.Code,
         p.CostPrice, p.ProfitMargin, p.BaseSalePrice,
-        p.IsActive, p.CategoryId, categoryName
+        p.IsActive, p.CategoryId, categoryName, p.PackageQuantity
     );
 }

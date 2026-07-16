@@ -10,5 +10,6 @@ public record ProductResponseDto(
     decimal BaseSalePrice,
     bool IsActive,
     Guid CategoryId,
-    string CategoryName
+    string CategoryName,
+    int PackageQuantity
 );

@@ -31,7 +31,19 @@
       "Bash(xargs cat)",
       "Skill(artifact-design)",
       "Skill(artifact-design:*)",
-      "Read(//c/Users/robso/Documents/**)"
+      "Read(//c/Users/robso/Documents/**)",
+      "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet build --no-restore 2>&1 | Where-Object { $_ -match \"erro|error\" -and $_ -notmatch \"warning\" } | Select-Object -Last 20)",
+      "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet build --no-restore 2>&1 | Where-Object { $_ -match \"rro|Error|warning CS\" -and $_ -notmatch \"CS8669\" } | Select-Object -Last 15)",
+      "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet restore 2>&1 | Select-Object -Last 5; dotnet build --no-restore 2>&1 | Where-Object { $_ -match \"rro|Error\" -and $_ -notmatch \"CS8669\" } | Select-Object -Last 10)",
+      "Bash(curl -sk https://localhost:7039/swagger/index.html)",
+      "Bash(curl -sk https://localhost:7252)",
+      "Bash(curl -sk --max-time 3 https://localhost:7039/swagger/index.html)",
+      "Bash(curl -sk --max-time 3 https://localhost:7252)",
+      "Bash(curl -sk --max-time 4 https://localhost:7039/swagger/index.html)",
+      "Bash(curl -sk --max-time 4 https://localhost:7252)",
+      "Bash(git commit -m ' *)",
+      "PowerShell(dotnet build \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Blazor\\\\ScaleAtacado.Blazor.csproj\" --no-restore 2>&1)",
+      "PowerShell(tail -5)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

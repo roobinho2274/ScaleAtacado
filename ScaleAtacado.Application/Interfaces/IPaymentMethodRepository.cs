@@ -10,5 +10,7 @@ public interface IPaymentMethodRepository
     Task<IEnumerable<PaymentMethod>> GetAllAsync(Guid companyId);
     Task AddAsync(PaymentMethod paymentMethod);
     Task UpdateAsync(PaymentMethod paymentMethod);
+    Task RemoveAsync(PaymentMethod paymentMethod);
+    Task<bool> HasOrderPaymentsAsync(Guid paymentMethodId);
     Task<bool> SaveChangesAsync();
 }

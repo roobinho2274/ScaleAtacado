@@ -93,7 +93,7 @@
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PersonOff" Size="Size.Small"
                     title="Desativar usuário"
-                    Color="Color.Error" OnClick="@(() => DeactivateAsync(context))" />
+                    Color="Color.Warning" OnClick="@(() => DeactivateAsync(context))" />
             }
             else
             {
@@ -101,6 +101,9 @@
                     title="Reativar usuário"
                     Color="Color.Success" OnClick="@(() => ReactivateAsync(context))" />
             }
+            <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Size="Size.Small"
+                title="Excluir permanentemente"
+                Color="Color.Error" OnClick="@(() => DeletePermanentAsync(context))" />
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>Nenhum usuário encontrado.</NoRecordsContent>
@@ -152,15 +155,23 @@
 <MudDialog @bind-Visible="_dialogEdit" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>Editar Usuário</TitleContent>
     <DialogContent>
+        <MudTextField Value="@_editing?.Email" Label="E-mail"
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+            ReadOnly="true" Disabled="true" />
         <MudTextField @bind-Value="_editForm.FullName" Label="Nome Completo"
             Placeholder="ex: Carlos Oliveira"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
             Error="@(_errorNameEdit != null)" ErrorText="@_errorNameEdit" />
         <MudSelect T="UserProfile" Label="Perfil" @bind-Value="_editForm.Profile"
-            Variant="Variant.Outlined" FullWidth="true">
+            Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
             <MudSelectItem T="UserProfile" Value="UserProfile.Attendant">Atendente</MudSelectItem>
             <MudSelectItem T="UserProfile" Value="UserProfile.Admin">Administrador</MudSelectItem>
         </MudSelect>
+        <div class="d-flex align-center justify-space-between">
+            <MudText Typo="Typo.body2">Status da conta:</MudText>
+            <MudSwitch @bind-Value="_editForm.IsActive" Color="Color.Success"
+                Label="@(_editForm.IsActive ? "Ativo" : "Inativo")" />
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogEdit = false)">Cancelar</MudButton>
@@ -181,13 +192,21 @@
         <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
             A senha é armazenada criptografada. Nem administradores conseguem ver a senha atual.
         </MudAlert>
-        <MudTextField @bind-Value="_passwordForm.NewPassword" Label="Nova Senha" InputType="InputType.Password"
+        <MudTextField @bind-Value="_passwordForm.NewPassword" Label="Nova Senha"
+            InputType="@(_showNewPwd ? InputType.Text : InputType.Password)"
             Placeholder="Crie uma senha segura"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
+            Adornment="Adornment.End"
+            AdornmentIcon="@(_showNewPwd ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+            OnAdornmentClick="@(() => _showNewPwd = !_showNewPwd)"
             Error="@(_errorNewPassword != null)" ErrorText="@_errorNewPassword" />
-        <MudTextField @bind-Value="_passwordForm.Confirm" Label="Confirmar Nova Senha" InputType="InputType.Password"
+        <MudTextField @bind-Value="_passwordForm.Confirm" Label="Confirmar Nova Senha"
+            InputType="@(_showConfirmPwd ? InputType.Text : InputType.Password)"
             Placeholder="Repita a senha"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Adornment="Adornment.End"
+            AdornmentIcon="@(_showConfirmPwd ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+            OnAdornmentClick="@(() => _showConfirmPwd = !_showConfirmPwd)"
             Error="@(_errorConfirm != null)" ErrorText="@_errorConfirm" />
         <MudPaper Class="pa-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
             <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
@@ -226,6 +245,8 @@
     private string? _errorNameEdit;
     private string? _errorNewPassword;
     private string? _errorConfirm;
+    private bool _showNewPwd;
+    private bool _showConfirmPwd;
 
     private async Task<TableData<UserResponseDto>> ServerData(TableState state, CancellationToken ct)
     {
@@ -250,7 +271,7 @@
     private void OpenEdit(UserResponseDto u)
     {
         _editing = u;
-        _editForm = new EditVm { FullName = u.FullName, Profile = u.Profile };
+        _editForm = new EditVm { FullName = u.FullName, Profile = u.Profile, IsActive = u.IsActive };
         _errorNameEdit = null;
         _dialogEdit = true;
     }
@@ -260,6 +281,7 @@
         _changingPassword = u;
         _passwordForm = new PasswordVm();
         _errorNewPassword = _errorConfirm = null;
+        _showNewPwd = _showConfirmPwd = false;
         _dialogPassword = true;
     }
 
@@ -361,7 +383,7 @@
         if (!ValidateEdit()) return;
         _saving = true;
 
-        var dto = new UpdateUserDto(_editForm.FullName.Trim(), _editForm.Profile, true);
+        var dto = new UpdateUserDto(_editForm.FullName.Trim(), _editForm.Profile, _editForm.IsActive);
         var resp = await UserService.UpdateAsync(_editing!.Id, dto);
         if (resp?.Success == true)
         {
@@ -435,6 +457,23 @@
         else Snackbar.Add(resp?.Error ?? "Erro.", Severity.Error);
     }
 
+    private async Task DeletePermanentAsync(UserResponseDto u)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "⚠️ Excluir usuário permanentemente",
+            $"Você está prestes a excluir \"{u.FullName}\" ({u.Email}) de forma permanente.\n\nATENÇÃO: Esta ação não pode ser desfeita e removerá o acesso imediatamente. Prefira 'Desativar' se quiser apenas bloquear o acesso.",
+            yesText: "Excluir permanentemente", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        var resp = await UserService.DeletePermanentAsync(u.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add($"Usuário \"{u.FullName}\" excluído permanentemente.", Severity.Info);
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao excluir usuário.", Severity.Error);
+    }
+
     private class NewVm
     {
         public string FullName { get; set; } = "";
@@ -447,6 +486,7 @@
     {
         public string FullName { get; set; } = "";
         public UserProfile Profile { get; set; } = UserProfile.Attendant;
+        public bool IsActive { get; set; } = true;
     }
 
     private class PasswordVm

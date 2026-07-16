@@ -37,4 +37,7 @@ public class ProductService
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/product/{id}");
+
+    public Task<ApiResponse?> DeletePermanentAsync(Guid id)
+        => _api.DeleteAsync($"api/product/{id}/permanent");
 }

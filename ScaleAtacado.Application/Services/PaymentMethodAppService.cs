@@ -119,6 +119,30 @@ public class PaymentMethodAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> DeletePermanentAsync(Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var paymentMethod = await _repository.GetByIdAsync(id, companyId);
+        if (paymentMethod == null)
+            return ApiResponse.Fail("Forma de pagamento não encontrada.");
+
+        if (await _repository.HasOrderPaymentsAsync(id))
+            return ApiResponse.Fail("Não é possível excluir esta forma de pagamento pois ela está vinculada a pedidos existentes. Inative-a para ocultá-la.");
+
+        await _repository.RemoveAsync(paymentMethod);
+        await _repository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "ExcluirFormaPagamento",
+            entityName: "FormaPagamento",
+            entityId: id.ToString(),
+            userName: userName,
+            description: $"Forma de pagamento '{paymentMethod.Name}' excluída permanentemente"
+        );
+
+        return ApiResponse.Ok();
+    }
+
     private static PaymentMethodResponseDto ToDto(PaymentMethod p) => new(
         p.Id, p.CompanyId, p.Name, p.IsInstallment, p.SurchargePercentage, p.IsActive
     );

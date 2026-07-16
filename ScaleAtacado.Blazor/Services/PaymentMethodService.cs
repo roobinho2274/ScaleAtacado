@@ -22,4 +22,7 @@ public class PaymentMethodService
 
     public Task<ApiResponse?> DeactivateAsync(Guid id)
         => _api.DeleteAsync($"api/paymentmethod/{id}");
+
+    public Task<ApiResponse?> DeletePermanentAsync(Guid id)
+        => _api.DeleteAsync($"api/paymentmethod/{id}/permanent");
 }

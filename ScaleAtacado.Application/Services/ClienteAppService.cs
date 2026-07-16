@@ -124,6 +124,30 @@ public class CustomerAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> DeletePermanentAsync(Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var customer = await _repository.GetByIdAsync(id, companyId);
+        if (customer == null)
+            return ApiResponse.Fail("Cliente não encontrado.");
+
+        if (await _repository.HasOrdersAsync(id))
+            return ApiResponse.Fail("Não é possível excluir este cliente pois ele possui pedidos vinculados. Inative-o para ocultá-lo das buscas.");
+
+        await _repository.RemoveAsync(customer);
+        await _repository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "ExcluirCliente",
+            entityName: "Cliente",
+            entityId: id.ToString(),
+            userName: userName,
+            description: $"Cliente '{customer.LegalName}' excluído permanentemente"
+        );
+
+        return ApiResponse.Ok();
+    }
+
     private static CustomerResponseDto ToDto(Customer c) => new(
         c.Id, c.CompanyId, c.LegalName, c.TaxId,
         c.Address, c.Phone, c.Notes, c.IsActive, c.CreatedAt

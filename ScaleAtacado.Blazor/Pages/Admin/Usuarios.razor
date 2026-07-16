@@ -192,13 +192,21 @@
         <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
             A senha é armazenada criptografada. Nem administradores conseguem ver a senha atual.
         </MudAlert>
-        <MudTextField @bind-Value="_passwordForm.NewPassword" Label="Nova Senha" InputType="InputType.Password"
+        <MudTextField @bind-Value="_passwordForm.NewPassword" Label="Nova Senha"
+            InputType="@(_showNewPwd ? InputType.Text : InputType.Password)"
             Placeholder="Crie uma senha segura"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-2" Required="true"
+            Adornment="Adornment.End"
+            AdornmentIcon="@(_showNewPwd ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+            OnAdornmentClick="@(() => _showNewPwd = !_showNewPwd)"
             Error="@(_errorNewPassword != null)" ErrorText="@_errorNewPassword" />
-        <MudTextField @bind-Value="_passwordForm.Confirm" Label="Confirmar Nova Senha" InputType="InputType.Password"
+        <MudTextField @bind-Value="_passwordForm.Confirm" Label="Confirmar Nova Senha"
+            InputType="@(_showConfirmPwd ? InputType.Text : InputType.Password)"
             Placeholder="Repita a senha"
             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true"
+            Adornment="Adornment.End"
+            AdornmentIcon="@(_showConfirmPwd ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+            OnAdornmentClick="@(() => _showConfirmPwd = !_showConfirmPwd)"
             Error="@(_errorConfirm != null)" ErrorText="@_errorConfirm" />
         <MudPaper Class="pa-3" Elevation="0" Style="background:var(--mud-palette-background-grey);border-radius:4px">
             <MudText Typo="Typo.caption"><b>Regras da senha:</b></MudText>
@@ -237,6 +245,8 @@
     private string? _errorNameEdit;
     private string? _errorNewPassword;
     private string? _errorConfirm;
+    private bool _showNewPwd;
+    private bool _showConfirmPwd;
 
     private async Task<TableData<UserResponseDto>> ServerData(TableState state, CancellationToken ct)
     {
@@ -271,6 +281,7 @@
         _changingPassword = u;
         _passwordForm = new PasswordVm();
         _errorNewPassword = _errorConfirm = null;
+        _showNewPwd = _showConfirmPwd = false;
         _dialogPassword = true;
     }
 

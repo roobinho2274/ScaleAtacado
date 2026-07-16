@@ -38,7 +38,10 @@
       "Bash(curl -sk https://localhost:7039/swagger/index.html)",
       "Bash(curl -sk https://localhost:7252)",
       "Bash(curl -sk --max-time 3 https://localhost:7039/swagger/index.html)",
-      "Bash(curl -sk --max-time 3 https://localhost:7252)"
+      "Bash(curl -sk --max-time 3 https://localhost:7252)",
+      "Bash(curl -sk --max-time 4 https://localhost:7039/swagger/index.html)",
+      "Bash(curl -sk --max-time 4 https://localhost:7252)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

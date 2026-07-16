@@ -8,11 +8,17 @@ html, body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background: linear-gradient(135deg, #1A237E 0%, #283593 60%, #00796B 100%);
+    background: linear-gradient(135deg, #0D1B4B 0%, #1565C0 100%);
 }
 
 .loading-screen-inner {
     text-align: center;
+}
+
+.loading-logo {
+    width: 200px;
+    height: auto;
+    margin-bottom: 12px;
 }
 
 .loading-brand {
@@ -39,7 +45,7 @@ html, body {
 /* ── Login page ─────────────────────────────────────── */
 .login-page-bg {
     min-height: 100vh;
-    background: linear-gradient(135deg, #1A237E 0%, #283593 55%, #00796B 100%);
+    background: linear-gradient(135deg, #0D1B4B 0%, #1565C0 100%);
 }
 
 .login-container {
@@ -49,16 +55,35 @@ html, body {
     min-height: 100vh;
 }
 
+.login-logo {
+    height: 68px;
+    width: auto;
+}
+
+.drawer-logo {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+}
+
+.appbar-logo {
+    height: 26px;
+    width: auto;
+    border-radius: 4px;
+    background: white;
+    padding: 2px 6px;
+}
+
 /* ── Active nav link ────────────────────────────────── */
 .mud-nav-link.active {
-    background-color: rgba(40, 53, 147, 0.08) !important;
-    border-left: 3px solid #283593;
-    color: #283593 !important;
+    background-color: rgba(21, 101, 192, 0.08) !important;
+    border-left: 3px solid #1565C0;
+    color: #1565C0 !important;
     font-weight: 600;
 }
 
 .mud-nav-link.active .mud-icon-root {
-    color: #283593 !important;
+    color: #1565C0 !important;
 }
 
 /* ── Blazor error UI — usar Snackbars do MudBlazor ── */
@@ -84,7 +109,7 @@ html, body {
 }
 
 .loading-progress circle:last-child {
-    stroke: #00897B;
+    stroke: #1565C0;
     stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
     transition: stroke-dasharray 0.05s ease-in-out;
 }

@@ -8,13 +8,13 @@ public static class AppTheme
     {
         PaletteLight = new PaletteLight
         {
-            Primary         = "#283593",
-            Secondary       = "#00897B",
-            AppbarBackground = "#1A237E",
+            Primary         = "#1565C0",
+            Secondary       = "#546E7A",
+            AppbarBackground = "#0D1B4B",
             DrawerBackground = "#F5F7FA",
             DrawerText      = "#37474F",
-            DrawerIcon      = "#546E7A",
-            Background      = "#EEF0F7",
+            DrawerIcon      = "#1565C0",
+            Background      = "#EEF2F8",
             Surface         = "#FFFFFF",
             TextPrimary     = "#212121",
             TextSecondary   = "#546E7A",

@@ -41,7 +41,9 @@
       "Bash(curl -sk --max-time 3 https://localhost:7252)",
       "Bash(curl -sk --max-time 4 https://localhost:7039/swagger/index.html)",
       "Bash(curl -sk --max-time 4 https://localhost:7252)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "PowerShell(dotnet build \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Blazor\\\\ScaleAtacado.Blazor.csproj\" --no-restore 2>&1)",
+      "PowerShell(tail -5)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

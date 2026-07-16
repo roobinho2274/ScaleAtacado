@@ -146,3 +146,208 @@ h1:focus {
 code {
     color: #c02d76;
 }
+
+/* ── Relatórios ──────────────────────────────────────── */
+.rpt-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 120px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    transition: border-color 0.15s;
+}
+
+.rpt-card-active {
+    border-color: #1565C0;
+}
+
+.a4-wrapper {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 40px;
+}
+
+.a4-page {
+    background: white;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 7mm 9mm;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.18);
+    font-family: 'DM Sans', Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #212121;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* Cabeçalho */
+.rpt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #1565C0;
+    padding-bottom: 4px;
+    margin-bottom: 7px;
+}
+
+.rpt-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rpt-logo {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.rpt-company {
+    font-size: 10pt;
+    font-weight: 800;
+    color: #0D1B4B;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+}
+
+.rpt-title {
+    font-size: 7pt;
+    color: #1565C0;
+    margin-top: 1px;
+    font-weight: 600;
+}
+
+.rpt-meta {
+    text-align: right;
+}
+
+.rpt-date {
+    font-size: 7.5pt;
+    font-weight: 600;
+    color: #37474F;
+}
+
+.rpt-count {
+    font-size: 7pt;
+    color: #90A4AE;
+    margin-top: 1px;
+}
+
+/* Bloco por categoria */
+.rpt-category-block {
+    margin-bottom: 4px;
+    break-inside: avoid;
+}
+
+.rpt-cat-header {
+    background: #1565C0;
+    color: white;
+    font-weight: 700;
+    font-size: 6.5pt;
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+/* Tabela */
+.rpt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.5pt;
+}
+
+.rpt-table th {
+    background: #EEF2F8;
+    color: #37474F;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-bottom: 1px solid #B0BEC5;
+    font-size: 7pt;
+    white-space: nowrap;
+}
+
+.rpt-table td {
+    padding: 1.5px 5px;
+    border-bottom: 1px solid #ECEFF1;
+    vertical-align: middle;
+    line-height: 1.25;
+}
+
+.rpt-table .row-alt td {
+    background: #F5F8FB;
+}
+
+.rpt-table .tc { text-align: center; }
+.rpt-table .tr { text-align: right; }
+.rpt-table .fw { font-weight: 700; }
+
+.col-cod   { width: 56px; }
+.col-emb   { width: 46px; }
+.col-valor { width: 80px; }
+
+/* Rodapé */
+.rpt-footer {
+    margin-top: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #CFD8DC;
+    display: flex;
+    justify-content: space-between;
+    font-size: 6.5pt;
+    color: #90A4AE;
+}
+
+/* ── Impressão ──────────────────────────────────────── */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 6mm 8mm;
+    }
+
+    .no-print,
+    .mud-appbar,
+    .mud-drawer,
+    .mud-layout-drawer,
+    .mud-overlay,
+    .mud-snackbar-container {
+        display: none !important;
+    }
+
+    .mud-layout {
+        padding-top: 0 !important;
+        padding-left: 0 !important;
+    }
+
+    .mud-main-content {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .mud-container {
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .a4-wrapper {
+        padding: 0;
+        margin: 0;
+        display: block;
+    }
+
+    .a4-page {
+        box-shadow: none;
+        width: 100%;
+        min-height: 0;
+        padding: 0;
+        font-size: 7.5pt;
+    }
+
+    .rpt-category-block {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}

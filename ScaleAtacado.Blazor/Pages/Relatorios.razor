@@ -1,0 +1,137 @@
+@page "/relatorios"
+@attribute [Authorize]
+@inject ProductService ProductService
+@inject CompanyStateService CompanyState
+@inject IJSRuntime JS
+
+<PageTitle>Relatórios — ScaleAtacado</PageTitle>
+
+<!-- Barra de ferramentas (oculta na impressão) -->
+<div class="no-print">
+    <div class="d-flex align-center justify-space-between mb-3">
+        <MudText Typo="Typo.h5">Relatórios</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Print"
+            Disabled="_loading"
+            OnClick="PrintAsync">
+            Imprimir / Exportar PDF
+        </MudButton>
+    </div>
+
+    <!-- Seletor de relatório (mais relatórios serão adicionados aqui) -->
+    <div class="d-flex gap-3 mb-4">
+        <MudPaper Class="pa-3 rpt-card rpt-card-active" Elevation="2">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Color="Color.Primary" Size="Size.Medium" />
+            <MudText Typo="Typo.body2" Class="mt-1" Style="font-weight:700">Lista de Produtos</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Por categoria</MudText>
+        </MudPaper>
+    </div>
+</div>
+
+<!-- Folha A4 -->
+<div class="a4-wrapper">
+    <div class="a4-page">
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+        }
+        else
+        {
+            <!-- Cabeçalho do relatório -->
+            <div class="rpt-header">
+                <div class="rpt-header-left">
+                    @if (!string.IsNullOrEmpty(CompanyState.LogoBase64))
+                    {
+                        <img src="@CompanyState.LogoBase64" class="rpt-logo" alt="Logo" />
+                    }
+                    else
+                    {
+                        <img src="logo.png" class="rpt-logo" alt="Logo" />
+                    }
+                    <div>
+                        <div class="rpt-company">@(string.IsNullOrEmpty(CompanyState.CompanyName) ? "ScaleAtacado" : CompanyState.CompanyName)</div>
+                        <div class="rpt-title">Lista de Produtos por Categoria</div>
+                    </div>
+                </div>
+                <div class="rpt-meta">
+                    <div class="rpt-date">@DateTime.Today.ToString("dd/MM/yyyy")</div>
+                    <div class="rpt-count">@_totalProducts produto(s)</div>
+                </div>
+            </div>
+
+            <!-- Produtos agrupados por categoria -->
+            @foreach (var cat in _grouped)
+            {
+                <div class="rpt-category-block">
+                    <div class="rpt-cat-header">@cat.Key</div>
+                    <table class="rpt-table">
+                        <colgroup>
+                            <col class="col-cod" />
+                            <col />
+                            <col class="col-emb" />
+                            <col class="col-valor" />
+                            <col class="col-valor" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Cód.</th>
+                                <th>Produto</th>
+                                <th class="tc">Emb.</th>
+                                <th class="tr">Vlr. Unit.</th>
+                                <th class="tr">Vlr. Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int idx = 0; }
+                            @foreach (var p in cat.Value)
+                            {
+                                <tr class="@(idx++ % 2 == 1 ? "row-alt" : "")">
+                                    <td>@(p.Code ?? "—")</td>
+                                    <td>@p.Name</td>
+                                    <td class="tc">@p.PackageQuantity un.</td>
+                                    <td class="tr">R$&nbsp;@UnitPrice(p).ToString("N2")</td>
+                                    <td class="tr fw">R$&nbsp;@p.BaseSalePrice.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <!-- Rodapé -->
+            <div class="rpt-footer">
+                <span>ScaleAtacado — Sistema de Gestão Atacado</span>
+                <span>@_totalProducts produto(s) ativo(s) em @_grouped.Count categoria(s)</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private List<KeyValuePair<string, List<ProductResponseDto>>> _grouped = new();
+    private int _totalProducts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resp = await ProductService.GetAllActiveAsync();
+        if (resp?.Success == true && resp.Data != null)
+        {
+            _grouped = resp.Data
+                .OrderBy(p => p.CategoryName)
+                .ThenBy(p => p.Name)
+                .GroupBy(p => p.CategoryName)
+                .Select(g => new KeyValuePair<string, List<ProductResponseDto>>(g.Key, g.ToList()))
+                .ToList();
+
+            _totalProducts = resp.Data.Count();
+        }
+        _loading = false;
+    }
+
+    private static decimal UnitPrice(ProductResponseDto p) =>
+        p.PackageQuantity > 1 ? p.BaseSalePrice / p.PackageQuantity : p.BaseSalePrice;
+
+    private async Task PrintAsync() =>
+        await JS.InvokeVoidAsync("window.print");
+}

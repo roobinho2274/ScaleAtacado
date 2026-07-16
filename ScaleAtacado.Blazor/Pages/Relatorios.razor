@@ -37,7 +37,7 @@
         }
         else
         {
-            <!-- Cabeçalho do relatório -->
+            <!-- Cabeçalho (largura total) -->
             <div class="rpt-header">
                 <div class="rpt-header-left">
                     @if (!string.IsNullOrEmpty(CompanyState.LogoBase64))
@@ -59,46 +59,92 @@
                 </div>
             </div>
 
-            <!-- Produtos agrupados por categoria -->
-            @foreach (var cat in _grouped)
-            {
-                <div class="rpt-category-block">
-                    <div class="rpt-cat-header">@cat.Key</div>
-                    <table class="rpt-table">
-                        <colgroup>
-                            <col class="col-cod" />
-                            <col />
-                            <col class="col-emb" />
-                            <col class="col-valor" />
-                            <col class="col-valor" />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>Cód.</th>
-                                <th>Produto</th>
-                                <th class="tc">Emb.</th>
-                                <th class="tr">Vlr. Unit.</th>
-                                <th class="tr">Vlr. Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @{ int idx = 0; }
-                            @foreach (var p in cat.Value)
-                            {
-                                <tr class="@(idx++ % 2 == 1 ? "row-alt" : "")">
-                                    <td>@(p.Code ?? "—")</td>
-                                    <td>@p.Name</td>
-                                    <td class="tc">@p.PackageQuantity un.</td>
-                                    <td class="tr">R$&nbsp;@UnitPrice(p).ToString("N2")</td>
-                                    <td class="tr fw">R$&nbsp;@p.BaseSalePrice.ToString("N2")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+            <!-- Corpo em 2 colunas -->
+            <div class="rpt-columns">
+                <div class="rpt-column">
+                    @foreach (var cat in _leftGroups)
+                    {
+                        <div class="rpt-category-block">
+                            <div class="rpt-cat-header">@cat.Key</div>
+                            <table class="rpt-table">
+                                <colgroup>
+                                    <col class="col-cod" />
+                                    <col />
+                                    <col class="col-emb" />
+                                    <col class="col-valor" />
+                                    <col class="col-valor" />
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Cód.</th>
+                                        <th>Produto</th>
+                                        <th class="tc">Emb.</th>
+                                        <th class="tr">Vlr. Unit.</th>
+                                        <th class="tr">Vlr. Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ int idxL = 0; }
+                                    @foreach (var p in cat.Value)
+                                    {
+                                        <tr class="@(idxL++ % 2 == 1 ? "row-alt" : "")">
+                                            <td>@(p.Code ?? "—")</td>
+                                            <td>@p.Name</td>
+                                            <td class="tc">@p.PackageQuantity&nbsp;un.</td>
+                                            <td class="tr">R$&nbsp;@UnitPrice(p).ToString("N2")</td>
+                                            <td class="tr fw">R$&nbsp;@p.BaseSalePrice.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
-            }
 
-            <!-- Rodapé -->
+                <div class="rpt-col-divider"></div>
+
+                <div class="rpt-column">
+                    @foreach (var cat in _rightGroups)
+                    {
+                        <div class="rpt-category-block">
+                            <div class="rpt-cat-header">@cat.Key</div>
+                            <table class="rpt-table">
+                                <colgroup>
+                                    <col class="col-cod" />
+                                    <col />
+                                    <col class="col-emb" />
+                                    <col class="col-valor" />
+                                    <col class="col-valor" />
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Cód.</th>
+                                        <th>Produto</th>
+                                        <th class="tc">Emb.</th>
+                                        <th class="tr">Vlr. Unit.</th>
+                                        <th class="tr">Vlr. Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ int idxR = 0; }
+                                    @foreach (var p in cat.Value)
+                                    {
+                                        <tr class="@(idxR++ % 2 == 1 ? "row-alt" : "")">
+                                            <td>@(p.Code ?? "—")</td>
+                                            <td>@p.Name</td>
+                                            <td class="tc">@p.PackageQuantity&nbsp;un.</td>
+                                            <td class="tr">R$&nbsp;@UnitPrice(p).ToString("N2")</td>
+                                            <td class="tr fw">R$&nbsp;@p.BaseSalePrice.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Rodapé (largura total) -->
             <div class="rpt-footer">
                 <span>ScaleAtacado — Sistema de Gestão Atacado</span>
                 <span>@_totalProducts produto(s) ativo(s) em @_grouped.Count categoria(s)</span>
@@ -110,6 +156,8 @@
 @code {
     private bool _loading = true;
     private List<KeyValuePair<string, List<ProductResponseDto>>> _grouped = new();
+    private List<KeyValuePair<string, List<ProductResponseDto>>> _leftGroups = new();
+    private List<KeyValuePair<string, List<ProductResponseDto>>> _rightGroups = new();
     private int _totalProducts;
 
     protected override async Task OnInitializedAsync()
@@ -125,8 +173,44 @@
                 .ToList();
 
             _totalProducts = resp.Data.Count();
+            (_leftGroups, _rightGroups) = SplitColumns(_grouped);
         }
         _loading = false;
+    }
+
+    // Distribui categorias entre esquerda e direita equilibrando pelo nº de produtos
+    private static (List<KeyValuePair<string, List<ProductResponseDto>>> left,
+                    List<KeyValuePair<string, List<ProductResponseDto>>> right)
+        SplitColumns(List<KeyValuePair<string, List<ProductResponseDto>>> groups)
+    {
+        int total = groups.Sum(g => g.Value.Count);
+        int half  = (total + 1) / 2;
+
+        var left  = new List<KeyValuePair<string, List<ProductResponseDto>>>();
+        var right = new List<KeyValuePair<string, List<ProductResponseDto>>>();
+        int leftCount = 0;
+
+        foreach (var g in groups)
+        {
+            if (leftCount < half)
+            {
+                left.Add(g);
+                leftCount += g.Value.Count;
+            }
+            else
+            {
+                right.Add(g);
+            }
+        }
+
+        // Garante que a direita nunca fique vazia quando há mais de 1 categoria
+        if (right.Count == 0 && left.Count > 1)
+        {
+            right.Add(left[^1]);
+            left.RemoveAt(left.Count - 1);
+        }
+
+        return (left, right);
     }
 
     private static decimal UnitPrice(ProductResponseDto p) =>

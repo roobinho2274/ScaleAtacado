@@ -5,7 +5,7 @@
 @inject CompanyService CompanyService
 @inject CompanyStateService CompanyState
 
-<MudThemeProvider Theme="AppTheme.Theme" IsDarkMode="false" />
+<MudThemeProvider @ref="_themeProvider" Theme="AppTheme.Theme" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -24,6 +24,11 @@
         </div>
 
         <MudSpacer />
+
+        <MudTooltip Text="@(_isDarkMode ? "Modo claro" : "Modo escuro")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                Color="Color.Inherit" OnClick="() => _isDarkMode = !_isDarkMode" />
+        </MudTooltip>
 
         <AuthorizeView>
             <Authorized>
@@ -48,10 +53,10 @@
                 <img src="@CompanyState.LogoBase64"
                      style="width:40px;height:40px;object-fit:contain;border-radius:6px;flex-shrink:0" />
                 <div style="line-height:1.25;overflow:hidden">
-                    <div style="font-weight:700;font-size:0.82rem;color:#0D1B4B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    <div style="font-weight:700;font-size:0.82rem;color:var(--mud-palette-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
                         @CompanyState.CompanyName
                     </div>
-                    <div style="font-weight:400;font-size:0.65rem;color:#1565C0;letter-spacing:0.08em;text-transform:uppercase">
+                    <div style="font-weight:400;font-size:0.65rem;color:var(--mud-palette-primary);letter-spacing:0.08em;text-transform:uppercase">
                         SCALEatacado
                     </div>
                 </div>
@@ -72,6 +77,8 @@
 </MudLayout>
 
 @code {
+    private MudThemeProvider _themeProvider = null!;
+    private bool _isDarkMode;
     private bool _drawerOpen = true;
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 

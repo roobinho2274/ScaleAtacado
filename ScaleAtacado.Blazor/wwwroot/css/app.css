@@ -56,8 +56,12 @@ html, body {
 }
 
 .login-logo {
-    height: 68px;
-    width: auto;
+    height: 68px !important;
+    max-height: 68px !important;
+    width: auto !important;
+    max-width: 260px !important;
+    object-fit: contain;
+    display: block;
 }
 
 .drawer-logo {

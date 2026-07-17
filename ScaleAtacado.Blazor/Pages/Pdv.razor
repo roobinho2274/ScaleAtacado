@@ -351,8 +351,8 @@
             {
                 var precoItem = _newProductCost * (1 + _newProductMargin / 100m);
                 var precoPacote = _newProductPackageQty * precoItem;
-                <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
-                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                <MudText Typo="Typo.body1" Color="Color.Primary" Class="mt-2" Style="display:block;font-weight:700;font-size:1rem">
+                    Preço do pacote: R$ @precoPacote.ToString("N2")
                     @if (_newProductPackageQty > 1)
                     {
                         <text> (@_newProductPackageQty × R$ @precoItem.ToString("N2")/item)</text>
@@ -371,8 +371,8 @@
             @if (_newProductSalePrice > 0)
             {
                 var precoPacote = _newProductPackageQty * _newProductSalePrice;
-                <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2" Style="display:block">
-                    Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+                <MudText Typo="Typo.body1" Color="Color.Primary" Class="mt-2" Style="display:block;font-weight:700;font-size:1rem">
+                    Preço do pacote: R$ @precoPacote.ToString("N2")
                     @if (_newProductPackageQty > 1)
                     {
                         <text> (@_newProductPackageQty × R$ @_newProductSalePrice.ToString("N2")/item)</text>

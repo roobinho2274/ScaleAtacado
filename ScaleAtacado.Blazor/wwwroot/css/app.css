@@ -329,7 +329,7 @@ code {
 @media print {
     @page {
         size: A4 portrait;
-        margin: 6mm 8mm;
+        margin: 5mm 6mm;
     }
 
     .no-print,
@@ -368,11 +368,58 @@ code {
         width: 100%;
         min-height: 0;
         padding: 0;
-        font-size: 7.5pt;
+        font-size: 6.2pt;
+    }
+
+    .rpt-header {
+        padding-bottom: 2px;
+        margin-bottom: 4px;
+    }
+
+    .rpt-logo {
+        height: 24px;
+    }
+
+    .rpt-company {
+        font-size: 8pt;
+    }
+
+    .rpt-title, .rpt-date, .rpt-count {
+        font-size: 6pt;
+    }
+
+    .rpt-cat-header {
+        font-size: 5.5pt;
+        padding: 1px 4px;
+    }
+
+    .rpt-table {
+        font-size: 6.2pt;
+    }
+
+    .rpt-table th {
+        font-size: 5.8pt;
+        padding: 1px 3px;
+    }
+
+    .rpt-table td {
+        padding: 0.8px 3px;
+        line-height: 1.15;
+    }
+
+    .rpt-col-divider {
+        margin: 0 3mm;
     }
 
     .rpt-category-block {
         break-inside: avoid;
         page-break-inside: avoid;
+        margin-bottom: 2px;
+    }
+
+    .rpt-footer {
+        font-size: 5.5pt;
+        margin-top: 4px;
+        padding-top: 2px;
     }
 }

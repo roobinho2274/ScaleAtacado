@@ -160,8 +160,8 @@
         {
             var precoItem = _form.CostPrice * (1 + _form.ProfitMargin / 100m);
             var precoPacote = _form.PackageQuantity * precoItem;
-            <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-2">
-                Preço do pacote: <b>R$ @precoPacote.ToString("N2")</b>
+            <MudText Typo="Typo.body1" Color="Color.Primary" Class="mt-2" Style="font-weight:700;font-size:1rem">
+                Preço do pacote: R$ @precoPacote.ToString("N2")
                 @if (_form.PackageQuantity > 1)
                 {
                     <text> (@_form.PackageQuantity × R$ @precoItem.ToString("N2")/item)</text>

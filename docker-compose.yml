@@ -15,8 +15,7 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
-    security_opt:
-      - label:disable
+    privileged: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d scale_atacado"]
       interval: 10s
@@ -42,8 +41,7 @@ services:
       postgres-db:
         condition: service_healthy
     restart: unless-stopped
-    security_opt:
-      - label:disable
+    privileged: true
 
   # ── Blazor WASM (nginx) ──────────────────────────────────────────
   web:
@@ -56,8 +54,7 @@ services:
     depends_on:
       - api
     restart: unless-stopped
-    security_opt:
-      - label:disable
+    privileged: true
 
 volumes:
   postgres_data:

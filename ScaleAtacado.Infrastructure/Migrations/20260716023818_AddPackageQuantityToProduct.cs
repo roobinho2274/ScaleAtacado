@@ -7,18 +7,12 @@ namespace ScaleAtacado.Infrastructure.Migrations
     /// <inheritdoc />
     public partial class AddPackageQuantityToProduct : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "PackageQuantity",
-                table: "Products",
-                type: "integer",
-                nullable: false,
-                defaultValue: 1);
+            // ADD COLUMN IF NOT EXISTS evita falha se a coluna já existir de instalação anterior
+            migrationBuilder.Sql(@"ALTER TABLE ""Products"" ADD COLUMN IF NOT EXISTS ""PackageQuantity"" integer NOT NULL DEFAULT 1;");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(

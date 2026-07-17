@@ -11,57 +11,29 @@ namespace ScaleAtacado.Infrastructure.Migrations
     [Migration("20260622210000_AddCustomProductToOrderItem")]
     public partial class AddCustomProductToOrderItem : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // 1. Adiciona colunas de nome/código armazenados
-            migrationBuilder.AddColumn<string>(
-                name: "ProductName",
-                table: "OrderItems",
-                type: "character varying(200)",
-                maxLength: 200,
-                nullable: false,
-                defaultValue: "");
+            // ADD COLUMN IF NOT EXISTS evita falha se a coluna já existir de instalação anterior
+            migrationBuilder.Sql(@"ALTER TABLE ""OrderItems"" ADD COLUMN IF NOT EXISTS ""ProductName"" character varying(200) NOT NULL DEFAULT '';");
+            migrationBuilder.Sql(@"ALTER TABLE ""OrderItems"" ADD COLUMN IF NOT EXISTS ""ProductCode"" character varying(50);");
 
-            migrationBuilder.AddColumn<string>(
-                name: "ProductCode",
-                table: "OrderItems",
-                type: "character varying(50)",
-                maxLength: 50,
-                nullable: true);
-
-            // 2. Popula com os dados atuais dos produtos
+            // Popula ProductName/Code apenas nas linhas ainda sem nome
             migrationBuilder.Sql(@"
                 UPDATE ""OrderItems"" oi
                 SET ""ProductName"" = p.""Name"",
                     ""ProductCode"" = p.""Code""
                 FROM ""Products"" p
-                WHERE oi.""ProductId"" = p.""Id"";
+                WHERE oi.""ProductId"" = p.""Id""
+                  AND (oi.""ProductName"" = '' OR oi.""ProductName"" IS NULL);
             ");
 
-            // 3. Torna ProductId nullable (suporte a produtos avulsos)
-            migrationBuilder.AlterColumn<Guid>(
-                name: "ProductId",
-                table: "OrderItems",
-                type: "uuid",
-                nullable: true,
-                oldClrType: typeof(Guid),
-                oldType: "uuid");
+            // DROP NOT NULL é idempotente no PostgreSQL (não falha se já for nullable)
+            migrationBuilder.Sql(@"ALTER TABLE ""OrderItems"" ALTER COLUMN ""ProductId"" DROP NOT NULL;");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<Guid>(
-                name: "ProductId",
-                table: "OrderItems",
-                type: "uuid",
-                nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"),
-                oldClrType: typeof(Guid),
-                oldType: "uuid",
-                oldNullable: true);
-
+            migrationBuilder.Sql(@"ALTER TABLE ""OrderItems"" ALTER COLUMN ""ProductId"" SET NOT NULL;");
             migrationBuilder.DropColumn(name: "ProductName", table: "OrderItems");
             migrationBuilder.DropColumn(name: "ProductCode", table: "OrderItems");
         }

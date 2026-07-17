@@ -427,6 +427,19 @@
         </div>
     </TitleContent>
     <DialogContent>
+        @if (_orderDetail != null && _orderDetail.Version > (_orderDetail.LastPrintedVersion ?? 0))
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                @if (_orderDetail.LastPrintedVersion == null)
+                {
+                    <span>Este pedido ainda não foi impresso.</span>
+                }
+                else
+                {
+                    <span>Pedido alterado após a última impressão (v@(_orderDetail.LastPrintedVersion) → v@(_orderDetail.Version)). Este recibo reflete a versão atual.</span>
+                }
+            </MudAlert>
+        }
         <iframe srcdoc="@_printPreviewHtml"
             style="width:100%;height:520px;border:none;display:block;background:#fff" />
         <div class="d-flex align-center gap-3 mt-3">
@@ -800,6 +813,10 @@
         var companyCnpj    = H(_company?.CNPJ ?? "");
         var companyAddress = H(_company?.Address ?? "");
 
+        var retificadoBanner = o.Version > 1
+            ? $"<div style='background:#b71c1c;color:#fff;text-align:center;font-weight:bold;padding:4px 0;font-size:11px;letter-spacing:1px;margin-bottom:4px'>** DOCUMENTO RETIFICADO - v{o.Version} **</div>"
+            : "";
+
         var companyHeader =
             $"<h2>{companyName}</h2>" +
             (companyCnpj.Length    > 0 ? $"<p class='sub'>CNPJ: {companyCnpj}</p>"      : "") +
@@ -822,6 +839,7 @@
             ".tot{font-weight:bold;font-size:13px}" +
             ".rodape{text-align:center;font-size:10px;margin-top:10px}" +
             "</style></head><body>" +
+            retificadoBanner +
             companyHeader +
             "<hr/>" +
             $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +

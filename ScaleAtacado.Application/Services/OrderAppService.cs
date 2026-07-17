@@ -220,8 +220,11 @@ public class OrderAppService
             Status = Domain.Enums.PrintStatus.OnHoldem,
             TryCount = 0,
             Copies = copies < 1 ? 1 : copies,
+            OrderVersion = order.Version,
             OnCreated = DateTime.UtcNow
         };
+
+        order.LastPrintedVersion = order.Version;
 
         await _printJobRepository.AddAsync(printJob);
         await _orderRepository.SaveChangesAsync();
@@ -450,6 +453,7 @@ public class OrderAppService
 
         order.AmountTotal = subtotal;
         order.AmountWithSurchargeTotal = newTotal;
+        order.Version++;
 
         if (order.PaymentMethods.Count == 1)
             order.PaymentMethods.First().Amount = newTotal;
@@ -502,6 +506,8 @@ public class OrderAppService
             i.ProductName,
             i.ProductCode,
             i.Quantity, i.UnitPrice, i.TotalPrice
-        )).ToList()
+        )).ToList(),
+        Version:             o.Version,
+        LastPrintedVersion:  o.LastPrintedVersion
     );
 }

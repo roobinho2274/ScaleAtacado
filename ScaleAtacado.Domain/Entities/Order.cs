@@ -19,6 +19,8 @@ public class Order
     public FinancialStatus FinancialStatus { get; set; } = FinancialStatus.Open;
     public bool IsOutstanding { get; set; }
     public bool IsLocked { get; set; }
+    public int Version { get; set; } = 1;
+    public int? LastPrintedVersion { get; set; }
 
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<OrderPaymentMethod> PaymentMethods { get; set; } = new List<OrderPaymentMethod>();

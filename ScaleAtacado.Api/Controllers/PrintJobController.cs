@@ -102,7 +102,8 @@ public class PrintJobController : ControllerBase
             CompanyName:        company?.Name,
             CompanyCNPJ:        company?.CNPJ,
             CompanyAddress:     company?.Address,
-            CompanyLogoBase64:  company?.LogoBase64
+            CompanyLogoBase64:  company?.LogoBase64,
+            Version:            order.Version
         );
 
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));

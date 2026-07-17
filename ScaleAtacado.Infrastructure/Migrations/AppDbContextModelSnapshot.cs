@@ -389,6 +389,13 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Version")
+                        .HasDefaultValue(1)
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LastPrintedVersion")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -524,6 +531,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("Copies")
+                        .HasDefaultValue(1)
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrderVersion")
                         .HasDefaultValue(1)
                         .HasColumnType("integer");
 

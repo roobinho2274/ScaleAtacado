@@ -18,6 +18,12 @@ public class ReceiptFormatter
         if (!string.IsNullOrWhiteSpace(order.CompanyAddress))
             lines.Add(Center(order.CompanyAddress));
         lines.Add(Center("PEDIDO DE COMPRA"));
+        if (order.Version > 1)
+        {
+            lines.Add(Line('*'));
+            lines.Add(Center($"** DOCUMENTO RETIFICADO - v{order.Version} **"));
+            lines.Add(Line('*'));
+        }
         lines.Add(Line('='));
         lines.Add($"Pedido: #{order.OrderNumber:D4}");
         lines.Add($"Data:   {order.OrderDate.ToLocalTime():dd/MM/yyyy HH:mm}");

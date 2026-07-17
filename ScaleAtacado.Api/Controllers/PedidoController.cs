@@ -72,13 +72,14 @@ public class OrderController : ControllerBase
     [HttpPost("{id:guid}/printjob")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreatePrintJob(Guid id)
+    public async Task<IActionResult> CreatePrintJob(Guid id, [FromBody] CreatePrintJobRequestDto dto)
     {
-        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName(), dto.Copies);
         if (!result.Success) return BadRequest(result);
 
+        var signalRJob = new PendingPrintJobDto(result.Data, id, 0, dto.Copies);
         await _printHub.Clients.Group("PrintAgents")
-            .SendAsync("NewPrintJob", result.Data);
+            .SendAsync("NewPrintJob", signalRJob);
 
         return Ok(ApiResponse.Ok());
     }

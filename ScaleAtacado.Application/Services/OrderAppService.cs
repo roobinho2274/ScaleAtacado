@@ -207,7 +207,7 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse<Guid>> CreatePrintJobAsync(Guid orderId, Guid companyId, Guid userId, string userName)
+    public async Task<ApiResponse<Guid>> CreatePrintJobAsync(Guid orderId, Guid companyId, Guid userId, string userName, int copies = 1)
     {
         var order = await _orderRepository.GetByIdAsync(orderId, companyId);
         if (order == null)
@@ -219,6 +219,7 @@ public class OrderAppService
             OrderId = order.Id,
             Status = Domain.Enums.PrintStatus.OnHoldem,
             TryCount = 0,
+            Copies = copies < 1 ? 1 : copies,
             OnCreated = DateTime.UtcNow
         };
 

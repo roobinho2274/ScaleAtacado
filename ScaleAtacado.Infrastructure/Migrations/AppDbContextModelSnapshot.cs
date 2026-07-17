@@ -523,6 +523,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<int>("TryCount")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Copies")
+                        .HasDefaultValue(1)
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.ToTable("PrintJobs", (string)null);

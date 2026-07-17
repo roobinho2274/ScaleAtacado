@@ -429,6 +429,14 @@
     <DialogContent>
         <iframe srcdoc="@_printPreviewHtml"
             style="width:100%;height:520px;border:none;display:block;background:#fff" />
+        <div class="d-flex align-center gap-3 mt-3">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" Color="Color.Default" />
+            <MudText Typo="Typo.body2">Número de cópias:</MudText>
+            <MudNumericField T="int" @bind-Value="_copies"
+                Min="1" Max="10" Step="1"
+                Variant="Variant.Outlined" Margin="Margin.Dense"
+                Style="width:90px" />
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _printPreviewOpen = false)">Cancelar</MudButton>
@@ -460,6 +468,7 @@
     private List<PaymentMethodResponseDto> _paymentMethods = new();
     private bool _printPreviewOpen;
     private string _printPreviewHtml = "";
+    private int _copies = 1;
     private CompanyResponseDto? _company;
     private List<ProductResponseDto> _products = new();
     private List<EditItemVm> _editItems = new();
@@ -735,10 +744,12 @@
         if (_orderDetail == null) return;
         _saving = true;
         _printPreviewOpen = false;
-        var resp = await OrderService.CreatePrintJobAsync(_orderDetail.Id);
+        var copies = _copies;
+        _copies = 1;
+        var resp = await OrderService.CreatePrintJobAsync(_orderDetail.Id, copies);
         Snackbar.Add(
             resp?.Success == true
-                ? "Recibo enviado para a impressora!"
+                ? $"Recibo enviado para a impressora ({copies} {(copies == 1 ? "cópia" : "cópias")})!"
                 : (resp?.Error ?? "Erro ao enviar para impressão."),
             resp?.Success == true ? Severity.Success : Severity.Error);
         _saving = false;

@@ -47,7 +47,8 @@
       "PowerShell(dotnet build \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.Infrastructure\\\\ScaleAtacado.Infrastructure.csproj\" --no-restore -c Release 2>&1)",
       "PowerShell(dotnet build \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\\\\ScaleAtacado.sln\" --no-restore -c Release 2>&1)",
       "Bash(grep -o '\"text\":\"[^\"]*setup[^\"]*\"' \"C:/Users/robso/.claude/projects/c--Users-robso-Documents-ACR-Project-ScaleAtacado/d5338ae3-c25f-4437-a978-0700c75fc05c.jsonl\" 2>/dev/null | head -20)",
-      "Read(//c/Users/robso/.claude/projects/c--Users-robso-Documents-ACR-Project-ScaleAtacado/**)"
+      "Read(//c/Users/robso/.claude/projects/c--Users-robso-Documents-ACR-Project-ScaleAtacado/**)",
+      "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet build ScaleAtacado.Api --no-restore 2>&1 | Where-Object { $_ -match \"error\" } | Select-Object -First 15)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

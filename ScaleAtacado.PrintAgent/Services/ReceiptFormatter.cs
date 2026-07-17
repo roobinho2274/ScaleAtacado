@@ -31,8 +31,16 @@ public class ReceiptFormatter
         lines.Add("CLIENTE:");
         lines.Add(Truncate(order.CustomerName, Width));
         lines.Add(Line('-'));
-        var paymentNames = string.Join(" + ", order.PaymentMethods.Select(p => p.Name));
-        lines.Add($"Pagamento: {Truncate(paymentNames, Width - 11)}");
+        if (order.PaymentMethods.Count == 1)
+        {
+            lines.Add($"Pagamento: {Truncate(order.PaymentMethods[0].Name, Width - 11)}");
+        }
+        else
+        {
+            lines.Add("PAGAMENTO:");
+            foreach (var pm in order.PaymentMethods)
+                lines.Add(PadBetween($"  {pm.Name}", $"R$ {pm.Amount:N2}"));
+        }
         lines.Add(Line('='));
         lines.Add(PadBetween("ITEM", "VALOR"));
         lines.Add(Line('-'));
@@ -61,6 +69,14 @@ public class ReceiptFormatter
 
         lines.Add(PadBetween("TOTAL:", $"R$ {order.AmountWithSurchargeTotal:N2}"));
         lines.Add(Line('='));
+        if (!string.IsNullOrWhiteSpace(order.Notes))
+        {
+            lines.Add(Line('-'));
+            lines.Add("OBS:");
+            foreach (var noteLine in order.Notes.Split('\n'))
+                lines.Add(Truncate(noteLine.TrimEnd(), Width));
+        }
+
         lines.Add(string.Empty);
         lines.Add(Center("Obrigado pela preferencia!"));
         lines.Add(string.Empty);

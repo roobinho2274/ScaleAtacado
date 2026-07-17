@@ -255,6 +255,22 @@
                 </Authorized>
             </AuthorizeView>
 
+            <!-- Observações -->
+            <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
+                <MudTextField @bind-Value="_editNotes"
+                    Label="Observações"
+                    Placeholder="Instruções de entrega, condições especiais, etc."
+                    Variant="Variant.Outlined"
+                    Lines="3"
+                    MaxLength="500"
+                    FullWidth="true"
+                    Class="mb-2" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                    OnClick="SaveNotesAsync" Disabled="_saving">
+                    Salvar Observações
+                </MudButton>
+            </MudPaper>
+
             <MudGrid>
                 <MudItem xs="12" sm="6">
                     <MudSelect T="DeliveryStatus" Label="Status de Entrega"
@@ -487,6 +503,7 @@
     private List<EditItemVm> _editItems = new();
     private ProductResponseDto? _addProduct;
     private int _addQty = 1;
+    private string? _editNotes;
 
     protected override async Task OnInitializedAsync()
     {
@@ -548,6 +565,7 @@
             }).ToList();
             _addProduct = null;
             _addQty = 1;
+            _editNotes = _orderDetail.Notes;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -611,6 +629,20 @@
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao alterar forma de pagamento.", Severity.Error);
+        _saving = false;
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        if (_orderDetail == null) return;
+        _saving = true;
+        var resp = await OrderService.UpdateNotesAsync(_orderDetail.Id, _editNotes);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Observações salvas!", Severity.Success);
+            _orderDetail = _orderDetail with { Notes = string.IsNullOrWhiteSpace(_editNotes) ? null : _editNotes.Trim() };
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao salvar observações.", Severity.Error);
         _saving = false;
     }
 
@@ -847,8 +879,7 @@
             "<hr/>" +
             customerLines +
             "<hr/>" +
-            $"<p><b>Pagamento:</b>&nbsp;{H(string.Join(" + ", o.PaymentMethods.Select(p => p.Name)))}" +
-            $"&nbsp;<span style='font-size:10px;color:#777'>({(o.IsInstallment ? "A Prazo" : "À Vista")})</span></p>" +
+            BuildPaymentHtml(o, c) +
             "<hr/>" +
             "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
             sb.ToString() +
@@ -860,9 +891,35 @@
                 : "") +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +
+            (o.Notes != null
+                ? "<hr/>" +
+                  $"<p style='font-size:10px;margin-bottom:2px;font-weight:600'>OBSERVAÇÕES</p>" +
+                  $"<p style='font-size:11px;white-space:pre-wrap'>{H(o.Notes)}</p>"
+                : "") +
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +
             "</body></html>";
+    }
+
+    private static string BuildPaymentHtml(OrderResponseDto o, System.Globalization.CultureInfo c)
+    {
+        string H(string? s) => System.Net.WebUtility.HtmlEncode(s ?? "");
+        var prazo = $"<span style='font-size:10px;color:#777'>({(o.IsInstallment ? "A Prazo" : "À Vista")})</span>";
+
+        if (o.PaymentMethods.Count <= 1)
+        {
+            var name = H(o.PaymentMethods.FirstOrDefault()?.Name ?? "");
+            return $"<p><b>Pagamento:</b>&nbsp;{name}&nbsp;{prazo}</p>";
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<p style='margin-bottom:2px'><b>Pagamento:</b>&nbsp;{prazo}</p>");
+        sb.Append("<table style='width:100%;border-collapse:collapse;font-size:11px;margin-bottom:2px'><tbody>");
+        foreach (var pm in o.PaymentMethods)
+            sb.Append($"<tr><td style='padding:1px 0 1px 8px;color:#333'>{H(pm.Name)}</td>" +
+                      $"<td style='text-align:right;white-space:nowrap'>R$&nbsp;{pm.Amount.ToString("N2", c)}</td></tr>");
+        sb.Append("</tbody></table>");
+        return sb.ToString();
     }
 
     private static Color GetDeliveryColor(DeliveryStatus s) => s switch

@@ -141,4 +141,13 @@ public class OrderController : ControllerBase
         var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPatch("{id:guid}/notes")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateNotes(Guid id, [FromBody] UpdateOrderNotesDto dto)
+    {
+        var result = await _service.UpdateNotesAsync(id, dto.Notes, User.GetCompanyId());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }

@@ -108,7 +108,8 @@ public class OrderAppService
             AmountWithSurchargeTotal = totalFinal,
             DeliveryStatus = DeliveryStatus.AwaitingPicking,
             FinancialStatus = FinancialStatus.Open,
-            IsLocked = false
+            IsLocked = false,
+            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim()
         };
 
         foreach (var item in items)
@@ -473,6 +474,19 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
+    public async Task<ApiResponse> UpdateNotesAsync(Guid id, string? notes, Guid companyId)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        order.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        return ApiResponse.Ok();
+    }
+
     private static string DeliveryLabel(DeliveryStatus s) => s switch
     {
         DeliveryStatus.AwaitingPicking => "Aguardando Separação",
@@ -508,6 +522,7 @@ public class OrderAppService
             i.Quantity, i.UnitPrice, i.TotalPrice
         )).ToList(),
         Version:             o.Version,
-        LastPrintedVersion:  o.LastPrintedVersion
+        LastPrintedVersion:  o.LastPrintedVersion,
+        Notes:               o.Notes
     );
 }

@@ -396,6 +396,9 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<int?>("LastPrintedVersion")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");

@@ -21,6 +21,7 @@ public class Order
     public bool IsLocked { get; set; }
     public int Version { get; set; } = 1;
     public int? LastPrintedVersion { get; set; }
+    public string? Notes { get; set; }
 
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<OrderPaymentMethod> PaymentMethods { get; set; } = new List<OrderPaymentMethod>();

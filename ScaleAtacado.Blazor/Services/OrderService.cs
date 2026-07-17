@@ -51,4 +51,7 @@ public class OrderService
 
     public Task<ApiResponse?> UpdateFinancialStatusAsync(Guid id, FinancialStatus status)
         => _api.PatchAsync($"api/order/{id}/financial", new UpdateFinancialStatusDto(status));
+
+    public Task<ApiResponse?> UpdateNotesAsync(Guid id, string? notes)
+        => _api.PatchAsync($"api/order/{id}/notes", new UpdateOrderNotesDto(notes));
 }

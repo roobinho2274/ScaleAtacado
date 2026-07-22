@@ -152,6 +152,13 @@
                         <MudText Typo="Typo.body2" Color="Color.Success">− R$ @_orderDetail.DiscountAmount.ToString("N2")</MudText>
                     </MudItem>
                 }
+                @if (_orderDetail.FixedFeeAmount > 0)
+                {
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Taxa Operacional</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Warning">+ R$ @_orderDetail.FixedFeeAmount.ToString("N2")</MudText>
+                    </MudItem>
+                }
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Total Final</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Primary"><b>R$ @_orderDetail.AmountWithSurchargeTotal.ToString("N2")</b></MudText>
@@ -839,7 +846,7 @@
         }
 
         var subtotalRec   = Math.Round(o.AmountTotal * surchargeRate, 2);
-        var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount);
+        var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount + o.FixedFeeAmount);
 
         var companyName    = H(_company?.Name ?? "ScaleAtacado");
         var companyCnpj    = H(_company?.CNPJ ?? "");
@@ -888,6 +895,9 @@
             $"<tr><td>Subtotal</td><td>R$&nbsp;{subtotalRec.ToString("N2", c)}</td></tr>" +
             (o.DiscountAmount > 0
                 ? $"<tr><td style='color:#777'>Desconto</td><td style='color:#777'>- R$&nbsp;{o.DiscountAmount.ToString("N2", c)}</td></tr>"
+                : "") +
+            (o.FixedFeeAmount > 0
+                ? $"<tr><td style='color:#555;font-size:10px'>Taxa Operacional</td><td style='color:#555;font-size:10px'>+ R$&nbsp;{o.FixedFeeAmount.ToString("N2", c)}</td></tr>"
                 : "") +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +

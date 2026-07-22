@@ -393,6 +393,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasDefaultValue(1)
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("FixedFeeAmount")
+                        .HasDefaultValue(0m)
+                        .HasColumnType("numeric");
+
                     b.Property<int?>("LastPrintedVersion")
                         .HasColumnType("integer");
 
@@ -499,6 +503,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<decimal>("SurchargePercentage")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("FixedFee")
+                        .HasDefaultValue(0m)
+                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 

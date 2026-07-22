@@ -26,5 +26,6 @@ public record OrderResponseDto(
     string? CompanyLogoBase64 = null,
     int Version               = 1,
     int? LastPrintedVersion   = null,
-    string? Notes             = null
+    string? Notes             = null,
+    decimal FixedFeeAmount    = 0
 );

@@ -67,6 +67,9 @@ public class ReceiptFormatter
         if (order.DiscountAmount > 0)
             lines.Add(PadBetween("Desconto:", $"- R$ {order.DiscountAmount:N2}"));
 
+        if (order.FixedFeeAmount > 0)
+            lines.Add(PadBetween("Taxa Operacional:", $"+ R$ {order.FixedFeeAmount:N2}"));
+
         lines.Add(PadBetween("TOTAL:", $"R$ {order.AmountWithSurchargeTotal:N2}"));
         lines.Add(Line('='));
         if (!string.IsNullOrWhiteSpace(order.Notes))

@@ -81,7 +81,8 @@ public class OrderAppService
             : 0m;
         var surcharge = subtotal * (surchargePercentage / 100);
         var discount = Math.Max(0m, dto.DiscountAmount);
-        var totalFinal = subtotal + surcharge - discount;
+        var fixedFee = dto.IsInstallment && paymentMethods.Count == 1 ? paymentMethods[0].FixedFee : 0m;
+        var totalFinal = subtotal + surcharge - discount + fixedFee;
 
         if (dto.Payments.Count > 1)
         {
@@ -109,6 +110,7 @@ public class OrderAppService
             DeliveryStatus = DeliveryStatus.AwaitingPicking,
             FinancialStatus = FinancialStatus.Open,
             IsLocked = false,
+            FixedFeeAmount = fixedFee,
             Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim()
         };
 
@@ -342,7 +344,8 @@ public class OrderAppService
 
         var surcharge = order.AmountTotal * (
             (newMethods.Count == 1 ? newMethods[0].SurchargePercentage : 0m) / 100m);
-        var newTotal = order.AmountTotal + surcharge - order.DiscountAmount;
+        var newFixedFee = dto.IsInstallment && newMethods.Count == 1 ? newMethods[0].FixedFee : 0m;
+        var newTotal = order.AmountTotal + surcharge - order.DiscountAmount + newFixedFee;
 
         if (dto.Payments.Count > 1)
         {
@@ -361,6 +364,7 @@ public class OrderAppService
 
         order.IsInstallment = dto.IsInstallment;
         order.SurchargePercentage = newMethods.Count == 1 ? newMethods[0].SurchargePercentage : 0m;
+        order.FixedFeeAmount = newFixedFee;
         order.AmountWithSurchargeTotal = newTotal;
 
         var newPaymentMethods = newMethods.Select(pm => new OrderPaymentMethod
@@ -523,6 +527,7 @@ public class OrderAppService
         )).ToList(),
         Version:             o.Version,
         LastPrintedVersion:  o.LastPrintedVersion,
-        Notes:               o.Notes
+        Notes:               o.Notes,
+        FixedFeeAmount:      o.FixedFeeAmount
     );
 }

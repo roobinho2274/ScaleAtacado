@@ -19,6 +19,7 @@ public class Order
     public FinancialStatus FinancialStatus { get; set; } = FinancialStatus.Open;
     public bool IsOutstanding { get; set; }
     public bool IsLocked { get; set; }
+    public decimal FixedFeeAmount { get; set; } = 0;
     public int Version { get; set; } = 1;
     public int? LastPrintedVersion { get; set; }
     public string? Notes { get; set; }

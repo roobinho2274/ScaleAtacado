@@ -75,7 +75,7 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Nº"><b>#@context.OrderNumber</b></MudTd>
-        <MudTd DataLabel="Data">@context.OrderDate.ToString("dd/MM/yy HH:mm")</MudTd>
+        <MudTd DataLabel="Data">@context.OrderDate.ToLocalTime().ToString("dd/MM/yy HH:mm")</MudTd>
         <MudTd DataLabel="Cliente">@context.CustomerName</MudTd>
         <MudTd DataLabel="Pagamento">@context.PaymentMethodName</MudTd>
         <MudTd DataLabel="Total" Style="text-align:right">R$ @context.AmountWithSurchargeTotal.ToString("N2")</MudTd>
@@ -116,7 +116,7 @@
             <MudGrid Class="mb-3">
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
-                    <MudText Typo="Typo.body2">@_orderDetail.OrderDate.ToString("dd/MM/yyyy HH:mm")</MudText>
+                    <MudText Typo="Typo.body2">@_orderDetail.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Pagamento</MudText>
@@ -882,7 +882,7 @@
             companyHeader +
             "<hr/>" +
             $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +
-            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +
+            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm", c)}</p>" +
             "<hr/>" +
             customerLines +
             "<hr/>" +

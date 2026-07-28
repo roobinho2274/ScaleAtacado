@@ -175,7 +175,7 @@
                 <RowTemplate>
                     <MudTd>@context.ProductName</MudTd>
                     <MudTd Style="text-align:right">R$ @((context.UnitPrice * _surchargeRate).ToString("N2"))</MudTd>
-                    <MudTd Style="text-align:center">@context.Quantity</MudTd>
+                    <MudTd Style="text-align:center">@context.Quantity.ToString("N2")</MudTd>
                     <MudTd Style="text-align:right">R$ @((context.TotalPrice * _surchargeRate).ToString("N2"))</MudTd>
                 </RowTemplate>
             </MudTable>
@@ -204,9 +204,9 @@
                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space:nowrap">
                                     R$ @item.UnitPrice.ToString("N2")
                                 </MudText>
-                                <MudNumericField T="int" Value="item.Quantity" Min="1" Max="9999"
+                                <MudNumericField T="decimal" Value="item.Quantity" Min="0.01m" Max="9999m" Step="0.25m" Format="N2"
                                     ValueChanged="@(v => { item.Quantity = v; StateHasChanged(); })"
-                                    Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:80px" />
+                                    Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:90px" />
                                 <MudText Typo="Typo.body2" Style="min-width:80px;text-align:right;white-space:nowrap">
                                     R$ @((item.UnitPrice * item.Quantity).ToString("N2"))
                                 </MudText>
@@ -226,8 +226,8 @@
                                     Variant="Variant.Outlined" Dense="true" FullWidth="true" Clearable="true" />
                             </MudItem>
                             <MudItem xs="6" sm="2">
-                                <MudNumericField @bind-Value="_addQty" Label="Qtd"
-                                    Variant="Variant.Outlined" Min="1" Max="9999" />
+                                <MudNumericField T="decimal" @bind-Value="_addQty" Label="Qtd"
+                                    Variant="Variant.Outlined" Min="0.01m" Max="9999m" Step="0.25m" Format="N2" />
                             </MudItem>
                             <MudItem xs="6" sm="3" Class="d-flex align-end">
                                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
@@ -509,7 +509,7 @@
     private List<ProductResponseDto> _products = new();
     private List<EditItemVm> _editItems = new();
     private ProductResponseDto? _addProduct;
-    private int _addQty = 1;
+    private decimal _addQty = 1m;
     private string? _editNotes;
 
     protected override async Task OnInitializedAsync()
@@ -737,7 +737,7 @@
         public Guid ProductId   { get; set; }
         public string ProductName { get; set; } = "";
         public decimal UnitPrice  { get; set; }
-        public int Quantity       { get; set; }
+        public decimal Quantity    { get; set; }
     }
 
     private async Task SaveDeliveryAsync()
@@ -832,10 +832,8 @@
             var code       = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}]&nbsp;" : "";
             var unitFinal  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalFinal = Math.Round(item.TotalPrice * surchargeRate, 2);
-            string detail  = item.Quantity == 1
-                ? $"<b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>"
-                : $"{item.Quantity}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
-                  $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
+            string detail  = $"{item.Quantity.ToString("N2", c)}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
+                             $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
 
             sb.Append(
                 "<div style='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-top:5px'>" +

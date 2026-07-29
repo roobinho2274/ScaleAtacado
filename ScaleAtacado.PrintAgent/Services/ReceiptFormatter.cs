@@ -52,7 +52,7 @@ public class ReceiptFormatter
             var nameRaw            = $"#{num} {code}{item.ProductName}";
             var unitWithSurcharge  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalWithSurcharge = Math.Round(item.TotalPrice * surchargeRate, 2);
-            var detail             = $"  {item.Quantity} x {unitWithSurcharge:N2}";
+            var detail             = $"  {item.Quantity:N2} x {unitWithSurcharge:N2}";
 
             lines.Add(Truncate(nameRaw, Width));
             lines.Add(PadBetween(detail, totalWithSurcharge.ToString("N2")));

@@ -77,8 +77,8 @@
                     </MudButton>
                 </MudItem>
                 <MudItem xs="6" sm="3">
-                    <MudNumericField @bind-Value="_quantity" Label="Quantidade"
-                        Variant="Variant.Outlined" Min="1" Max="9999"
+                    <MudNumericField T="decimal" @bind-Value="_quantity" Label="Quantidade"
+                        Variant="Variant.Outlined" Min="0.01m" Max="9999m" Step="0.25m" Format="N2"
                         Disabled="_finalizing" />
                 </MudItem>
                 <MudItem xs="6" sm="2" Class="d-flex align-end">
@@ -106,10 +106,10 @@
                     <MudTd DataLabel="Produto">@context.ProductName</MudTd>
                     <MudTd DataLabel="Preço Unit." Style="text-align:right">R$ @context.UnitPrice.ToString("N2")</MudTd>
                     <MudTd DataLabel="Qtd" Style="text-align:center">
-                        <MudNumericField Value="context.Quantity" Min="1" Max="9999"
-                            Variant="Variant.Text" Style="width:70px;text-align:center"
+                        <MudNumericField T="decimal" Value="context.Quantity" Min="0.01m" Max="9999m" Step="0.25m" Format="N2"
+                            Variant="Variant.Text" Style="width:80px;text-align:center"
                             Disabled="_finalizing"
-                            ValueChanged="@(EventCallback.Factory.Create<int>(this, v => UpdateQuantity(context, v)))" />
+                            ValueChanged="@(EventCallback.Factory.Create<decimal>(this, v => UpdateQuantity(context, v)))" />
                     </MudTd>
                     <MudTd DataLabel="Total" Style="text-align:right">R$ @context.TotalPrice.ToString("N2")</MudTd>
                     <MudTd Style="text-align:center">
@@ -398,7 +398,7 @@
     private IReadOnlyCollection<PaymentMethodResponseDto> _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
     private PaymentMethodResponseDto? _paymentMethodAPrazo;
     private Dictionary<Guid, decimal> _pmAmounts = new();
-    private int _quantity = 1;
+    private decimal _quantity = 1m;
     private decimal _discount = 0m;
     private bool _finalizing;
     private bool _isAdmin;
@@ -539,10 +539,10 @@
         }
 
         _selectedProduct = null;
-        _quantity = 1;
+        _quantity = 1m;
     }
 
-    private void UpdateQuantity(OrderItemVm item, int newQuantity)
+    private void UpdateQuantity(OrderItemVm item, decimal newQuantity)
     {
         item.Quantity = newQuantity;
         StateHasChanged();
@@ -558,7 +558,7 @@
         _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
         _pmAmounts.Clear();
         _isInstallment = false;
-        _quantity = 1;
+        _quantity = 1m;
         _discount = 0m;
     }
 
@@ -774,7 +774,7 @@
         public Guid ProductId { get; set; }
         public string ProductName { get; set; } = "";
         public decimal UnitPrice { get; set; }
-        public int Quantity { get; set; } = 1;
+        public decimal Quantity { get; set; } = 1m;
         public decimal TotalPrice => UnitPrice * Quantity;
     }
 }

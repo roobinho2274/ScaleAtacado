@@ -5,7 +5,7 @@ public record OrderItemResponseDto(
     Guid? ProductId,
     string ProductName,
     string? ProductCode,
-    int Quantity,
+    decimal Quantity,
     decimal UnitPrice,
     decimal TotalPrice
 );

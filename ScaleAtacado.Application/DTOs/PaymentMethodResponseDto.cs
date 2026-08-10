@@ -6,5 +6,6 @@ public record PaymentMethodResponseDto(
     string Name,
     bool IsInstallment,
     decimal SurchargePercentage,
-    bool IsActive
+    bool IsActive,
+    decimal FixedFee = 0
 );

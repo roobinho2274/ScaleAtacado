@@ -43,7 +43,7 @@ public class PrintJobController : ControllerBase
         var pending = await _repository.GetPendingAsync();
         var failed = await _repository.GetFailedAsync();
 
-        var all = pending.Concat(failed).Select(j => new PendingPrintJobDto(j.Id, j.OrderId, j.TryCount));
+        var all = pending.Concat(failed).Select(j => new PendingPrintJobDto(j.Id, j.OrderId, j.TryCount, j.Copies));
         return Ok(ApiResponse<IEnumerable<PendingPrintJobDto>>.Ok(all));
     }
 
@@ -102,7 +102,10 @@ public class PrintJobController : ControllerBase
             CompanyName:        company?.Name,
             CompanyCNPJ:        company?.CNPJ,
             CompanyAddress:     company?.Address,
-            CompanyLogoBase64:  company?.LogoBase64
+            CompanyLogoBase64:  company?.LogoBase64,
+            Version:            order.Version,
+            Notes:              order.Notes,
+            FixedFeeAmount:     order.FixedFeeAmount
         );
 
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));
@@ -113,7 +116,7 @@ public class PrintJobController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var pending = await _repository.GetPendingAsync();
-        var dtos = pending.Select(j => new PendingPrintJobDto(j.Id, j.OrderId, j.TryCount));
+        var dtos = pending.Select(j => new PendingPrintJobDto(j.Id, j.OrderId, j.TryCount, j.Copies));
         return Ok(ApiResponse<IEnumerable<PendingPrintJobDto>>.Ok(dtos));
     }
 

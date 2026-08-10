@@ -72,13 +72,14 @@ public class OrderController : ControllerBase
     [HttpPost("{id:guid}/printjob")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreatePrintJob(Guid id)
+    public async Task<IActionResult> CreatePrintJob(Guid id, [FromBody] CreatePrintJobRequestDto dto)
     {
-        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        var result = await _service.CreatePrintJobAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName(), dto.Copies);
         if (!result.Success) return BadRequest(result);
 
+        var signalRJob = new PendingPrintJobDto(result.Data, id, 0, dto.Copies);
         await _printHub.Clients.Group("PrintAgents")
-            .SendAsync("NewPrintJob", result.Data);
+            .SendAsync("NewPrintJob", signalRJob);
 
         return Ok(ApiResponse.Ok());
     }
@@ -138,6 +139,15 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> UpdateFinancialStatus(Guid id, [FromBody] UpdateFinancialStatusDto dto)
     {
         var result = await _service.UpdateFinancialStatusAsync(id, dto.FinancialStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPatch("{id:guid}/notes")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateNotes(Guid id, [FromBody] UpdateOrderNotesDto dto)
+    {
+        var result = await _service.UpdateNotesAsync(id, dto.Notes, User.GetCompanyId());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using ScaleAtacado.Application.DTOs;
 using ScaleAtacado.Domain.Enums;
 using ScaleAtacado.PrintAgent.Services;
 
@@ -93,10 +94,10 @@ public class Worker : BackgroundService
             .WithAutomaticReconnect()
             .Build();
 
-        _hubConnection.On<Guid>("NewPrintJob", async printJobId =>
+        _hubConnection.On<PendingPrintJobDto>("NewPrintJob", async job =>
         {
-            _logger.LogInformation("Novo job de impressão recebido: {JobId}", printJobId);
-            await ProcessJobAsync(printJobId);
+            _logger.LogInformation("Novo job de impressão recebido: {JobId} ({Copies} cópia(s))", job.PrintJobId, job.Copies);
+            await ProcessJobAsync(job.PrintJobId, job.Copies);
         });
 
         _hubConnection.Reconnected += connectionId =>
@@ -137,13 +138,13 @@ public class Worker : BackgroundService
         foreach (var job in jobs)
         {
             if (stoppingToken.IsCancellationRequested) break;
-            await ProcessJobAsync(job.PrintJobId);
+            await ProcessJobAsync(job.PrintJobId, job.Copies);
         }
     }
 
-    private async Task ProcessJobAsync(Guid printJobId)
+    private async Task ProcessJobAsync(Guid printJobId, int copies = 1)
     {
-        _logger.LogInformation("Processando job {JobId}...", printJobId);
+        _logger.LogInformation("Processando job {JobId} ({Copies} cópia(s))...", printJobId, copies);
 
         await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Printing);
 
@@ -159,7 +160,14 @@ public class Worker : BackgroundService
 
         var receipt = _formatter.Format(order);
         var printerName = _configuration["PrintAgent:PrinterName"];
-        var success = _printService.Print(receipt, printerName, order.CompanyLogoBase64);
+        var totalCopies = copies < 1 ? 1 : copies;
+        var success = true;
+
+        for (var i = 0; i < totalCopies; i++)
+        {
+            success = _printService.Print(receipt, printerName, order.CompanyLogoBase64);
+            if (!success) break;
+        }
 
         _status.LastJobAt = DateTime.Now;
         _status.LastJobSuccess = success;
@@ -167,7 +175,7 @@ public class Worker : BackgroundService
         if (success)
         {
             await _apiClient.UpdateStatusAsync(printJobId, PrintStatus.Printed);
-            _logger.LogInformation("Job {JobId} impresso com sucesso.", printJobId);
+            _logger.LogInformation("Job {JobId} impresso com sucesso ({Copies} cópia(s)).", printJobId, totalCopies);
         }
         else
         {

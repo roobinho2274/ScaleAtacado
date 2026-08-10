@@ -75,7 +75,7 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Nº"><b>#@context.OrderNumber</b></MudTd>
-        <MudTd DataLabel="Data">@context.OrderDate.ToString("dd/MM/yy HH:mm")</MudTd>
+        <MudTd DataLabel="Data">@context.OrderDate.ToLocalTime().ToString("dd/MM/yy HH:mm")</MudTd>
         <MudTd DataLabel="Cliente">@context.CustomerName</MudTd>
         <MudTd DataLabel="Pagamento">@context.PaymentMethodName</MudTd>
         <MudTd DataLabel="Total" Style="text-align:right">R$ @context.AmountWithSurchargeTotal.ToString("N2")</MudTd>
@@ -116,7 +116,7 @@
             <MudGrid Class="mb-3">
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Data</MudText>
-                    <MudText Typo="Typo.body2">@_orderDetail.OrderDate.ToString("dd/MM/yyyy HH:mm")</MudText>
+                    <MudText Typo="Typo.body2">@_orderDetail.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
                 </MudItem>
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Pagamento</MudText>
@@ -152,6 +152,13 @@
                         <MudText Typo="Typo.body2" Color="Color.Success">− R$ @_orderDetail.DiscountAmount.ToString("N2")</MudText>
                     </MudItem>
                 }
+                @if (_orderDetail.FixedFeeAmount > 0)
+                {
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Taxa Operacional</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Warning">+ R$ @_orderDetail.FixedFeeAmount.ToString("N2")</MudText>
+                    </MudItem>
+                }
                 <MudItem xs="6" sm="3">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Total Final</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Primary"><b>R$ @_orderDetail.AmountWithSurchargeTotal.ToString("N2")</b></MudText>
@@ -168,7 +175,7 @@
                 <RowTemplate>
                     <MudTd>@context.ProductName</MudTd>
                     <MudTd Style="text-align:right">R$ @((context.UnitPrice * _surchargeRate).ToString("N2"))</MudTd>
-                    <MudTd Style="text-align:center">@context.Quantity</MudTd>
+                    <MudTd Style="text-align:center">@context.Quantity.ToString("N2")</MudTd>
                     <MudTd Style="text-align:right">R$ @((context.TotalPrice * _surchargeRate).ToString("N2"))</MudTd>
                 </RowTemplate>
             </MudTable>
@@ -197,9 +204,9 @@
                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Style="white-space:nowrap">
                                     R$ @item.UnitPrice.ToString("N2")
                                 </MudText>
-                                <MudNumericField T="int" Value="item.Quantity" Min="1" Max="9999"
+                                <MudNumericField T="decimal" Value="item.Quantity" Min="0.01m" Max="9999m" Step="0.25m" Format="N2"
                                     ValueChanged="@(v => { item.Quantity = v; StateHasChanged(); })"
-                                    Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:80px" />
+                                    Variant="Variant.Outlined" Margin="Margin.Dense" Style="width:90px" />
                                 <MudText Typo="Typo.body2" Style="min-width:80px;text-align:right;white-space:nowrap">
                                     R$ @((item.UnitPrice * item.Quantity).ToString("N2"))
                                 </MudText>
@@ -219,8 +226,8 @@
                                     Variant="Variant.Outlined" Dense="true" FullWidth="true" Clearable="true" />
                             </MudItem>
                             <MudItem xs="6" sm="2">
-                                <MudNumericField @bind-Value="_addQty" Label="Qtd"
-                                    Variant="Variant.Outlined" Min="1" Max="9999" />
+                                <MudNumericField T="decimal" @bind-Value="_addQty" Label="Qtd"
+                                    Variant="Variant.Outlined" Min="0.01m" Max="9999m" Step="0.25m" Format="N2" />
                             </MudItem>
                             <MudItem xs="6" sm="3" Class="d-flex align-end">
                                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true"
@@ -254,6 +261,22 @@
                     </MudPaper>
                 </Authorized>
             </AuthorizeView>
+
+            <!-- Observações -->
+            <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border:1px solid var(--mud-palette-divider)">
+                <MudTextField @bind-Value="_editNotes"
+                    Label="Observações"
+                    Placeholder="Instruções de entrega, condições especiais, etc."
+                    Variant="Variant.Outlined"
+                    Lines="3"
+                    MaxLength="500"
+                    FullWidth="true"
+                    Class="mb-2" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                    OnClick="SaveNotesAsync" Disabled="_saving">
+                    Salvar Observações
+                </MudButton>
+            </MudPaper>
 
             <MudGrid>
                 <MudItem xs="12" sm="6">
@@ -427,8 +450,29 @@
         </div>
     </TitleContent>
     <DialogContent>
+        @if (_orderDetail != null && _orderDetail.Version > (_orderDetail.LastPrintedVersion ?? 0))
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                @if (_orderDetail.LastPrintedVersion == null)
+                {
+                    <span>Este pedido ainda não foi impresso.</span>
+                }
+                else
+                {
+                    <span>Pedido alterado após a última impressão (v@(_orderDetail.LastPrintedVersion) → v@(_orderDetail.Version)). Este recibo reflete a versão atual.</span>
+                }
+            </MudAlert>
+        }
         <iframe srcdoc="@_printPreviewHtml"
             style="width:100%;height:520px;border:none;display:block;background:#fff" />
+        <div class="d-flex align-center gap-3 mt-3">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" Color="Color.Default" />
+            <MudText Typo="Typo.body2">Número de cópias:</MudText>
+            <MudNumericField T="int" @bind-Value="_copies"
+                Min="1" Max="10" Step="1"
+                Variant="Variant.Outlined" Margin="Margin.Dense"
+                Style="width:90px" />
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _printPreviewOpen = false)">Cancelar</MudButton>
@@ -460,11 +504,13 @@
     private List<PaymentMethodResponseDto> _paymentMethods = new();
     private bool _printPreviewOpen;
     private string _printPreviewHtml = "";
+    private int _copies = 1;
     private CompanyResponseDto? _company;
     private List<ProductResponseDto> _products = new();
     private List<EditItemVm> _editItems = new();
     private ProductResponseDto? _addProduct;
-    private int _addQty = 1;
+    private decimal _addQty = 1m;
+    private string? _editNotes;
 
     protected override async Task OnInitializedAsync()
     {
@@ -526,6 +572,7 @@
             }).ToList();
             _addProduct = null;
             _addQty = 1;
+            _editNotes = _orderDetail.Notes;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -589,6 +636,20 @@
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao alterar forma de pagamento.", Severity.Error);
+        _saving = false;
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        if (_orderDetail == null) return;
+        _saving = true;
+        var resp = await OrderService.UpdateNotesAsync(_orderDetail.Id, _editNotes);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Observações salvas!", Severity.Success);
+            _orderDetail = _orderDetail with { Notes = string.IsNullOrWhiteSpace(_editNotes) ? null : _editNotes.Trim() };
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao salvar observações.", Severity.Error);
         _saving = false;
     }
 
@@ -676,7 +737,7 @@
         public Guid ProductId   { get; set; }
         public string ProductName { get; set; } = "";
         public decimal UnitPrice  { get; set; }
-        public int Quantity       { get; set; }
+        public decimal Quantity    { get; set; }
     }
 
     private async Task SaveDeliveryAsync()
@@ -735,10 +796,12 @@
         if (_orderDetail == null) return;
         _saving = true;
         _printPreviewOpen = false;
-        var resp = await OrderService.CreatePrintJobAsync(_orderDetail.Id);
+        var copies = _copies;
+        _copies = 1;
+        var resp = await OrderService.CreatePrintJobAsync(_orderDetail.Id, copies);
         Snackbar.Add(
             resp?.Success == true
-                ? "Recibo enviado para a impressora!"
+                ? $"Recibo enviado para a impressora ({copies} {(copies == 1 ? "cópia" : "cópias")})!"
                 : (resp?.Error ?? "Erro ao enviar para impressão."),
             resp?.Success == true ? Severity.Success : Severity.Error);
         _saving = false;
@@ -769,10 +832,8 @@
             var code       = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}]&nbsp;" : "";
             var unitFinal  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalFinal = Math.Round(item.TotalPrice * surchargeRate, 2);
-            string detail  = item.Quantity == 1
-                ? $"<b>R$&nbsp;{unitFinal.ToString("N2", c)}</b>"
-                : $"{item.Quantity}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
-                  $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
+            string detail  = $"{item.Quantity.ToString("N2", c)}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
+                             $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
 
             sb.Append(
                 "<div style='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-top:5px'>" +
@@ -783,11 +844,15 @@
         }
 
         var subtotalRec   = Math.Round(o.AmountTotal * surchargeRate, 2);
-        var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount);
+        var totalFinalRec = Math.Max(0m, subtotalRec - o.DiscountAmount + o.FixedFeeAmount);
 
         var companyName    = H(_company?.Name ?? "ScaleAtacado");
         var companyCnpj    = H(_company?.CNPJ ?? "");
         var companyAddress = H(_company?.Address ?? "");
+
+        var retificadoBanner = o.Version > 1
+            ? $"<div style='background:#b71c1c;color:#fff;text-align:center;font-weight:bold;padding:4px 0;font-size:11px;letter-spacing:1px;margin-bottom:4px'>** DOCUMENTO RETIFICADO - v{o.Version} **</div>"
+            : "";
 
         var companyHeader =
             $"<h2>{companyName}</h2>" +
@@ -811,15 +876,15 @@
             ".tot{font-weight:bold;font-size:13px}" +
             ".rodape{text-align:center;font-size:10px;margin-top:10px}" +
             "</style></head><body>" +
+            retificadoBanner +
             companyHeader +
             "<hr/>" +
             $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +
-            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToString("dd/MM/yyyy HH:mm", c)}</p>" +
+            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm", c)}</p>" +
             "<hr/>" +
             customerLines +
             "<hr/>" +
-            $"<p><b>Pagamento:</b>&nbsp;{H(string.Join(" + ", o.PaymentMethods.Select(p => p.Name)))}" +
-            $"&nbsp;<span style='font-size:10px;color:#777'>({(o.IsInstallment ? "A Prazo" : "À Vista")})</span></p>" +
+            BuildPaymentHtml(o, c) +
             "<hr/>" +
             "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
             sb.ToString() +
@@ -829,11 +894,40 @@
             (o.DiscountAmount > 0
                 ? $"<tr><td style='color:#777'>Desconto</td><td style='color:#777'>- R$&nbsp;{o.DiscountAmount.ToString("N2", c)}</td></tr>"
                 : "") +
+            (o.FixedFeeAmount > 0
+                ? $"<tr><td style='color:#555;font-size:10px'>Taxa Operacional</td><td style='color:#555;font-size:10px'>+ R$&nbsp;{o.FixedFeeAmount.ToString("N2", c)}</td></tr>"
+                : "") +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
             "</tbody></table>" +
+            (o.Notes != null
+                ? "<hr/>" +
+                  $"<p style='font-size:10px;margin-bottom:2px;font-weight:600'>OBSERVAÇÕES</p>" +
+                  $"<p style='font-size:11px;white-space:pre-wrap'>{H(o.Notes)}</p>"
+                : "") +
             "<hr/>" +
             "<p class='rodape'>Obrigado pela preferência!</p>" +
             "</body></html>";
+    }
+
+    private static string BuildPaymentHtml(OrderResponseDto o, System.Globalization.CultureInfo c)
+    {
+        string H(string? s) => System.Net.WebUtility.HtmlEncode(s ?? "");
+        var prazo = $"<span style='font-size:10px;color:#777'>({(o.IsInstallment ? "A Prazo" : "À Vista")})</span>";
+
+        if (o.PaymentMethods.Count <= 1)
+        {
+            var name = H(o.PaymentMethods.FirstOrDefault()?.Name ?? "");
+            return $"<p><b>Pagamento:</b>&nbsp;{name}&nbsp;{prazo}</p>";
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<p style='margin-bottom:2px'><b>Pagamento:</b>&nbsp;{prazo}</p>");
+        sb.Append("<table style='width:100%;border-collapse:collapse;font-size:11px;margin-bottom:2px'><tbody>");
+        foreach (var pm in o.PaymentMethods)
+            sb.Append($"<tr><td style='padding:1px 0 1px 8px;color:#333'>{H(pm.Name)}</td>" +
+                      $"<td style='text-align:right;white-space:nowrap'>R$&nbsp;{pm.Amount.ToString("N2", c)}</td></tr>");
+        sb.Append("</tbody></table>");
+        return sb.ToString();
     }
 
     private static Color GetDeliveryColor(DeliveryStatus s) => s switch

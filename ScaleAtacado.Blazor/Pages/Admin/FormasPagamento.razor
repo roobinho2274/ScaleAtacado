@@ -19,6 +19,7 @@
         <MudTh>Nome</MudTh>
         <MudTh Style="text-align:center">Modalidade</MudTh>
         <MudTh Style="text-align:right">Acréscimo (%)</MudTh>
+        <MudTh Style="text-align:right">Taxa Operacional (R$)</MudTh>
         <MudTh Style="text-align:center">Status</MudTh>
         <MudTh Style="text-align:center">Ações</MudTh>
     </HeaderContent>
@@ -37,6 +38,16 @@
             else
             {
                 <MudText Color="Color.Success">Sem acréscimo</MudText>
+            }
+        </MudTd>
+        <MudTd DataLabel="Taxa Operacional" Style="text-align:right">
+            @if (context.IsInstallment && context.FixedFee > 0)
+            {
+                <MudText Color="Color.Warning">R$ @context.FixedFee.ToString("N2")</MudText>
+            }
+            else
+            {
+                <MudText Color="Color.Default" Style="opacity:0.4">—</MudText>
             }
         </MudTd>
         <MudTd DataLabel="Status" Style="text-align:center">
@@ -78,7 +89,13 @@
         </div>
         <MudNumericField @bind-Value="_form.SurchargePercentage" Label="Acréscimo (%)"
             Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
-            HelperText="0 = sem acréscimo (ex: 2,50 para 2,5%)" />
+            HelperText="0 = sem acréscimo (ex: 2,50 para 2,5%)" Class="mb-3" />
+        @if (_form.IsInstallment)
+        {
+            <MudNumericField @bind-Value="_form.FixedFee" Label="Taxa Operacional (R$)"
+                Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
+                HelperText="Taxa fixa cobrada por operação a prazo (ex: boleto, carnê). 0 = sem taxa." />
+        }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogOpen = false)">Cancelar</MudButton>
@@ -122,7 +139,8 @@
         {
             Name = f.Name,
             IsInstallment = f.IsInstallment,
-            SurchargePercentage = f.SurchargePercentage
+            SurchargePercentage = f.SurchargePercentage,
+            FixedFee = f.FixedFee
         };
         _dialogOpen = true;
     }
@@ -134,7 +152,7 @@
 
         if (_editing == null)
         {
-            var dto = new CreatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage);
+            var dto = new CreatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, _form.FixedFee);
             var resp = await PaymentMethodService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -146,7 +164,7 @@
         }
         else
         {
-            var dto = new UpdatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, true);
+            var dto = new UpdatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, true, _form.FixedFee);
             var resp = await PaymentMethodService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
@@ -199,5 +217,6 @@
         public string Name { get; set; } = "";
         public bool IsInstallment { get; set; }
         public decimal SurchargePercentage { get; set; }
+        public decimal FixedFee { get; set; }
     }
 }

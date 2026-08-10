@@ -18,6 +18,12 @@ public class ReceiptFormatter
         if (!string.IsNullOrWhiteSpace(order.CompanyAddress))
             lines.Add(Center(order.CompanyAddress));
         lines.Add(Center("PEDIDO DE COMPRA"));
+        if (order.Version > 1)
+        {
+            lines.Add(Line('*'));
+            lines.Add(Center($"** DOCUMENTO RETIFICADO - v{order.Version} **"));
+            lines.Add(Line('*'));
+        }
         lines.Add(Line('='));
         lines.Add($"Pedido: #{order.OrderNumber:D4}");
         lines.Add($"Data:   {order.OrderDate.ToLocalTime():dd/MM/yyyy HH:mm}");
@@ -25,8 +31,16 @@ public class ReceiptFormatter
         lines.Add("CLIENTE:");
         lines.Add(Truncate(order.CustomerName, Width));
         lines.Add(Line('-'));
-        var paymentNames = string.Join(" + ", order.PaymentMethods.Select(p => p.Name));
-        lines.Add($"Pagamento: {Truncate(paymentNames, Width - 11)}");
+        if (order.PaymentMethods.Count == 1)
+        {
+            lines.Add($"Pagamento: {Truncate(order.PaymentMethods[0].Name, Width - 11)}");
+        }
+        else
+        {
+            lines.Add("PAGAMENTO:");
+            foreach (var pm in order.PaymentMethods)
+                lines.Add(PadBetween($"  {pm.Name}", $"R$ {pm.Amount:N2}"));
+        }
         lines.Add(Line('='));
         lines.Add(PadBetween("ITEM", "VALOR"));
         lines.Add(Line('-'));
@@ -38,7 +52,7 @@ public class ReceiptFormatter
             var nameRaw            = $"#{num} {code}{item.ProductName}";
             var unitWithSurcharge  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalWithSurcharge = Math.Round(item.TotalPrice * surchargeRate, 2);
-            var detail             = $"  {item.Quantity} x {unitWithSurcharge:N2}";
+            var detail             = $"  {item.Quantity:N2} x {unitWithSurcharge:N2}";
 
             lines.Add(Truncate(nameRaw, Width));
             lines.Add(PadBetween(detail, totalWithSurcharge.ToString("N2")));
@@ -53,8 +67,19 @@ public class ReceiptFormatter
         if (order.DiscountAmount > 0)
             lines.Add(PadBetween("Desconto:", $"- R$ {order.DiscountAmount:N2}"));
 
+        if (order.FixedFeeAmount > 0)
+            lines.Add(PadBetween("Taxa Operacional:", $"+ R$ {order.FixedFeeAmount:N2}"));
+
         lines.Add(PadBetween("TOTAL:", $"R$ {order.AmountWithSurchargeTotal:N2}"));
         lines.Add(Line('='));
+        if (!string.IsNullOrWhiteSpace(order.Notes))
+        {
+            lines.Add(Line('-'));
+            lines.Add("OBS:");
+            foreach (var noteLine in order.Notes.Split('\n'))
+                lines.Add(Truncate(noteLine.TrimEnd(), Width));
+        }
+
         lines.Add(string.Empty);
         lines.Add(Center("Obrigado pela preferencia!"));
         lines.Add(string.Empty);

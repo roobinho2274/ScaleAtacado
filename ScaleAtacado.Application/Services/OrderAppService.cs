@@ -81,7 +81,8 @@ public class OrderAppService
             : 0m;
         var surcharge = subtotal * (surchargePercentage / 100);
         var discount = Math.Max(0m, dto.DiscountAmount);
-        var totalFinal = subtotal + surcharge - discount;
+        var fixedFee = dto.IsInstallment && paymentMethods.Count == 1 ? paymentMethods[0].FixedFee : 0m;
+        var totalFinal = subtotal + surcharge - discount + fixedFee;
 
         if (dto.Payments.Count > 1)
         {
@@ -108,7 +109,9 @@ public class OrderAppService
             AmountWithSurchargeTotal = totalFinal,
             DeliveryStatus = DeliveryStatus.AwaitingPicking,
             FinancialStatus = FinancialStatus.Open,
-            IsLocked = false
+            IsLocked = false,
+            FixedFeeAmount = fixedFee,
+            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim()
         };
 
         foreach (var item in items)
@@ -207,7 +210,7 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse<Guid>> CreatePrintJobAsync(Guid orderId, Guid companyId, Guid userId, string userName)
+    public async Task<ApiResponse<Guid>> CreatePrintJobAsync(Guid orderId, Guid companyId, Guid userId, string userName, int copies = 1)
     {
         var order = await _orderRepository.GetByIdAsync(orderId, companyId);
         if (order == null)
@@ -219,8 +222,12 @@ public class OrderAppService
             OrderId = order.Id,
             Status = Domain.Enums.PrintStatus.OnHoldem,
             TryCount = 0,
+            Copies = copies < 1 ? 1 : copies,
+            OrderVersion = order.Version,
             OnCreated = DateTime.UtcNow
         };
+
+        order.LastPrintedVersion = order.Version;
 
         await _printJobRepository.AddAsync(printJob);
         await _orderRepository.SaveChangesAsync();
@@ -337,7 +344,8 @@ public class OrderAppService
 
         var surcharge = order.AmountTotal * (
             (newMethods.Count == 1 ? newMethods[0].SurchargePercentage : 0m) / 100m);
-        var newTotal = order.AmountTotal + surcharge - order.DiscountAmount;
+        var newFixedFee = dto.IsInstallment && newMethods.Count == 1 ? newMethods[0].FixedFee : 0m;
+        var newTotal = order.AmountTotal + surcharge - order.DiscountAmount + newFixedFee;
 
         if (dto.Payments.Count > 1)
         {
@@ -356,6 +364,7 @@ public class OrderAppService
 
         order.IsInstallment = dto.IsInstallment;
         order.SurchargePercentage = newMethods.Count == 1 ? newMethods[0].SurchargePercentage : 0m;
+        order.FixedFeeAmount = newFixedFee;
         order.AmountWithSurchargeTotal = newTotal;
 
         var newPaymentMethods = newMethods.Select(pm => new OrderPaymentMethod
@@ -449,6 +458,7 @@ public class OrderAppService
 
         order.AmountTotal = subtotal;
         order.AmountWithSurchargeTotal = newTotal;
+        order.Version++;
 
         if (order.PaymentMethods.Count == 1)
             order.PaymentMethods.First().Amount = newTotal;
@@ -464,6 +474,19 @@ public class OrderAppService
             userName: userName,
             description: $"Pedido #{order.OrderNumber}: itens alterados, novo total R$ {newTotal:N2}"
         );
+
+        return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse> UpdateNotesAsync(Guid id, string? notes, Guid companyId)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        order.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
 
         return ApiResponse.Ok();
     }
@@ -501,6 +524,10 @@ public class OrderAppService
             i.ProductName,
             i.ProductCode,
             i.Quantity, i.UnitPrice, i.TotalPrice
-        )).ToList()
+        )).ToList(),
+        Version:             o.Version,
+        LastPrintedVersion:  o.LastPrintedVersion,
+        Notes:               o.Notes,
+        FixedFeeAmount:      o.FixedFeeAmount
     );
 }

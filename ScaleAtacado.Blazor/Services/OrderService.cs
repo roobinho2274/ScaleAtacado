@@ -34,8 +34,8 @@ public class OrderService
     public Task<ApiResponse?> UnlockAsync(Guid id)
         => _api.PostAsync($"api/order/{id}/unlock");
 
-    public Task<ApiResponse?> CreatePrintJobAsync(Guid id)
-        => _api.PostAsync($"api/order/{id}/printjob");
+    public Task<ApiResponse?> CreatePrintJobAsync(Guid id, int copies = 1)
+        => _api.PostAsync($"api/order/{id}/printjob", new { Copies = copies });
 
     public Task<ApiResponse?> UpdatePaymentMethodAsync(Guid id, UpdateOrderPaymentMethodDto dto)
         => _api.PatchAsync($"api/order/{id}/payment", dto);
@@ -51,4 +51,7 @@ public class OrderService
 
     public Task<ApiResponse?> UpdateFinancialStatusAsync(Guid id, FinancialStatus status)
         => _api.PatchAsync($"api/order/{id}/financial", new UpdateFinancialStatusDto(status));
+
+    public Task<ApiResponse?> UpdateNotesAsync(Guid id, string? notes)
+        => _api.PatchAsync($"api/order/{id}/notes", new UpdateOrderNotesDto(notes));
 }

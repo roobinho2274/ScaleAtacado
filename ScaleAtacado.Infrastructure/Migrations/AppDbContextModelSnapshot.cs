@@ -389,6 +389,20 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Version")
+                        .HasDefaultValue(1)
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("FixedFeeAmount")
+                        .HasDefaultValue(0m)
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("LastPrintedVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -420,8 +434,9 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int>("Quantity")
-                        .HasColumnType("integer");
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<decimal>("TotalPrice")
                         .HasPrecision(18, 2)
@@ -490,6 +505,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
 
+                    b.Property<decimal>("FixedFee")
+                        .HasDefaultValue(0m)
+                        .HasColumnType("numeric");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId", "Name")
@@ -521,6 +540,14 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("TryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Copies")
+                        .HasDefaultValue(1)
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrderVersion")
+                        .HasDefaultValue(1)
                         .HasColumnType("integer");
 
                     b.HasKey("Id");

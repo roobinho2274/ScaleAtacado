@@ -178,21 +178,18 @@
         _loading = false;
     }
 
-    // Distribui categorias entre esquerda e direita equilibrando pelo nº de produtos
+    // Distribui categorias entre esquerda e direita usando greedy balanceado
     private static (List<KeyValuePair<string, List<ProductResponseDto>>> left,
                     List<KeyValuePair<string, List<ProductResponseDto>>> right)
         SplitColumns(List<KeyValuePair<string, List<ProductResponseDto>>> groups)
     {
-        int total = groups.Sum(g => g.Value.Count);
-        int half  = (total + 1) / 2;
-
         var left  = new List<KeyValuePair<string, List<ProductResponseDto>>>();
         var right = new List<KeyValuePair<string, List<ProductResponseDto>>>();
-        int leftCount = 0;
+        int leftCount = 0, rightCount = 0;
 
         foreach (var g in groups)
         {
-            if (leftCount < half)
+            if (leftCount <= rightCount)
             {
                 left.Add(g);
                 leftCount += g.Value.Count;
@@ -200,10 +197,10 @@
             else
             {
                 right.Add(g);
+                rightCount += g.Value.Count;
             }
         }
 
-        // Garante que a direita nunca fique vazia quando há mais de 1 categoria
         if (right.Count == 0 && left.Count > 1)
         {
             right.Add(left[^1]);

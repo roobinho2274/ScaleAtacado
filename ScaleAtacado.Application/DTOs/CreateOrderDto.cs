@@ -5,5 +5,6 @@ public record CreateOrderDto(
     bool IsInstallment,
     List<OrderPaymentInputDto> Payments,
     List<CreateOrderItemDto> Items,
-    decimal DiscountAmount = 0m
+    decimal DiscountAmount = 0m,
+    string? Notes = null
 );

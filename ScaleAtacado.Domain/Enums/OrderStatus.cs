@@ -1,9 +1,9 @@
-﻿namespace ScaleAtacado.Domain.Enums;
+namespace ScaleAtacado.Domain.Enums;
 
 public enum OrderStatus
 {
-    Pending = 0,
-    Confirmed = 1,
-    Canceled = 2,
-    Delivered = 3
+    Pending      = 0,   // Pendente
+    OutForDelivery = 2, // Saiu p/ Entrega
+    Delivered    = 3,   // Entregue
+    Cancelled    = 4    // Cancelado
 }

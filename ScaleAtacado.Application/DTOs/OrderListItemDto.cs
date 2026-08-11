@@ -11,7 +11,7 @@ public record OrderListItemDto(
     DateTime OrderDate,
     decimal AmountTotal,
     decimal AmountWithSurchargeTotal,
-    DeliveryStatus DeliveryStatus,
+    OrderStatus OrderStatus,
     FinancialStatus FinancialStatus,
     bool IsLocked
 );

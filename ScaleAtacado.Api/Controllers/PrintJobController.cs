@@ -95,7 +95,7 @@ public class PrintJobController : ControllerBase
             order.PaymentMethods.Select(opm => new OrderPaymentMethodDto(opm.PaymentMethodId, opm.PaymentMethod?.Name ?? string.Empty, opm.Amount)).ToList(),
             order.UserId, order.OrderDate,
             order.AmountTotal, order.DiscountAmount, order.AmountWithSurchargeTotal,
-            order.DeliveryStatus, order.FinancialStatus, order.IsLocked,
+            order.OrderStatus, order.FinancialStatus, order.IsLocked,
             order.Items.Select(i => new OrderItemResponseDto(
                 i.Id, i.ProductId, i.ProductName, i.ProductCode,
                 i.Quantity, i.UnitPrice, i.TotalPrice)).ToList(),

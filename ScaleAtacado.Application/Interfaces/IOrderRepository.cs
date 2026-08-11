@@ -8,7 +8,7 @@ public interface IOrderRepository
     Task<Order?> GetByIdAsync(Guid id, Guid companyId);
     Task<(IEnumerable<Order> Items, int TotalCount)> GetAllAsync(
         Guid companyId, int page, int pageSize,
-        Guid? customerId, DeliveryStatus? deliveryStatus, FinancialStatus? financialStatus,
+        Guid? customerId, OrderStatus? orderStatus, FinancialStatus? financialStatus,
         DateTime? from, DateTime? to);
     Task<int> GetNextOrderNumberAsync(Guid companyId);
     Task AddAsync(Order order);

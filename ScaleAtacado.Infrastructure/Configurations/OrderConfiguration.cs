@@ -14,7 +14,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.DiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
         builder.Property(o => o.AmountWithSurchargeTotal).HasPrecision(18, 2);
         builder.Property(o => o.SurchargePercentage).HasPrecision(5, 2).HasDefaultValue(0m);
-        builder.Property(o => o.DeliveryStatus).HasConversion<int>();
+        builder.Property(o => o.OrderStatus).HasConversion<int>();
         builder.Property(o => o.FinancialStatus).HasConversion<int>();
         builder.Property(o => o.CustomerId).HasColumnName("ClienteId");
 

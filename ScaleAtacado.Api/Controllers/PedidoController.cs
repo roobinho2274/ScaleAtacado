@@ -30,14 +30,14 @@ public class OrderController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] Guid? customerId = null,
-        [FromQuery] DeliveryStatus? deliveryStatus = null,
+        [FromQuery] OrderStatus? orderStatus = null,
         [FromQuery] FinancialStatus? financialStatus = null,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
     {
         var result = await _service.GetAllAsync(
             User.GetCompanyId(), page, pageSize,
-            customerId, deliveryStatus, financialStatus, from, to);
+            customerId, orderStatus, financialStatus, from, to);
         return Ok(result);
     }
 
@@ -94,12 +94,12 @@ public class OrderController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPatch("{id:guid}/delivery")]
+    [HttpPatch("{id:guid}/status")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpdateDeliveryStatus(Guid id, [FromBody] UpdateDeliveryStatusDto dto)
+    public async Task<IActionResult> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusDto dto)
     {
-        var result = await _service.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        var result = await _service.UpdateOrderStatusAsync(id, dto.OrderStatus, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
         return result.Success ? Ok(result) : BadRequest(result);
     }
 

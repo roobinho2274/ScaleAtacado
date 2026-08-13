@@ -27,5 +27,6 @@ public record OrderResponseDto(
     int Version               = 1,
     int? LastPrintedVersion   = null,
     string? Notes             = null,
-    decimal FixedFeeAmount    = 0
+    decimal FixedFeeAmount    = 0,
+    decimal? CashReceived     = null
 );

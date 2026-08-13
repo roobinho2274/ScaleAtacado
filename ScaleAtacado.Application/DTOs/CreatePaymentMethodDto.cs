@@ -4,5 +4,6 @@ public record CreatePaymentMethodDto(
     string Name,
     bool IsInstallment,
     decimal SurchargePercentage,
-    decimal FixedFee = 0
+    decimal FixedFee = 0,
+    bool AcceptsChange = false
 );

@@ -71,6 +71,14 @@ public class ReceiptFormatter
             lines.Add(PadBetween("Taxa Operacional:", $"+ R$ {order.FixedFeeAmount:N2}"));
 
         lines.Add(PadBetween("TOTAL:", $"R$ {order.AmountWithSurchargeTotal:N2}"));
+
+        if (order.CashReceived > 0)
+        {
+            var troco = Math.Max(0m, order.CashReceived.Value - order.AmountWithSurchargeTotal);
+            lines.Add(PadBetween("Valor Pago:", $"R$ {order.CashReceived.Value:N2}"));
+            lines.Add(PadBetween("TROCO:", $"R$ {troco:N2}"));
+        }
+
         lines.Add(Line('='));
         if (!string.IsNullOrWhiteSpace(order.Notes))
         {

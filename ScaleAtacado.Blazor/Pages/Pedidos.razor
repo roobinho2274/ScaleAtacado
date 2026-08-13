@@ -947,6 +947,10 @@
                 ? $"<tr><td style='color:#555;font-size:10px'>Taxa Operacional</td><td style='color:#555;font-size:10px'>+ R$&nbsp;{o.FixedFeeAmount.ToString("N2", c)}</td></tr>"
                 : "") +
             $"<tr><td class='tot'>TOTAL</td><td class='tot'>R$&nbsp;{totalFinalRec.ToString("N2", c)}</td></tr>" +
+            (o.CashReceived > 0
+                ? $"<tr><td style='color:#555'>Valor Pago</td><td style='color:#555'>R$&nbsp;{o.CashReceived.Value.ToString("N2", c)}</td></tr>" +
+                  $"<tr><td style='color:#2e7d32;font-weight:bold'>Troco</td><td style='color:#2e7d32;font-weight:bold'>R$&nbsp;{Math.Max(0m, o.CashReceived.Value - totalFinalRec).ToString("N2", c)}</td></tr>"
+                : "") +
             "</tbody></table>" +
             (o.Notes != null
                 ? "<hr/>" +

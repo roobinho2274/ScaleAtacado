@@ -23,6 +23,7 @@ public class Order
     public int Version { get; set; } = 1;
     public int? LastPrintedVersion { get; set; }
     public string? Notes { get; set; }
+    public decimal? CashReceived { get; set; }
 
     public virtual Customer Customer { get; set; } = null!;
     public virtual ICollection<OrderPaymentMethod> PaymentMethods { get; set; } = new List<OrderPaymentMethod>();

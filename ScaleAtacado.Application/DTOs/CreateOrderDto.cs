@@ -6,5 +6,6 @@ public record CreateOrderDto(
     List<OrderPaymentInputDto> Payments,
     List<CreateOrderItemDto> Items,
     decimal DiscountAmount = 0m,
-    string? Notes = null
+    string? Notes = null,
+    decimal? CashReceived = null
 );

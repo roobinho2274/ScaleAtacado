@@ -31,6 +31,7 @@ public class PaymentMethodAppService
             IsInstallment = dto.IsInstallment,
             SurchargePercentage = dto.SurchargePercentage,
             FixedFee = dto.IsInstallment ? Math.Max(0m, dto.FixedFee) : 0m,
+            AcceptsChange = !dto.IsInstallment && dto.AcceptsChange,
             IsActive = true
         };
 
@@ -64,6 +65,7 @@ public class PaymentMethodAppService
         paymentMethod.IsInstallment = dto.IsInstallment;
         paymentMethod.SurchargePercentage = dto.SurchargePercentage;
         paymentMethod.FixedFee = dto.IsInstallment ? Math.Max(0m, dto.FixedFee) : 0m;
+        paymentMethod.AcceptsChange = !dto.IsInstallment && dto.AcceptsChange;
         paymentMethod.IsActive = dto.IsActive;
 
         await _repository.UpdateAsync(paymentMethod);
@@ -146,6 +148,6 @@ public class PaymentMethodAppService
     }
 
     private static PaymentMethodResponseDto ToDto(PaymentMethod p) => new(
-        p.Id, p.CompanyId, p.Name, p.IsInstallment, p.SurchargePercentage, p.IsActive, p.FixedFee
+        p.Id, p.CompanyId, p.Name, p.IsInstallment, p.SurchargePercentage, p.IsActive, p.FixedFee, p.AcceptsChange
     );
 }

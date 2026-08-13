@@ -258,6 +258,29 @@
                 <MudText Typo="Typo.h6" Color="Color.Primary"><b>R$ @_finalTotal.ToString("N2")</b></MudText>
             </div>
 
+            @if (_showCashField)
+            {
+                <div class="d-flex align-center justify-space-between mb-2">
+                    <MudText Typo="Typo.body2">Valor Pago (R$):</MudText>
+                    <MudNumericField @bind-Value="_cashReceived" Min="0m" Format="N2"
+                        Variant="Variant.Outlined" Margin="Margin.Dense"
+                        Style="width:120px" Placeholder="0,00"
+                        Disabled="_finalizing" />
+                </div>
+                @if (_cashReceived > 0)
+                {
+                    var troco = _cashReceived - _finalTotal;
+                    <div class="d-flex justify-space-between mb-3">
+                        <MudText Typo="Typo.body2" Color="@(troco >= 0 ? Color.Success : Color.Error)">
+                            <b>Troco:</b>
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="@(troco >= 0 ? Color.Success : Color.Error)">
+                            <b>@(troco >= 0 ? $"R$ {troco:N2}" : "Valor insuficiente")</b>
+                        </MudText>
+                    </div>
+                }
+            }
+
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
                 Size="Size.Large" OnClick="FinalizeOrderAsync"
                 Disabled="@(_finalizing || _items.Count == 0 || _selectedCustomer == null || !_hasPaymentSelected)">
@@ -400,6 +423,7 @@
     private Dictionary<Guid, decimal> _pmAmounts = new();
     private decimal _quantity = 1m;
     private decimal _discount = 0m;
+    private decimal _cashReceived = 0m;
     private bool _finalizing;
     private bool _isAdmin;
 
@@ -459,6 +483,8 @@
     private decimal _subtotal => _items.Sum(i => i.TotalPrice);
     private decimal _totalWithSurcharge => _subtotal * (1 + _effectiveSurcharge / 100m);
     private decimal _finalTotal => Math.Max(0m, _totalWithSurcharge - _discount);
+    private bool _showCashField =>
+        !_isInstallment && _selectedPMs.Count == 1 && _selectedPMs.First().AcceptsChange;
 
     protected override async Task OnInitializedAsync()
     {
@@ -505,6 +531,7 @@
         _selectedPMs = Array.Empty<PaymentMethodResponseDto>();
         _paymentMethodAPrazo = null;
         _pmAmounts.Clear();
+        _cashReceived = 0m;
     }
 
     private void OnPMsChanged(IReadOnlyCollection<PaymentMethodResponseDto> vals)
@@ -515,6 +542,7 @@
             if (!idSet.Contains(id)) _pmAmounts.Remove(id);
         foreach (var pm in vals)
             if (!_pmAmounts.ContainsKey(pm.Id)) _pmAmounts[pm.Id] = 0m;
+        _cashReceived = 0m;
         StateHasChanged();
     }
 
@@ -560,6 +588,7 @@
         _isInstallment = false;
         _quantity = 1m;
         _discount = 0m;
+        _cashReceived = 0m;
     }
 
     private async Task FinalizeOrderAsync()
@@ -594,7 +623,8 @@
             _isInstallment,
             payments,
             _items.Select(i => new CreateOrderItemDto(i.ProductId, i.Quantity)).ToList(),
-            _discount
+            _discount,
+            CashReceived: _showCashField && _cashReceived > 0 ? _cashReceived : null
         );
 
         var resp = await OrderService.CreateAsync(dto);

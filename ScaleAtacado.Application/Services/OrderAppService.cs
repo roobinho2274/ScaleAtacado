@@ -111,7 +111,8 @@ public class OrderAppService
             FinancialStatus = FinancialStatus.Open,
             IsLocked = false,
             FixedFeeAmount = fixedFee,
-            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim()
+            Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim(),
+            CashReceived = dto.CashReceived > 0 ? dto.CashReceived : null
         };
 
         foreach (var item in items)
@@ -557,6 +558,7 @@ public class OrderAppService
         Version:             o.Version,
         LastPrintedVersion:  o.LastPrintedVersion,
         Notes:               o.Notes,
-        FixedFeeAmount:      o.FixedFeeAmount
+        FixedFeeAmount:      o.FixedFeeAmount,
+        CashReceived:        o.CashReceived
     );
 }

@@ -353,7 +353,7 @@ namespace ScaleAtacado.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("ClienteId");
 
-                    b.Property<int>("DeliveryStatus")
+                    b.Property<int>("OrderStatus")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("DiscountAmount")

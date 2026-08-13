@@ -28,14 +28,14 @@
                 Clearable="true" />
         </MudItem>
         <MudItem xs="12" sm="3">
-            <MudSelect T="DeliveryStatus?" Label="Status Entrega" @bind-Value="_filterDelivery"
+            <MudSelect T="OrderStatus?" Label="Status do Pedido" @bind-Value="_filterOrderStatus"
                 Variant="Variant.Outlined" Dense="true" Clearable="true">
-                <MudSelectItem T="DeliveryStatus?" Value="null">Todos</MudSelectItem>
-                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.AwaitingPicking">Aguardando Separação</MudSelectItem>
-                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Picking">Em Separação</MudSelectItem>
-                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.OutForDelivery">Saiu p/ Entrega</MudSelectItem>
-                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Delivered">Entregue</MudSelectItem>
-                <MudSelectItem T="DeliveryStatus?" Value="DeliveryStatus.Cancelled">Cancelado</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="null">Todos</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.Pending">Pendente</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.OutForDelivery">Saiu p/ Entrega</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.Delivered">Entregue</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.Cancelled">Cancelado</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.Baixado">Baixado</MudSelectItem>
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="3">
@@ -79,9 +79,9 @@
         <MudTd DataLabel="Cliente">@context.CustomerName</MudTd>
         <MudTd DataLabel="Pagamento">@context.PaymentMethodName</MudTd>
         <MudTd DataLabel="Total" Style="text-align:right">R$ @context.AmountWithSurchargeTotal.ToString("N2")</MudTd>
-        <MudTd DataLabel="Entrega" Style="text-align:center">
-            <MudChip T="string" Size="Size.Small" Color="@GetDeliveryColor(context.DeliveryStatus)">
-                @GetDeliveryLabel(context.DeliveryStatus)
+        <MudTd DataLabel="Status" Style="text-align:center">
+            <MudChip T="string" Size="Size.Small" Color="@GetOrderStatusColor(context.OrderStatus)">
+                @GetOrderStatusLabel(context.OrderStatus)
             </MudChip>
         </MudTd>
         <MudTd Style="text-align:center">
@@ -280,13 +280,12 @@
 
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="DeliveryStatus" Label="Status de Entrega"
-                        @bind-Value="_editDelivery" Variant="Variant.Outlined" Dense="true">
-                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.AwaitingPicking">Aguardando Separação</MudSelectItem>
-                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.Picking">Em Separação</MudSelectItem>
-                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.OutForDelivery">Saiu para Entrega</MudSelectItem>
-                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.Delivered">Entregue</MudSelectItem>
-                        <MudSelectItem T="DeliveryStatus" Value="DeliveryStatus.Cancelled">Cancelado</MudSelectItem>
+                    <MudSelect T="OrderStatus" Label="Status do Pedido"
+                        @bind-Value="_editOrderStatus" Variant="Variant.Outlined" Dense="true">
+                        <MudSelectItem T="OrderStatus" Value="OrderStatus.Pending">Pendente</MudSelectItem>
+                        <MudSelectItem T="OrderStatus" Value="OrderStatus.OutForDelivery">Saiu para Entrega</MudSelectItem>
+                        <MudSelectItem T="OrderStatus" Value="OrderStatus.Delivered">Entregue</MudSelectItem>
+                        <MudSelectItem T="OrderStatus" Value="OrderStatus.Cancelled">Cancelado</MudSelectItem>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6" Class="d-flex align-end">
@@ -423,6 +422,37 @@
                                 </MudButton>
                             </MudItem>
                         }
+                        @if (_orderDetail.OrderStatus != OrderStatus.Baixado)
+                        {
+                            <MudItem xs="12">
+                                @if (!_confirmingBaixar)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" FullWidth="true"
+                                        StartIcon="@Icons.Material.Filled.CheckCircle"
+                                        OnClick="@(() => _confirmingBaixar = true)" Disabled="_saving">
+                                        Baixar Pedido
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid var(--mud-palette-tertiary);border-radius:4px">
+                                        <MudText Typo="Typo.body2" Class="mb-2">
+                                            Confirma a baixa do pedido #@_orderDetail.OrderNumber? Isso registra a conferência do pedido.
+                                        </MudText>
+                                        <div class="d-flex gap-2">
+                                            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" FullWidth="true"
+                                                OnClick="BaixarPedidoAsync" Disabled="_saving">
+                                                Confirmar Baixa
+                                            </MudButton>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true"
+                                                OnClick="@(() => _confirmingBaixar = false)" Disabled="_saving">
+                                                Cancelar
+                                            </MudButton>
+                                        </div>
+                                    </MudPaper>
+                                }
+                            </MudItem>
+                        }
                     </Authorized>
                 </AuthorizeView>
             </MudGrid>
@@ -486,7 +516,7 @@
 
 @code {
     private MudTable<OrderListItemDto>? _table;
-    private DeliveryStatus? _filterDelivery;
+    private OrderStatus? _filterOrderStatus;
     private FinancialStatus? _filterFinancial;
     private DateTime? _filterFrom;
     private DateTime? _filterTo;
@@ -494,7 +524,7 @@
     private bool _saving;
     private OrderResponseDto? _orderDetail;
     private CustomerResponseDto? _customerDetail;
-    private DeliveryStatus _editDelivery;
+    private OrderStatus _editOrderStatus;
     private FinancialStatus _editFinancial;
     private decimal _editDiscount;
     private bool _editIsInstallment;
@@ -511,6 +541,7 @@
     private ProductResponseDto? _addProduct;
     private decimal _addQty = 1m;
     private string? _editNotes;
+    private bool _confirmingBaixar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -527,7 +558,7 @@
     private async Task<TableData<OrderListItemDto>> ServerData(TableState state, CancellationToken ct)
     {
         var resp = await OrderService.GetAllAsync(state.Page + 1, state.PageSize,
-            _filterDelivery, _filterFinancial, _filterFrom, _filterTo);
+            _filterOrderStatus, _filterFinancial, _filterFrom, _filterTo);
         if (resp?.Success == true && resp.Data != null)
             return new TableData<OrderListItemDto> { Items = resp.Data.Items, TotalItems = resp.Data.TotalCount };
         return new TableData<OrderListItemDto> { Items = [], TotalItems = 0 };
@@ -539,7 +570,7 @@
     {
         _filterFrom = null;
         _filterTo = null;
-        _filterDelivery = null;
+        _filterOrderStatus = null;
         _filterFinancial = null;
         await _table!.ReloadServerData();
     }
@@ -554,7 +585,7 @@
         if (resp?.Success == true)
         {
             _orderDetail = resp.Data;
-            _editDelivery      = _orderDetail!.DeliveryStatus;
+            _editOrderStatus   = _orderDetail!.OrderStatus;
             _editFinancial     = _orderDetail.FinancialStatus;
             _editDiscount      = _orderDetail.DiscountAmount;
             _editIsInstallment = _orderDetail.IsInstallment;
@@ -573,6 +604,7 @@
             _addProduct = null;
             _addQty = 1;
             _editNotes = _orderDetail.Notes;
+            _confirmingBaixar = false;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -744,11 +776,11 @@
     {
         if (_orderDetail == null) return;
         _saving = true;
-        var resp = await OrderService.UpdateDeliveryStatusAsync(_orderDetail.Id, _editDelivery);
+        var resp = await OrderService.UpdateOrderStatusAsync(_orderDetail.Id, _editOrderStatus);
         if (resp?.Success == true)
         {
-            Snackbar.Add("Status de entrega atualizado!", Severity.Success);
-            _orderDetail = _orderDetail with { DeliveryStatus = _editDelivery };
+            Snackbar.Add("Status do pedido atualizado!", Severity.Success);
+            _orderDetail = _orderDetail with { OrderStatus = _editOrderStatus };
             await _table!.ReloadServerData();
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao atualizar.", Severity.Error);
@@ -781,6 +813,23 @@
             _orderDetail = _orderDetail with { IsLocked = false };
         }
         else Snackbar.Add(resp?.Error ?? "Erro ao desbloquear.", Severity.Error);
+        _saving = false;
+    }
+
+    private async Task BaixarPedidoAsync()
+    {
+        if (_orderDetail == null) return;
+        _saving = true;
+        var resp = await OrderService.BaixarAsync(_orderDetail.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Pedido baixado com sucesso!", Severity.Success);
+            _orderDetail = _orderDetail with { OrderStatus = OrderStatus.Baixado };
+            _editOrderStatus = OrderStatus.Baixado;
+            _confirmingBaixar = false;
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao baixar pedido.", Severity.Error);
         _saving = false;
     }
 
@@ -930,23 +979,23 @@
         return sb.ToString();
     }
 
-    private static Color GetDeliveryColor(DeliveryStatus s) => s switch
+    private static Color GetOrderStatusColor(OrderStatus s) => s switch
     {
-        DeliveryStatus.Delivered      => Color.Success,
-        DeliveryStatus.OutForDelivery => Color.Info,
-        DeliveryStatus.Picking        => Color.Warning,
-        DeliveryStatus.Cancelled      => Color.Error,
-        _ => Color.Default
+        OrderStatus.Delivered      => Color.Success,
+        OrderStatus.OutForDelivery => Color.Info,
+        OrderStatus.Cancelled      => Color.Error,
+        OrderStatus.Baixado        => Color.Tertiary,
+        _                          => Color.Default
     };
 
-    private static string GetDeliveryLabel(DeliveryStatus s) => s switch
+    private static string GetOrderStatusLabel(OrderStatus s) => s switch
     {
-        DeliveryStatus.AwaitingPicking => "Aguardando",
-        DeliveryStatus.Picking         => "Em Separação",
-        DeliveryStatus.OutForDelivery  => "Em Entrega",
-        DeliveryStatus.Delivered       => "Entregue",
-        DeliveryStatus.Cancelled       => "Cancelado",
-        _ => s.ToString()
+        OrderStatus.Pending        => "Pendente",
+        OrderStatus.OutForDelivery => "Em Entrega",
+        OrderStatus.Delivered      => "Entregue",
+        OrderStatus.Cancelled      => "Cancelado",
+        OrderStatus.Baixado        => "Baixado",
+        _                          => s.ToString()
     };
 
     private static Color GetFinancialColor(FinancialStatus s) => s switch

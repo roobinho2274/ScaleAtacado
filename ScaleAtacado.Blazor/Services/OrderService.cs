@@ -11,11 +11,11 @@ public class OrderService
 
     public Task<ApiResponse<PagedResult<OrderListItemDto>>?> GetAllAsync(
         int page = 1, int pageSize = 20,
-        DeliveryStatus? deliveryStatus = null, FinancialStatus? financialStatus = null,
+        OrderStatus? orderStatus = null, FinancialStatus? financialStatus = null,
         DateTime? from = null, DateTime? to = null)
     {
         var q = $"api/order?page={page}&pageSize={pageSize}";
-        if (deliveryStatus.HasValue) q += $"&deliveryStatus={(int)deliveryStatus.Value}";
+        if (orderStatus.HasValue)     q += $"&orderStatus={(int)orderStatus.Value}";
         if (financialStatus.HasValue) q += $"&financialStatus={(int)financialStatus.Value}";
         if (from.HasValue) q += $"&from={from.Value:yyyy-MM-dd}";
         if (to.HasValue)   q += $"&to={to.Value:yyyy-MM-dd}";
@@ -46,8 +46,11 @@ public class OrderService
     public Task<ApiResponse?> UpdateItemsAsync(Guid id, UpdateOrderItemsDto dto)
         => _api.PatchAsync($"api/order/{id}/items", dto);
 
-    public Task<ApiResponse?> UpdateDeliveryStatusAsync(Guid id, DeliveryStatus status)
-        => _api.PatchAsync($"api/order/{id}/delivery", new UpdateDeliveryStatusDto(status));
+    public Task<ApiResponse?> UpdateOrderStatusAsync(Guid id, OrderStatus status)
+        => _api.PatchAsync($"api/order/{id}/status", new UpdateOrderStatusDto(status));
+
+    public Task<ApiResponse?> BaixarAsync(Guid id)
+        => _api.PostAsync($"api/order/{id}/baixar");
 
     public Task<ApiResponse?> UpdateFinancialStatusAsync(Guid id, FinancialStatus status)
         => _api.PatchAsync($"api/order/{id}/financial", new UpdateFinancialStatusDto(status));

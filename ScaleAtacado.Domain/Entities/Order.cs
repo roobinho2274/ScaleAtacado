@@ -15,7 +15,7 @@ public class Order
     public decimal AmountTotal { get; set; } = 0;
     public decimal DiscountAmount { get; set; } = 0;
     public decimal AmountWithSurchargeTotal { get; set; }
-    public DeliveryStatus DeliveryStatus { get; set; } = DeliveryStatus.AwaitingPicking;
+    public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
     public FinancialStatus FinancialStatus { get; set; } = FinancialStatus.Open;
     public bool IsOutstanding { get; set; }
     public bool IsLocked { get; set; }

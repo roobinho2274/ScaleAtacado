@@ -107,7 +107,7 @@ public class OrderAppService
             AmountTotal = subtotal,
             DiscountAmount = discount,
             AmountWithSurchargeTotal = totalFinal,
-            DeliveryStatus = DeliveryStatus.AwaitingPicking,
+            OrderStatus = OrderStatus.Pending,
             FinancialStatus = FinancialStatus.Open,
             IsLocked = false,
             FixedFeeAmount = fixedFee,
@@ -159,11 +159,11 @@ public class OrderAppService
 
     public async Task<ApiResponse<PagedResult<OrderListItemDto>>> GetAllAsync(
         Guid companyId, int page, int pageSize,
-        Guid? customerId, DeliveryStatus? deliveryStatus, FinancialStatus? financialStatus,
+        Guid? customerId, OrderStatus? orderStatus, FinancialStatus? financialStatus,
         DateTime? from, DateTime? to)
     {
         var (items, totalCount) = await _orderRepository.GetAllAsync(
-            companyId, page, pageSize, customerId, deliveryStatus, financialStatus, from, to);
+            companyId, page, pageSize, customerId, orderStatus, financialStatus, from, to);
 
         var dtos = items.Select(o => new OrderListItemDto(
             o.Id, o.OrderNumber,
@@ -173,7 +173,7 @@ public class OrderAppService
             o.OrderDate,
             o.AmountTotal,
             o.AmountWithSurchargeTotal,
-            o.DeliveryStatus,
+            o.OrderStatus,
             o.FinancialStatus,
             o.IsLocked
         ));
@@ -266,27 +266,56 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
-    public async Task<ApiResponse> UpdateDeliveryStatusAsync(
-        Guid id, DeliveryStatus status, Guid companyId, Guid userId, string userName)
+    public async Task<ApiResponse> UpdateOrderStatusAsync(
+        Guid id, OrderStatus status, Guid companyId, Guid userId, string userName)
     {
+        if (status == OrderStatus.Baixado)
+            return ApiResponse.Fail("Use a ação específica para baixar o pedido.");
+
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
             return ApiResponse.Fail("Pedido não encontrado.");
 
-        var previousStatus = order.DeliveryStatus;
-        order.DeliveryStatus = status;
+        var previousStatus = order.OrderStatus;
+        order.OrderStatus = status;
         await _orderRepository.UpdateAsync(order);
         await _orderRepository.SaveChangesAsync();
 
         await _auditLog.RecordAsync(
             companyId, userId,
-            operation: "AlterarEntrega",
+            operation: "AlterarStatusPedido",
             entityName: "Pedido",
             entityId: order.Id.ToString(),
             userName: userName,
             previousValue: previousStatus.ToString(),
             newValue: status.ToString(),
-            description: $"Pedido #{order.OrderNumber}: entrega {DeliveryLabel(previousStatus)} → {DeliveryLabel(status)}"
+            description: $"Pedido #{order.OrderNumber}: {OrderStatusLabel(previousStatus)} → {OrderStatusLabel(status)}"
+        );
+
+        return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse> BaixarPedidoAsync(
+        Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        var previousStatus = order.OrderStatus;
+        order.OrderStatus = OrderStatus.Baixado;
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "BaixarPedido",
+            entityName: "Pedido",
+            entityId: order.Id.ToString(),
+            userName: userName,
+            previousValue: previousStatus.ToString(),
+            newValue: OrderStatus.Baixado.ToString(),
+            description: $"Pedido #{order.OrderNumber} baixado (conferência): {OrderStatusLabel(previousStatus)} → Baixado"
         );
 
         return ApiResponse.Ok();
@@ -491,13 +520,13 @@ public class OrderAppService
         return ApiResponse.Ok();
     }
 
-    private static string DeliveryLabel(DeliveryStatus s) => s switch
+    internal static string OrderStatusLabel(OrderStatus s) => s switch
     {
-        DeliveryStatus.AwaitingPicking => "Aguardando Separação",
-        DeliveryStatus.Picking => "Em Separação",
-        DeliveryStatus.OutForDelivery => "Saiu p/ Entrega",
-        DeliveryStatus.Delivered => "Entregue",
-        DeliveryStatus.Cancelled => "Cancelado",
+        OrderStatus.Pending        => "Pendente",
+        OrderStatus.OutForDelivery => "Saiu p/ Entrega",
+        OrderStatus.Delivered      => "Entregue",
+        OrderStatus.Cancelled      => "Cancelado",
+        OrderStatus.Baixado        => "Baixado",
         _ => s.ToString()
     };
 
@@ -518,7 +547,7 @@ public class OrderAppService
         opms.Select(opm => new OrderPaymentMethodDto(opm.PaymentMethodId, opm.PaymentMethod?.Name ?? string.Empty, opm.Amount)).ToList(),
         o.UserId, o.OrderDate,
         o.AmountTotal, o.DiscountAmount, o.AmountWithSurchargeTotal,
-        o.DeliveryStatus, o.FinancialStatus, o.IsLocked,
+        o.OrderStatus, o.FinancialStatus, o.IsLocked,
         o.Items.Select(i => new OrderItemResponseDto(
             i.Id, i.ProductId,
             i.ProductName,

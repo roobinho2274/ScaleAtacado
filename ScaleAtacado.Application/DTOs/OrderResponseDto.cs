@@ -16,7 +16,7 @@ public record OrderResponseDto(
     decimal AmountTotal,
     decimal DiscountAmount,
     decimal AmountWithSurchargeTotal,
-    DeliveryStatus DeliveryStatus,
+    OrderStatus OrderStatus,
     FinancialStatus FinancialStatus,
     bool IsLocked,
     List<OrderItemResponseDto> Items,

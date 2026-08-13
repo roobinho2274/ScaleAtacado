@@ -31,7 +31,7 @@ public class OrderRepository : IOrderRepository
 
     public async Task<(IEnumerable<Order> Items, int TotalCount)> GetAllAsync(
         Guid companyId, int page, int pageSize,
-        Guid? customerId, DeliveryStatus? deliveryStatus, FinancialStatus? financialStatus,
+        Guid? customerId, OrderStatus? orderStatus, FinancialStatus? financialStatus,
         DateTime? from, DateTime? to)
     {
         var query = _context.Orders
@@ -42,8 +42,8 @@ public class OrderRepository : IOrderRepository
         if (customerId.HasValue)
             query = query.Where(o => o.CustomerId == customerId.Value);
 
-        if (deliveryStatus.HasValue)
-            query = query.Where(o => o.DeliveryStatus == deliveryStatus.Value);
+        if (orderStatus.HasValue)
+            query = query.Where(o => o.OrderStatus == orderStatus.Value);
 
         if (financialStatus.HasValue)
             query = query.Where(o => o.FinancialStatus == financialStatus.Value);

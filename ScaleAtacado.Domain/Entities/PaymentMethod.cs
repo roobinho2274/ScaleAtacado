@@ -9,6 +9,7 @@ public class PaymentMethod
     public decimal SurchargePercentage { get; set; }
     public decimal FixedFee { get; set; } = 0;
     public bool IsActive { get; set; } = true;
+    public bool AcceptsChange { get; set; } = false; // true = dinheiro, exibe campo de troco
 
     public virtual ICollection<OrderPaymentMethod> OrderPaymentMethods { get; set; } = new List<OrderPaymentMethod>();
 }

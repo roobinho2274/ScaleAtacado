@@ -96,6 +96,11 @@
                 Variant="Variant.Outlined" FullWidth="true" Min="0m" Format="N2"
                 HelperText="Taxa fixa cobrada por operação a prazo (ex: boleto, carnê). 0 = sem taxa." />
         }
+        else
+        {
+            <MudSwitch @bind-Value="_form.AcceptsChange" Label="Aceita troco (ex: Dinheiro)"
+                Color="Color.Primary" Class="mt-2" />
+        }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _dialogOpen = false)">Cancelar</MudButton>
@@ -140,7 +145,8 @@
             Name = f.Name,
             IsInstallment = f.IsInstallment,
             SurchargePercentage = f.SurchargePercentage,
-            FixedFee = f.FixedFee
+            FixedFee = f.FixedFee,
+            AcceptsChange = f.AcceptsChange
         };
         _dialogOpen = true;
     }
@@ -152,7 +158,7 @@
 
         if (_editing == null)
         {
-            var dto = new CreatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, _form.FixedFee);
+            var dto = new CreatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, _form.FixedFee, _form.AcceptsChange);
             var resp = await PaymentMethodService.CreateAsync(dto);
             if (resp?.Success == true)
             {
@@ -164,7 +170,7 @@
         }
         else
         {
-            var dto = new UpdatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, true, _form.FixedFee);
+            var dto = new UpdatePaymentMethodDto(_form.Name, _form.IsInstallment, _form.SurchargePercentage, true, _form.FixedFee, _form.AcceptsChange);
             var resp = await PaymentMethodService.UpdateAsync(_editing.Id, dto);
             if (resp?.Success == true)
             {
@@ -218,5 +224,6 @@
         public bool IsInstallment { get; set; }
         public decimal SurchargePercentage { get; set; }
         public decimal FixedFee { get; set; }
+        public bool AcceptsChange { get; set; }
     }
 }

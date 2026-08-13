@@ -403,6 +403,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("CashReceived")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
@@ -508,6 +512,10 @@ namespace ScaleAtacado.Infrastructure.Migrations
                     b.Property<decimal>("FixedFee")
                         .HasDefaultValue(0m)
                         .HasColumnType("numeric");
+
+                    b.Property<bool>("AcceptsChange")
+                        .HasDefaultValue(false)
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 

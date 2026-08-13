@@ -105,7 +105,8 @@ public class PrintJobController : ControllerBase
             CompanyLogoBase64:  company?.LogoBase64,
             Version:            order.Version,
             Notes:              order.Notes,
-            FixedFeeAmount:     order.FixedFeeAmount
+            FixedFeeAmount:     order.FixedFeeAmount,
+            CashReceived:       order.CashReceived
         );
 
         return Ok(ApiResponse<OrderResponseDto>.Ok(dto));

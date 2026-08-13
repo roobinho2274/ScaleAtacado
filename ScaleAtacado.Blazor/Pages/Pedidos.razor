@@ -35,6 +35,7 @@
                 <MudSelectItem T="OrderStatus?" Value="OrderStatus.OutForDelivery">Saiu p/ Entrega</MudSelectItem>
                 <MudSelectItem T="OrderStatus?" Value="OrderStatus.Delivered">Entregue</MudSelectItem>
                 <MudSelectItem T="OrderStatus?" Value="OrderStatus.Cancelled">Cancelado</MudSelectItem>
+                <MudSelectItem T="OrderStatus?" Value="OrderStatus.Baixado">Baixado</MudSelectItem>
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="3">
@@ -421,6 +422,37 @@
                                 </MudButton>
                             </MudItem>
                         }
+                        @if (_orderDetail.OrderStatus != OrderStatus.Baixado)
+                        {
+                            <MudItem xs="12">
+                                @if (!_confirmingBaixar)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" FullWidth="true"
+                                        StartIcon="@Icons.Material.Filled.CheckCircle"
+                                        OnClick="@(() => _confirmingBaixar = true)" Disabled="_saving">
+                                        Baixar Pedido
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid var(--mud-palette-tertiary);border-radius:4px">
+                                        <MudText Typo="Typo.body2" Class="mb-2">
+                                            Confirma a baixa do pedido #@_orderDetail.OrderNumber? Isso registra a conferência do pedido.
+                                        </MudText>
+                                        <div class="d-flex gap-2">
+                                            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" FullWidth="true"
+                                                OnClick="BaixarPedidoAsync" Disabled="_saving">
+                                                Confirmar Baixa
+                                            </MudButton>
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true"
+                                                OnClick="@(() => _confirmingBaixar = false)" Disabled="_saving">
+                                                Cancelar
+                                            </MudButton>
+                                        </div>
+                                    </MudPaper>
+                                }
+                            </MudItem>
+                        }
                     </Authorized>
                 </AuthorizeView>
             </MudGrid>
@@ -509,6 +541,7 @@
     private ProductResponseDto? _addProduct;
     private decimal _addQty = 1m;
     private string? _editNotes;
+    private bool _confirmingBaixar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -571,6 +604,7 @@
             _addProduct = null;
             _addQty = 1;
             _editNotes = _orderDetail.Notes;
+            _confirmingBaixar = false;
 
             var customerResp = await CustomerService.GetByIdAsync(_orderDetail.CustomerId);
             _customerDetail = customerResp?.Data;
@@ -782,6 +816,23 @@
         _saving = false;
     }
 
+    private async Task BaixarPedidoAsync()
+    {
+        if (_orderDetail == null) return;
+        _saving = true;
+        var resp = await OrderService.BaixarAsync(_orderDetail.Id);
+        if (resp?.Success == true)
+        {
+            Snackbar.Add("Pedido baixado com sucesso!", Severity.Success);
+            _orderDetail = _orderDetail with { OrderStatus = OrderStatus.Baixado };
+            _editOrderStatus = OrderStatus.Baixado;
+            _confirmingBaixar = false;
+            await _table!.ReloadServerData();
+        }
+        else Snackbar.Add(resp?.Error ?? "Erro ao baixar pedido.", Severity.Error);
+        _saving = false;
+    }
+
     private void OpenPrintPreview()
     {
         if (_orderDetail == null) return;
@@ -933,6 +984,7 @@
         OrderStatus.Delivered      => Color.Success,
         OrderStatus.OutForDelivery => Color.Info,
         OrderStatus.Cancelled      => Color.Error,
+        OrderStatus.Baixado        => Color.Tertiary,
         _                          => Color.Default
     };
 
@@ -942,6 +994,7 @@
         OrderStatus.OutForDelivery => "Em Entrega",
         OrderStatus.Delivered      => "Entregue",
         OrderStatus.Cancelled      => "Cancelado",
+        OrderStatus.Baixado        => "Baixado",
         _                          => s.ToString()
     };
 

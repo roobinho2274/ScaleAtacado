@@ -49,6 +49,9 @@ public class OrderService
     public Task<ApiResponse?> UpdateOrderStatusAsync(Guid id, OrderStatus status)
         => _api.PatchAsync($"api/order/{id}/status", new UpdateOrderStatusDto(status));
 
+    public Task<ApiResponse?> BaixarAsync(Guid id)
+        => _api.PostAsync($"api/order/{id}/baixar");
+
     public Task<ApiResponse?> UpdateFinancialStatusAsync(Guid id, FinancialStatus status)
         => _api.PatchAsync($"api/order/{id}/financial", new UpdateFinancialStatusDto(status));
 

@@ -269,6 +269,9 @@ public class OrderAppService
     public async Task<ApiResponse> UpdateOrderStatusAsync(
         Guid id, OrderStatus status, Guid companyId, Guid userId, string userName)
     {
+        if (status == OrderStatus.Baixado)
+            return ApiResponse.Fail("Use a ação específica para baixar o pedido.");
+
         var order = await _orderRepository.GetByIdAsync(id, companyId);
         if (order == null)
             return ApiResponse.Fail("Pedido não encontrado.");
@@ -287,6 +290,32 @@ public class OrderAppService
             previousValue: previousStatus.ToString(),
             newValue: status.ToString(),
             description: $"Pedido #{order.OrderNumber}: {OrderStatusLabel(previousStatus)} → {OrderStatusLabel(status)}"
+        );
+
+        return ApiResponse.Ok();
+    }
+
+    public async Task<ApiResponse> BaixarPedidoAsync(
+        Guid id, Guid companyId, Guid userId, string userName)
+    {
+        var order = await _orderRepository.GetByIdAsync(id, companyId);
+        if (order == null)
+            return ApiResponse.Fail("Pedido não encontrado.");
+
+        var previousStatus = order.OrderStatus;
+        order.OrderStatus = OrderStatus.Baixado;
+        await _orderRepository.UpdateAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        await _auditLog.RecordAsync(
+            companyId, userId,
+            operation: "BaixarPedido",
+            entityName: "Pedido",
+            entityId: order.Id.ToString(),
+            userName: userName,
+            previousValue: previousStatus.ToString(),
+            newValue: OrderStatus.Baixado.ToString(),
+            description: $"Pedido #{order.OrderNumber} baixado (conferência): {OrderStatusLabel(previousStatus)} → Baixado"
         );
 
         return ApiResponse.Ok();
@@ -497,6 +526,7 @@ public class OrderAppService
         OrderStatus.OutForDelivery => "Saiu p/ Entrega",
         OrderStatus.Delivered      => "Entregue",
         OrderStatus.Cancelled      => "Cancelado",
+        OrderStatus.Baixado        => "Baixado",
         _ => s.ToString()
     };
 

@@ -103,6 +103,16 @@ public class OrderController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("{id:guid}/baixar")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BaixarPedido(Guid id)
+    {
+        var result = await _service.BaixarPedidoAsync(id, User.GetCompanyId(), User.GetUserId(), User.GetFullName());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPatch("{id:guid}/payment")]
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]

@@ -17,7 +17,6 @@ public class PrintService
 
     public bool Print(string receiptText, string? printerName = null, string? logoBase64 = null)
     {
-        // Decode logo once; disposal handled via try/finally
         Image? logoImage = null;
         if (!string.IsNullOrWhiteSpace(logoBase64))
         {
@@ -36,9 +35,16 @@ public class PrintService
 
         try
         {
-            var lines = receiptText.Split('\n');
-            var lineIndex = 0;
-            var logoDrawn = false;
+            var allLines = receiptText.Split('\n');
+
+            // Extrai linhas de cabeçalho (prefixo "| ") — renderizadas ao lado do logo
+            var headerLines = allLines
+                .TakeWhile(l => l.StartsWith("| "))
+                .Select(l => l[2..])
+                .ToArray();
+
+            // Linhas restantes começam após o bloco de cabeçalho
+            var lineIndex = headerLines.Length;
 
             var doc = new PrintDocument();
 
@@ -53,49 +59,75 @@ public class PrintService
 
             // Margem explícita para garantir que MarginBounds fique dentro da área imprimível.
             // Com Margins(0,0,0,0) o MarginBounds.Right = largura total do papel, que ultrapassa
-            // a área imprimível (HardMarginX ≈ 4mm). Usar 20 hundredths (~5mm) é seguro para
+            // a área imprimível (HardMarginX ≈ 4mm). Usar 35 hundredths (~9mm) é seguro para
             // qualquer impressora térmica.
             doc.DefaultPageSettings.Margins = new Margins(0, 35, 10, 10);
 
             doc.PrintPage += (sender, e) =>
             {
-                var font = new Font("Arial Narrow", 10, FontStyle.Regular, GraphicsUnit.Point);
-                var lineHeight = font.GetHeight(e.Graphics!);
-                var left = (float)e.MarginBounds.Left;
-                var right = (float)e.MarginBounds.Right;
-                var bottom = (float)e.MarginBounds.Bottom;
-                var y = (float)e.MarginBounds.Top;
-                const float pad = 4f;
-                var textWidth = right - left - 2 * pad;
-                var fmtCenter = new StringFormat { Alignment = StringAlignment.Center };
+                using var font     = new Font("Arial Narrow", 10, FontStyle.Regular, GraphicsUnit.Point);
+                using var fontBold = new Font("Arial Narrow", 11, FontStyle.Bold,    GraphicsUnit.Point);
+                using var fmtCenter = new StringFormat { Alignment = StringAlignment.Center };
                 var fmtTypo = StringFormat.GenericTypographic;
 
-                // Logo: only on the first page
-                if (!logoDrawn && logoImage != null)
+                var lineHeight = font.GetHeight(e.Graphics!);
+                var left      = (float)e.MarginBounds.Left;
+                var right     = (float)e.MarginBounds.Right;
+                var bottom    = (float)e.MarginBounds.Bottom;
+                var y         = (float)e.MarginBounds.Top;
+                const float pad = 4f;
+                var textWidth = right - left - 2 * pad;
+
+                // --- Bloco de cabeçalho: logo (esquerda) + dados da empresa (direita) ---
+                // Renderizado apenas na primeira página (lineIndex ainda aponta para o início do bloco)
+                if (lineIndex == headerLines.Length && (logoImage != null || headerLines.Length > 0))
                 {
-                    logoDrawn = true;
-                    var maxLogoH = lineHeight * 5f;
-                    var scaleW = textWidth / (float)logoImage.Width;
-                    var scaleH = maxLogoH  / (float)logoImage.Height;
-                    var scale  = Math.Min(1f, Math.Min(scaleW, scaleH));
-                    var logoW  = logoImage.Width  * scale;
-                    var logoH  = logoImage.Height * scale;
-                    var logoX  = left + pad + (textWidth - logoW) / 2f;
-                    if (y + logoH <= bottom)
+                    float logoColW = 0f;
+
+                    if (logoImage != null)
                     {
-                        e.Graphics!.DrawImage(logoImage, logoX, y, logoW, logoH);
-                        y += logoH + lineHeight * 0.5f;
+                        // Logo ocupa no máximo 32% da largura e altura equivalente às linhas de cabeçalho
+                        var maxLogoW = textWidth * 0.32f;
+                        var maxLogoH = lineHeight * Math.Max(headerLines.Length, 3);
+                        var scaleW   = maxLogoW / (float)logoImage.Width;
+                        var scaleH   = maxLogoH / (float)logoImage.Height;
+                        var scale    = Math.Min(1f, Math.Min(scaleW, scaleH));
+                        var logoW    = logoImage.Width  * scale;
+                        var logoH    = logoImage.Height * scale;
+                        logoColW     = logoW + pad * 2;
+
+                        // Centraliza verticalmente em relação ao bloco de texto
+                        var blockH = Math.Max(logoH, headerLines.Length * lineHeight);
+                        var logoY  = y + (blockH - logoH) / 2f;
+                        e.Graphics!.DrawImage(logoImage, left + pad, logoY, logoW, logoH);
                     }
+
+                    // Texto da empresa à direita do logo
+                    var textX    = left + pad + logoColW;
+                    var textColW = textWidth - logoColW;
+
+                    for (int i = 0; i < headerLines.Length; i++)
+                    {
+                        var lineFont = i == 0 ? fontBold : font;
+                        var text = PixelTruncate(headerLines[i], lineFont, e.Graphics!, textColW, fmtTypo);
+                        e.Graphics!.DrawString(text, lineFont, Brushes.Black, textX, y + i * lineHeight);
+                    }
+
+                    var blockHeight = Math.Max(
+                        logoImage != null ? lineHeight * Math.Max(headerLines.Length, 3) : 0f,
+                        headerLines.Length * lineHeight);
+
+                    y += blockHeight + lineHeight * 0.4f;
                 }
 
-                while (lineIndex < lines.Length)
+                // --- Corpo do recibo ---
+                while (lineIndex < allLines.Length)
                 {
-                    var line = lines[lineIndex];
+                    var line = allLines[lineIndex];
                     var midY = y + lineHeight / 2f;
 
                     if (y + lineHeight > bottom) { e.HasMorePages = true; return; }
 
-                    // --- Separadores: linha GDI de margem a margem ---
                     if (line.Length > 0 && line.All(c => c == '='))
                     {
                         using var pen = new Pen(Color.Black, 1.5f);
@@ -106,22 +138,27 @@ public class PrintService
                         using var pen = new Pen(Color.Black, 0.5f);
                         e.Graphics!.DrawLine(pen, left, midY, right, midY);
                     }
+                    else if (line.Length > 0 && line.All(c => c == '*'))
+                    {
+                        using var pen = new Pen(Color.Black, 0.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                        e.Graphics!.DrawLine(pen, left, midY, right, midY);
+                    }
 
                     // --- Esquerda\tDireita — posicionamento pixel a pixel ---
                     else if (line.Contains('\t'))
                     {
-                        var parts = line.Split('\t', 2);
-                        var leftText = parts[0];
+                        var parts     = line.Split('\t', 2);
+                        var leftText  = parts[0];
                         var rightText = parts[1];
 
-                        var rightW = e.Graphics!.MeasureString(rightText, font, new SizeF(9999, 9999), fmtTypo).Width;
-                        var rightX = right - pad - rightW;
+                        var rightW   = e.Graphics!.MeasureString(rightText, font, new SizeF(9999, 9999), fmtTypo).Width;
+                        var rightX   = right - pad - rightW;
                         var leftMaxW = rightX - (left + pad) - 4f;
 
                         leftText = PixelTruncate(leftText, font, e.Graphics, leftMaxW, fmtTypo);
 
-                        e.Graphics.DrawString(leftText, font, Brushes.Black, left + pad, y);
-                        e.Graphics.DrawString(rightText, font, Brushes.Black, rightX, y);
+                        e.Graphics.DrawString(leftText,  font, Brushes.Black, left + pad, y);
+                        e.Graphics.DrawString(rightText, font, Brushes.Black, rightX,     y);
                     }
 
                     // --- Texto centralizado: 3+ espaços iniciais = Center() do formatter ---
@@ -131,7 +168,7 @@ public class PrintService
                             new RectangleF(left + pad, y, textWidth, lineHeight), fmtCenter);
                     }
 
-                    // --- Texto comum: trunca por pixel se ultrapassar a largura disponível ---
+                    // --- Texto comum ---
                     else
                     {
                         var text = PixelTruncate(line, font, e.Graphics!, textWidth, fmtTypo);
@@ -144,8 +181,6 @@ public class PrintService
                 }
 
                 e.HasMorePages = false;
-                font.Dispose();
-                fmtCenter.Dispose();
             };
 
             doc.Print();

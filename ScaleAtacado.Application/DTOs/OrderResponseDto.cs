@@ -28,5 +28,7 @@ public record OrderResponseDto(
     int? LastPrintedVersion   = null,
     string? Notes             = null,
     decimal FixedFeeAmount    = 0,
-    decimal? CashReceived     = null
+    decimal? CashReceived     = null,
+    string? CustomerAddress   = null,
+    string? CustomerPhone     = null
 );

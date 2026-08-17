@@ -11,39 +11,44 @@ public class ReceiptFormatter
         var lines = new List<string>();
         var surchargeRate = 1 + order.SurchargePercentage / 100m;
 
-        lines.Add(Line('='));
-        lines.Add(Center(order.CompanyName ?? "ScaleAtacado"));
+        // Linhas com prefixo "| " → PrintService renderiza ao lado do logo
+        lines.Add($"| {order.CompanyName ?? "ScaleAtacado"}");
         if (!string.IsNullOrWhiteSpace(order.CompanyCNPJ))
-            lines.Add(Center($"CNPJ: {order.CompanyCNPJ}"));
+            lines.Add($"| CNPJ: {order.CompanyCNPJ}");
         if (!string.IsNullOrWhiteSpace(order.CompanyAddress))
-            lines.Add(Center(order.CompanyAddress));
-        lines.Add(Center("PEDIDO DE COMPRA"));
+            lines.Add($"| {order.CompanyAddress}");
+
+        lines.Add(Line('-'));
+
         if (order.Version > 1)
         {
             lines.Add(Line('*'));
             lines.Add(Center($"** DOCUMENTO RETIFICADO - v{order.Version} **"));
             lines.Add(Line('*'));
         }
-        lines.Add(Line('='));
-        lines.Add($"Pedido: #{order.OrderNumber:D4}");
-        lines.Add($"Data:   {order.OrderDate.ToLocalTime():dd/MM/yyyy HH:mm}");
-        lines.Add(Line('-'));
-        lines.Add("CLIENTE:");
-        lines.Add(Truncate(order.CustomerName, Width));
-        lines.Add(Line('-'));
+
+        lines.Add($"Cliente: {Truncate(order.CustomerName, Width - 9)}");
+        if (!string.IsNullOrWhiteSpace(order.CustomerAddress))
+            lines.Add(Truncate($"End.: {order.CustomerAddress}", Width));
+        if (!string.IsNullOrWhiteSpace(order.CustomerPhone))
+            lines.Add(Truncate($"Tel.: {order.CustomerPhone}", Width));
+
         if (order.PaymentMethods.Count == 1)
         {
             lines.Add($"Pagamento: {Truncate(order.PaymentMethods[0].Name, Width - 11)}");
         }
         else
         {
-            lines.Add("PAGAMENTO:");
+            lines.Add("Pagamento:");
             foreach (var pm in order.PaymentMethods)
                 lines.Add(PadBetween($"  {pm.Name}", $"R$ {pm.Amount:N2}"));
         }
+
+        lines.Add(PadBetween($"Pedido Nº {order.OrderNumber:D4}", order.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")));
+
         lines.Add(Line('='));
-        lines.Add(PadBetween("ITEM", "VALOR"));
-        lines.Add(Line('-'));
+        lines.Add(Center("PEDIDO"));
+        lines.Add(Line('='));
 
         int num = 1;
         foreach (var item in order.Items)
@@ -80,12 +85,13 @@ public class ReceiptFormatter
         }
 
         lines.Add(Line('='));
+
         if (!string.IsNullOrWhiteSpace(order.Notes))
         {
-            lines.Add(Line('-'));
             lines.Add("OBS:");
             foreach (var noteLine in order.Notes.Split('\n'))
                 lines.Add(Truncate(noteLine.TrimEnd(), Width));
+            lines.Add(Line('-'));
         }
 
         lines.Add(string.Empty);

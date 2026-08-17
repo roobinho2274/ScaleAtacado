@@ -50,7 +50,9 @@
       "Read(//c/Users/robso/.claude/projects/c--Users-robso-Documents-ACR-Project-ScaleAtacado/**)",
       "PowerShell(cd \"c:\\\\Users\\\\robso\\\\Documents\\\\ACR\\\\Project\\\\ScaleAtacado\"; dotnet build ScaleAtacado.Api --no-restore 2>&1 | Where-Object { $_ -match \"error\" } | Select-Object -First 15)",
       "Bash(git commit -m 'feat: allow fractional quantities on PDV page *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(dotnet publish *)",
+      "Bash(docker compose *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\robso\\Documents"

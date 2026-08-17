@@ -867,12 +867,6 @@
         var customerAddress = H(_customerDetail?.Address   ?? "");
         var customerPhone   = H(_customerDetail?.Phone     ?? "");
 
-        var customerLines =
-            $"<p><b>Cliente:</b> {customerName}</p>" +
-            (customerTaxId.Length   > 0 ? $"<p><b>CPF/CNPJ:</b> {customerTaxId}</p>"   : "") +
-            (customerAddress.Length > 0 ? $"<p><b>Endereço:</b> {customerAddress}</p>" : "") +
-            (customerPhone.Length   > 0 ? $"<p><b>Telefone:</b> {customerPhone}</p>"   : "");
-
         var surchargeRate = 1 + o.SurchargePercentage / 100m;
         var sb = new System.Text.StringBuilder();
         int num = 1;
@@ -898,24 +892,41 @@
         var companyName    = H(_company?.Name ?? "ScaleAtacado");
         var companyCnpj    = H(_company?.CNPJ ?? "");
         var companyAddress = H(_company?.Address ?? "");
+        var logoBase64     = _company?.LogoBase64;
+
+        // Cabeçalho: logo (esquerda) + dados da empresa (direita)
+        string logoHtml = "";
+        if (!string.IsNullOrWhiteSpace(logoBase64))
+        {
+            var src = logoBase64.Contains(',') ? logoBase64 : $"data:image/png;base64,{logoBase64}";
+            logoHtml = $"<img src='{src}' style='width:72px;height:72px;object-fit:contain;flex-shrink:0' />";
+        }
+
+        var companyHeader =
+            "<div style='display:flex;align-items:center;gap:10px;margin-bottom:4px'>" +
+            logoHtml +
+            "<div>" +
+            $"<div style='font-size:15px;font-weight:bold;letter-spacing:0.5px'>{companyName}</div>" +
+            (companyCnpj.Length    > 0 ? $"<div class='sub'>CNPJ: {companyCnpj}</div>" : "") +
+            (companyAddress.Length > 0 ? $"<div class='sub'>{companyAddress}</div>"     : "") +
+            "</div></div>";
 
         var retificadoBanner = o.Version > 1
             ? $"<div style='background:#b71c1c;color:#fff;text-align:center;font-weight:bold;padding:4px 0;font-size:11px;letter-spacing:1px;margin-bottom:4px'>** DOCUMENTO RETIFICADO - v{o.Version} **</div>"
             : "";
 
-        var companyHeader =
-            $"<h2>{companyName}</h2>" +
-            (companyCnpj.Length    > 0 ? $"<p class='sub'>CNPJ: {companyCnpj}</p>"      : "") +
-            (companyAddress.Length > 0 ? $"<p class='sub'>{companyAddress}</p>"          : "") +
-            "<p class='sub'>PEDIDO DE COMPRA</p>";
+        var customerLines =
+            $"<p><b>Cliente:</b> {customerName}</p>" +
+            (customerTaxId.Length   > 0 ? $"<p><b>CPF/CNPJ:</b> {customerTaxId}</p>"   : "") +
+            (customerAddress.Length > 0 ? $"<p><b>Endereço:</b> {customerAddress}</p>" : "") +
+            (customerPhone.Length   > 0 ? $"<p><b>Telefone:</b> {customerPhone}</p>"   : "");
 
         return
             "<!DOCTYPE html><html><head><meta charset='utf-8'/>" +
             $"<title>Pedido #{o.OrderNumber}</title>" +
             "<style>" +
             "body{font-family:'Arial Narrow',Arial,sans-serif;font-size:12px;width:320px;margin:0 auto;padding:12px}" +
-            "h2{text-align:center;margin:4px 0;font-size:15px;letter-spacing:1px}" +
-            ".sub{text-align:center;margin:2px 0;font-size:11px}" +
+            ".sub{margin:1px 0;font-size:11px;color:#333}" +
             "p{margin:2px 0}" +
             ".totais{width:100%;border-collapse:collapse}" +
             ".totais td{padding:1px 0;vertical-align:top}" +
@@ -923,19 +934,18 @@
             "hr{border:0;border-top:1.5px solid #000;margin:6px 0}" +
             "hr.sub{border:0;border-top:0.5px solid #000;margin:4px 0}" +
             ".tot{font-weight:bold;font-size:13px}" +
+            ".secao{text-align:center;font-weight:bold;letter-spacing:1.5px;font-size:11px;margin:2px 0}" +
             ".rodape{text-align:center;font-size:10px;margin-top:10px}" +
             "</style></head><body>" +
-            retificadoBanner +
             companyHeader +
             "<hr/>" +
-            $"<p><b>Pedido:</b>&nbsp;#{o.OrderNumber}</p>" +
-            $"<p><b>Data:</b>&nbsp;{o.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm", c)}</p>" +
-            "<hr/>" +
+            retificadoBanner +
             customerLines +
-            "<hr/>" +
             BuildPaymentHtml(o, c) +
+            $"<div style='display:flex;justify-content:space-between;margin:2px 0'><b>Pedido&nbsp;Nº&nbsp;{o.OrderNumber}</b><span>{o.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm", c)}</span></div>" +
             "<hr/>" +
-            "<p style='font-size:10px;margin-bottom:2px'>ITENS</p>" +
+            "<p class='secao'>PEDIDO</p>" +
+            "<hr class='sub'/>" +
             sb.ToString() +
             "<hr/>" +
             "<table class='totais'><tbody>" +

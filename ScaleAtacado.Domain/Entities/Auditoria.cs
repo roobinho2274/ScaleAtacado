@@ -1,5 +1,7 @@
 namespace ScaleAtacado.Domain.Entities;
-
+/**
+ * Represents an audit log entry for tracking changes made to entities in the system.
+ */
 public class AuditLog
 {
     public Guid Id { get; set; }

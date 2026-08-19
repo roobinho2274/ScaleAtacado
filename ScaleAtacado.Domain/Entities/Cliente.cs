@@ -1,5 +1,7 @@
 namespace ScaleAtacado.Domain.Entities;
-
+/**
+ * Represents a customer entity in the system.
+ */
 public class Customer
 {
     public Guid Id { get; set; }

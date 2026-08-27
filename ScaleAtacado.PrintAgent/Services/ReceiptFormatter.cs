@@ -50,18 +50,17 @@ public class ReceiptFormatter
         lines.Add(Center("PEDIDO"));
         lines.Add(Line('='));
 
-        int num = 1;
         foreach (var item in order.Items)
         {
-            var code               = !string.IsNullOrWhiteSpace(item.ProductCode) ? $"[{item.ProductCode}] " : "";
-            var nameRaw            = $"#{num} {code}{item.ProductName}";
+            var code               = !string.IsNullOrWhiteSpace(item.ProductCode) ? $" [{item.ProductCode}]" : "";
+            var nameRaw            = $"{item.ProductName}{code}";
             var unitWithSurcharge  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalWithSurcharge = Math.Round(item.TotalPrice * surchargeRate, 2);
-            var detail             = $"  {item.Quantity:N2} x {unitWithSurcharge:N2}";
+            var detail             = $"  {item.Quantity:N2} x R$ {unitWithSurcharge:N2}";
 
             lines.Add(Truncate(nameRaw, Width));
-            lines.Add(PadBetween(detail, totalWithSurcharge.ToString("N2")));
-            num++;
+            lines.Add(PadBetween(detail, $"R$ {totalWithSurcharge:N2}"));
+            lines.Add(string.Empty);
         }
 
         lines.Add(Line('='));

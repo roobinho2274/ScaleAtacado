@@ -875,14 +875,15 @@
             var code       = item.ProductCode?.Trim().Length > 0 ? $"[{H(item.ProductCode)}]&nbsp;" : "";
             var unitFinal  = Math.Round(item.UnitPrice  * surchargeRate, 2);
             var totalFinal = Math.Round(item.TotalPrice * surchargeRate, 2);
-            string detail  = $"{item.Quantity.ToString("N2", c)}&nbsp;un&nbsp;&times;&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}" +
-                             $"&nbsp;=&nbsp;<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>";
-
             sb.Append(
                 "<div style='overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-top:5px'>" +
-                $"<b>#{num}</b>&nbsp;{code}{H(item.ProductName)}</div>");
+                $"&nbsp;{H(item.ProductName)} {code}</div>");
             sb.Append(
-                $"<div style='text-align:right;font-size:11px;color:#444;padding-bottom:3px'>{detail}</div>");
+                "<div style='display:flex;justify-content:space-between;font-size:11px;color:#444;padding-bottom:3px'>" +
+                $"<span>&nbsp;&nbsp;{item.Quantity.ToString("N2", c)}&nbsp;x&nbsp;R$&nbsp;{unitFinal.ToString("N2", c)}</span>" +
+                $"<b>R$&nbsp;{totalFinal.ToString("N2", c)}</b>" +
+                "</div>" +
+                "<div style='height:5px'></div>");
             num++;
         }
 
